@@ -15,6 +15,9 @@
 
 ### Changed
 
+- [ChatGPT][RO][RW] Require the ChatGPT adapter, broker and worker to run on the
+  user's PC behind an outbound Secure MCP Tunnel, with no hosted project
+  component or public inbound endpoint.
 - [Contract][RO][RW] Make summary detail the default for `GetDevices`,
   `GetBlocks`, `GetTypes` and `ListProjects`. Use `Full` explicitly for the
   legacy rich fields.

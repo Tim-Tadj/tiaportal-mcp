@@ -7,8 +7,9 @@ The target design has four primary goals:
 - provide a compact, predictable MCP surface for LLM clients;
 - enforce a genuine read-only boundary;
 - support each advertised TIA Portal version through an exact-version worker;
-- offer straightforward installation for ChatGPT Desktop, Claude Desktop and
-  VS Code without asking users to choose an internal binary.
+- offer straightforward installation for ChatGPT through a local-only
+  connection kit, Claude Desktop and VS Code without asking users to choose an
+  internal binary.
 
 The initial target worker set is TIA Portal V17, V18, V19, V20 and V21 on
 Windows x64. A version is advertised only after its worker has passed the
@@ -234,8 +235,8 @@ Global server guidance instructs an LLM to:
 The same two public profiles are exposed through client-specific installation
 adapters:
 
-- ChatGPT: a compliant Streamable HTTP gateway and secure tunnel connection
-  kit which selects the chosen local profile bundle;
+- ChatGPT: a loopback-only Streamable HTTP adapter and Secure MCP Tunnel
+  connection kit which runs the chosen profile bundle on the user's PC;
 - Claude Desktop: an MCPB package with a bundled Windows binary;
 - VS Code: one extension which detects installed TIA versions, asks for the
   access profile, and launches the matching bundle.
@@ -245,10 +246,16 @@ not maintain separate implementations.
 
 Stdio remains the local transport baseline. ChatGPT does not currently install
 a local stdio MCP server directly, so its adapter is a connection kit rather
-than an MCPB-style installer. Streamable HTTP is a later host option and must
-use a compliant transport with protocol version negotiation, session handling,
-request limits and origin controls. A bespoke pipe bridge is not part of the
-core architecture.
+than an MCPB-style installer. The broker, worker, tunnel client and any
+Streamable HTTP adapter run on the user's PC. The adapter binds to loopback
+only, and no project component is hosted remotely or exposed through a public
+inbound port.
+
+OpenAI Secure MCP Tunnel provides the outbound connection to ChatGPT. The
+adapter must use a compliant transport with protocol version negotiation,
+session handling, request limits and origin controls. A bespoke pipe bridge is
+not part of the core architecture. The full boundary and release checks are in
+[ChatGPT Local Connection](chatgpt-local.md).
 
 Client packaging decisions are based on the current
 [MCPB manifest specification](https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md)

@@ -52,8 +52,8 @@ Use [the build guide](../build/README.md) to:
 5. optionally pack the two Claude Desktop MCPB files.
 
 The release manifest always lists the two ZIPs. It lists an MCPB only when that
-file was produced. VS Code and ChatGPT adapters are not listed until their
-artefacts exist.
+file was produced. VS Code and local-only ChatGPT tunnel adapters are not listed
+until their artefacts exist.
 
 The manifests and scripts are experimental inputs. They are not a supported
 release until the worker matrix, client installation, signing and runtime

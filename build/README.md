@@ -103,7 +103,8 @@ which was actually produced.
 ## Current limits
 
 - The scripts do not create a VS Code VSIX.
-- The scripts do not create the ChatGPT Streamable HTTP gateway or tunnel kit.
+- The scripts do not create the local-only ChatGPT Streamable HTTP adapter or
+  Secure MCP Tunnel kit.
 - They do not sign executables, generate an SBOM or perform licensed TIA Portal
   runtime validation.
 - V21 is intentionally blocked.

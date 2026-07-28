@@ -7,6 +7,8 @@ separates planned architecture from currently shipped behaviour.
 
 - [Architecture](architecture.md): the two public profiles, exact-version worker
   model, safety boundaries and response design.
+- [ChatGPT Local Connection](chatgpt-local.md): the local-only process,
+  transport and data boundary for ChatGPT.
 - [Roadmap](roadmap.md): phased delivery plan and the disposition of upstream
   pull requests and issues.
 - [Current Status](status.md): the current repository baseline, known gaps and

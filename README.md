@@ -81,7 +81,10 @@ installed, pass an exact value such as `--tia-version V20`.
   - The SDK exposes `WithStreamServerTransport(Stream input, Stream output)` which can be used to host over TCP sockets or other streams.
   - Not wired in this repo yet.
 - Streamable HTTP: not implemented yet
-  - A later ChatGPT connection kit will use a standards-compliant gateway.
+  - A later ChatGPT connection kit will use a standards-compliant,
+    loopback-only local adapter and OpenAI Secure MCP Tunnel.
+  - No TIA MCP component will be hosted remotely or exposed through a public
+    inbound port.
   - A bespoke `HttpListener` JSON bridge is not considered a supported MCP transport.
 
 ## VS Code
@@ -150,7 +153,19 @@ installed, pass an exact value such as `--tia-version V20`.
 
 ## ChatGPT
 
-ChatGPT connects to remote MCP endpoints rather than directly installing this
-local stdio executable. The planned connection kit will run the selected local
-profile behind a compliant Streamable HTTP gateway and Secure MCP Tunnel. It is
-not yet implemented on this branch.
+The TIA MCP broker, worker and any transport adapter will run only on the user's
+PC. This project will not host them in a cloud service or expose them through a
+public inbound port.
+
+ChatGPT cannot currently launch a local stdio MCP server directly. The planned
+connection kit will use an outbound
+[OpenAI Secure MCP Tunnel](https://help.openai.com/en/articles/12584461) from a
+local tunnel client to the selected local profile. If a Streamable HTTP adapter
+is required, it will bind to loopback only. The connection kit is not yet
+implemented on this branch. Current official full MCP availability is on
+ChatGPT web; this project will not claim direct ChatGPT Desktop installation
+until OpenAI documents it.
+
+See [ChatGPT Local Connection](docs/chatgpt-local.md) for the process and data
+boundary. Selected MCP requests and results still pass to ChatGPT when tools are
+used; the TIA-facing processes and project files remain local.

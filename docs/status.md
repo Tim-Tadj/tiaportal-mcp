@@ -49,7 +49,8 @@ not exist, and the client adapters are not releasable.
 | File safety | Export paths are contained beneath a locked root, child reparse points are rejected, overwrite defaults to false and existing files are replaced only after a staged export succeeds. Document-pair failures roll back unchanged targets and preserve recovery files when safe rollback is impossible. Import roots, handle-level race protection, atomic two-file replacement and complete batch failure reasons remain open. | Allowed output root, path containment and explicit overwrite policy. |
 | Portal lifecycle | The worker attaches when exactly one process exists and refuses ambiguous multiple-process attachment. Explicit process choice and ownership tracking remain missing. | Deterministic selection, ownership tracking and safe attach semantics. |
 | Concurrency | No dedicated serial Openness scheduler. | One scheduler per worker connection context. |
-| Packaging | Broker, worker build scripts, bundle assembly, two MCPB templates and direct Claude/VS Code configurations exist. Signing, SBOM, a VSIX and the ChatGPT gateway do not. | Signed bundles, installer adapters, release manifest, SBOM and checksums. |
+| Packaging | Broker, worker build scripts, bundle assembly, two MCPB templates and direct Claude/VS Code configurations exist. Signing, SBOM, a VSIX and the local-only ChatGPT tunnel kit do not. | Signed bundles, local-only installer adapters, release manifest, SBOM and checksums. |
+| ChatGPT | No adapter exists. The accepted design keeps the adapter, broker and worker on the user's PC and uses an outbound Secure MCP Tunnel without a public inbound endpoint. | A cleanly installable local connection kit with loopback-only transport, lifecycle controls and documented data boundaries. |
 | Validation | Static source and packaging checks are possible, but no .NET SDK is installed here and existing tests predominantly require licensed TIA Portal assets. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
 
 The v0.0.18 baseline is compiled against V20 only. This branch selects an exact
@@ -69,8 +70,8 @@ single-binary approach, and issue #25 records the separate V21 API problem.
    logs.
 5. Implement the V21 modular adapter.
 6. Add tags and external sources as the first expanded read surfaces.
-7. Build the VS Code adapter and ChatGPT gateway connection kit, then add
-   signing, checksums, provenance and an SBOM.
+7. Build the VS Code adapter and local-only ChatGPT Secure MCP Tunnel connection
+   kit, then add signing, checksums, provenance and an SBOM.
 
 Detailed sequencing and upstream dispositions are recorded in
 [Roadmap](roadmap.md).
@@ -143,8 +144,10 @@ are met.
 
 - Both public bundles install from a clean Windows account without a source
   checkout.
-- The ChatGPT gateway connection kit, Claude Desktop MCPB and VS Code adapter
+- The local-only ChatGPT connection kit, Claude Desktop MCPB and VS Code adapter
   use the same signed profile bundles.
+- The ChatGPT adapter, broker and worker execute on the user's PC, and no
+  project component requires hosted infrastructure or a public inbound port.
 - Executables and packages are signed and checksums verify.
 - An SBOM, third-party notices, prerequisites and support matrix are published.
 - The changelog follows [Changelog Policy](changelog-policy.md).

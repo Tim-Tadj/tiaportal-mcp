@@ -110,8 +110,10 @@ audit logging, version-specific runtime coverage and recovery guidance.
 
 - Produce the two signed public bundles with internal exact-version workers.
 - Add the release manifest, checksums, SBOM, provenance and licence notices.
-- Publish a ChatGPT gateway connection kit, Claude Desktop MCPB and VS Code
-  installation adapter without forking the implementation.
+- Publish a local-only ChatGPT Secure MCP Tunnel connection kit, Claude Desktop
+  MCPB and VS Code installation adapter without forking the implementation.
+- Keep the ChatGPT adapter, broker and worker on the user's PC, bind local HTTP
+  to loopback only and prohibit hosted or publicly exposed project components.
 - Validate installation from a clean Windows account with no source checkout.
 - Add compliant Streamable HTTP only after the local stdio packages are stable.
 
