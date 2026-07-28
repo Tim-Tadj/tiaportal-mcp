@@ -11,6 +11,8 @@ namespace TiaMcpBroker
 {
     internal static class WorkerProxy
     {
+        private const int StreamBufferSize = 16 * 1024;
+
         public static async Task<int> RunAsync(
             string workerPath,
             IReadOnlyList<string> workerArguments)
@@ -78,6 +80,7 @@ namespace TiaMcpBroker
                     return await MonitorWorkerAsync(
                         process,
                         exitTask,
+                        inputTask,
                         outputTask,
                         errorTask).ConfigureAwait(false);
                 }
@@ -109,24 +112,26 @@ namespace TiaMcpBroker
         private static async Task<int> MonitorWorkerAsync(
             Process process,
             Task<int> exitTask,
+            Task inputTask,
             Task outputTask,
             Task errorTask)
         {
-            var pendingOutputTasks = new List<Task>
+            var pendingStreamTasks = new List<Task>
             {
+                inputTask,
                 outputTask,
                 errorTask
             };
 
             try
             {
-                while (!exitTask.IsCompleted && pendingOutputTasks.Count > 0)
+                while (!exitTask.IsCompleted && pendingStreamTasks.Count > 0)
                 {
-                    var lifecycleTasks = new List<Task>(pendingOutputTasks.Count + 1)
+                    var lifecycleTasks = new List<Task>(pendingStreamTasks.Count + 1)
                     {
                         exitTask
                     };
-                    lifecycleTasks.AddRange(pendingOutputTasks);
+                    lifecycleTasks.AddRange(pendingStreamTasks);
 
                     var completedTask = await Task.WhenAny(lifecycleTasks).ConfigureAwait(false);
                     if (ReferenceEquals(completedTask, exitTask))
@@ -134,10 +139,10 @@ namespace TiaMcpBroker
                         break;
                     }
 
-                    pendingOutputTasks.Remove(completedTask);
+                    pendingStreamTasks.Remove(completedTask);
 
-                    // Await each pump as soon as it completes so a broken stdout or
-                    // stderr destination cannot leave the worker blocked on a full pipe.
+                    // Await each pump as soon as it completes so a broken stream
+                    // cannot leave either process blocked on a full pipe.
                     await completedTask.ConfigureAwait(false);
                 }
 
@@ -178,8 +183,7 @@ namespace TiaMcpBroker
         {
             try
             {
-                await source.CopyToAsync(destination).ConfigureAwait(false);
-                await destination.FlushAsync().ConfigureAwait(false);
+                await PumpStreamAsync(source, destination).ConfigureAwait(false);
             }
             catch (IOException)
             {
@@ -197,8 +201,33 @@ namespace TiaMcpBroker
 
         private static async Task PumpOutputAsync(Stream source, Stream destination)
         {
-            await source.CopyToAsync(destination).ConfigureAwait(false);
-            await destination.FlushAsync().ConfigureAwait(false);
+            await PumpStreamAsync(source, destination).ConfigureAwait(false);
+        }
+
+        private static async Task PumpStreamAsync(Stream source, Stream destination)
+        {
+            var buffer = new byte[StreamBufferSize];
+
+            while (true)
+            {
+                var bytesRead = await source.ReadAsync(
+                    buffer,
+                    0,
+                    buffer.Length).ConfigureAwait(false);
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+
+                await destination.WriteAsync(
+                    buffer,
+                    0,
+                    bytesRead).ConfigureAwait(false);
+
+                // MCP streams remain open for the full client session. Flush every
+                // chunk so a complete response is visible without waiting for EOF.
+                await destination.FlushAsync().ConfigureAwait(false);
+            }
         }
 
         private static Task<int> WaitForExitAsync(Process process)

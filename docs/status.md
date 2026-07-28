@@ -32,16 +32,21 @@ architecture branch now contains:
 - output-root, reparse-point, staged export and default no-overwrite policies;
 - two MCPB manifest templates and bundle assembly inputs.
 
-These changes remain experimental. No worker matrix has been built or exercised
-on licensed TIA Portal installations in this environment, the V21 adapter does
-not exist, and the client adapters are not releasable.
+These changes remain experimental. The V19 Read and ReadWrite workers and their
+fixed-profile brokers have now been built and exercised against a licensed,
+running TIA Portal V19 project. Both profiles completed MCP initialisation,
+reported the expected capability boundary, connected to the open project and
+paged all 18 devices. A bounded Full-detail read also serialised 182 attributes
+without the previous internal error. V17, V18 and V20 still require their
+licensed runtime matrix, the V21 adapter does not exist, and the client adapters
+are not releasable.
 
 ## Current Capability Gaps
 
 | Area | Current state | Target state |
 | --- | --- | --- |
 | Public profiles | Read and ReadWrite compile-time profiles and a second mutation policy exist, but explicit dependency-injection registries and releasable bundles do not. | Two public bundles with structurally separate read-only and read-write registries. |
-| TIA versions | Exact-package V17 to V20 build inputs exist but have not passed the clean build and licensed runtime matrix. | One internal worker compiled and tested against each advertised major version. |
+| TIA versions | Exact-package V17 to V20 build inputs exist. V19 Read and ReadWrite workers and brokers pass a licensed live-project smoke test; V17, V18 and V20 remain untested. | One internal worker compiled and tested against each advertised major version. |
 | V21 | No dedicated adapter. | Dedicated modular V21 adapter and worker. |
 | Tool registration | Assembly-wide discovery remains, with mutating tools removed at compilation for Read. | Explicit generated manifests per profile, version and module. |
 | Responses | Core project, device, block and type queries are compact. Device, block and type queries are paged; project discovery and legacy trees still need bounded paging, and several command results still need structured warnings. | Compact summaries, bounded detail, canonical paths and paging. |
@@ -49,9 +54,9 @@ not exist, and the client adapters are not releasable.
 | File safety | Export paths are contained beneath a locked root, child reparse points are rejected, overwrite defaults to false and existing files are replaced only after a staged export succeeds. Document-pair failures roll back unchanged targets and preserve recovery files when safe rollback is impossible. Import roots, handle-level race protection, atomic two-file replacement and complete batch failure reasons remain open. | Allowed output root, path containment and explicit overwrite policy. |
 | Portal lifecycle | The worker attaches when exactly one process exists and refuses ambiguous multiple-process attachment. Explicit process choice and ownership tracking remain missing. | Deterministic selection, ownership tracking and safe attach semantics. |
 | Concurrency | No dedicated serial Openness scheduler. | One scheduler per worker connection context. |
-| Packaging | Broker, worker build scripts, bundle assembly, two MCPB templates and direct Claude/VS Code configurations exist. Signing, SBOM, a VSIX and the local-only ChatGPT tunnel kit do not. | Signed bundles, local-only installer adapters, release manifest, SBOM and checksums. |
+| Packaging | Broker, worker build scripts, bundle assembly, two MCPB templates and direct Claude/VS Code configurations exist. Both V19 fixed-profile broker paths pass live standard-stream proxy tests. Signing, SBOM, a VSIX and the local-only ChatGPT tunnel kit do not. | Signed bundles, local-only installer adapters, release manifest, SBOM and checksums. |
 | ChatGPT | No adapter exists. The accepted design keeps the adapter, broker and worker on the user's PC and uses an outbound Secure MCP Tunnel without a public inbound endpoint. | A cleanly installable local connection kit with loopback-only transport, lifecycle controls and documented data boundaries. |
-| Validation | Static source and packaging checks are possible, but no .NET SDK is installed here and existing tests predominantly require licensed TIA Portal assets. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
+| Validation | Static source and packaging checks are possible. A portable .NET 8 SDK built both V19 profiles and brokers, and live read-only smoke calls passed through each broker. The existing integration suite still requires prepared project/session assets and includes mutating tests, so it was not run against the user's open project. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
 
 The v0.0.18 baseline is compiled against V20 only. This branch selects an exact
 package for each V17 to V20 worker build, but those workers must not be
@@ -61,8 +66,8 @@ single-binary approach, and issue #25 records the separate V21 API problem.
 
 ## Immediate Priorities
 
-1. Build V17 to V20 Read and ReadWrite workers in clean environments and fix
-   exact-package API differences.
+1. Build V17, V18 and V20 Read and ReadWrite workers in clean environments,
+   repeat V19 in the release matrix, and fix exact-package API differences.
 2. Replace assembly-wide discovery with explicit profile manifests and a
    serial Openness operation scheduler.
 3. Add Siemens-free broker, policy, cursor, serialisation and schema tests.

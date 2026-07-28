@@ -219,8 +219,13 @@ namespace TiaMcpServer
                 numericValue = value.Substring(1);
             }
 
-            return int.TryParse(numericValue, out var majorVersion) &&
-                TryGetVersion(majorVersion, out version);
+            if (!int.TryParse(numericValue, out var majorVersion))
+            {
+                version = TiaVersionSelection.Auto;
+                return false;
+            }
+
+            return TryGetVersion(majorVersion, out version);
         }
 
         private static bool TryGetVersion(int majorVersion, out TiaVersionSelection version)

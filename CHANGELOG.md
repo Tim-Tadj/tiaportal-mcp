@@ -15,6 +15,11 @@
 
 ### Changed
 
+- [Build][RO][RW] Resolve framework assemblies through the installed .NET
+  Framework targeting pack instead of a fixed `C:\Program Files` path.
+- [Tests] Resolve project, session and output paths at runtime from the clone,
+  temporary storage or explicit environment variables instead of fixed drive
+  locations.
 - [ChatGPT][RO][RW] Require the ChatGPT adapter, broker and worker to run on the
   user's PC behind an outbound Secure MCP Tunnel, with no hosted project
   component or public inbound endpoint.
@@ -33,6 +38,11 @@
 
 ### Fixed
 
+- [Broker][RO][RW] Flush proxied standard streams per chunk so interactive MCP
+  requests reach the worker and responses return before the client closes the
+  session.
+- [Build][RO][RW] Initialise failed TIA version parses on every code path so
+  exact-version workers compile cleanly.
 - [Contract][RO][RW] Report missing device, software, block and type paths as
   invalid parameters, and preserve block/type traversal failures instead of
   returning misleading empty results.
