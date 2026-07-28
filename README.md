@@ -1,6 +1,6 @@
-# TIA-Portal MCP-Server
+# TIA Portal MCP Server
 
-A MCP server which connects to Siemens TIA Portal.
+An MCP server which connects to Siemens TIA Portal.
 
 ## Features
 
@@ -8,24 +8,51 @@ A MCP server which connects to Siemens TIA Portal.
 - Browse and interact with TIA Portal projects
 - Perform basic project operations from within VS Code
 
-## Requirements
+## Documentation
+
+- See [Project Documentation](docs/README.md) for the architecture, roadmap,
+  current status, definition of done and changelog policy.
+
+## Current Status
+
+The released v0.0.18 implementation is a single read-write server compiled
+against TIA Portal V20. Work is in progress on two public distributions,
+`tia-portal-mcp-read` and `tia-portal-mcp-readwrite`, with automatic selection
+of isolated V17 to V20 workers. V21 remains planned behind a dedicated modular
+adapter.
+
+See [Current Status](docs/status.md) before relying on an earlier TIA Portal
+version. Accepting `--tia-major-version` does not make the current V20 binary
+compatible with that version.
+
+## Released v0.0.18 Requirements
 
 - __.net Framework 4.8__ installed
 - __Siemens TIA Portal V20__ installed and running on your machine
 - Check if under `Environment Variables/User variable for user <name>` the variable `TiaPortalLocation` is set to `C:\Program Files\Siemens\Automation\Portal V20`
 - User must be in Windows User Group `Siemens TIA Openness`
 
-## TIA-Portal Versions
+The server checks Windows group membership but must not add the user to that
+group automatically.
 
-- __V20__ is the default version.
-- Previous versions are also supported, but must use the `--tia-major-version` argument to specify the version.
+Experimental V17 to V20 profile bundles require Windows x64, .NET Framework
+4.8, at least one matching TIA Portal Openness installation and membership of
+the `Siemens TIA Openness` group. When several supported TIA versions are
+installed, pass an exact value such as `--tia-version V20`.
+
+## TIA Portal Versions
+
+- __V20__ is the currently compiled and supported baseline.
+- V17, V18 and V19 exact-version worker builds are being added but remain
+  experimental until they pass the release matrix.
+- V21 requires its own modular Openness adapter.
 - Export as documents (.s7dcl/.s7res) via `ExportAsDocuments`/`ExportBlocksAsDocuments` requires TIA Portal V20 or newer.
 - Import from documents (.s7dcl/.s7res) via `ImportFromDocuments`/`ImportBlocksFromDocuments` also requires TIA Portal V20 or newer.
 
 ## Known Limitations
 
 - As of 2025-09-02: Importing Ladder (LAD) blocks from SIMATIC SD documents requires the companion `.s7res` file to contain en-US tags for all items; otherwise import may fail. This is a known limitation/bug in TIA Portal Openness.
- - `ExportBlock` requires a fully qualified `blockPath` like `Group/Subgroup/Name`. If only a name is provided, the MCP server returns `InvalidParams` and may include suggestions for likely full paths.
+- `ExportBlock` requires a fully qualified `blockPath` like `Group/Subgroup/Name`. If only a name is provided, the MCP server returns `InvalidParams` and may include suggestions for likely full paths.
 
 ## Testing
 
@@ -35,7 +62,7 @@ A MCP server which connects to Siemens TIA Portal.
 
 ## Contributing
 
-- See `agents.md` for guidance on working with agentic assistants and the test execution policy (offer to run tests only with explicit user confirmation).
+- See `AGENTS.md` for guidance on working with agentic assistants and the test execution policy.
 
 ## Error Handling (ExportBlock)
 
@@ -53,40 +80,77 @@ A MCP server which connects to Siemens TIA Portal.
 - Available via SDK: `stream` (custom streams)
   - The SDK exposes `WithStreamServerTransport(Stream input, Stream output)` which can be used to host over TCP sockets or other streams.
   - Not wired in this repo yet.
-- HTTP/Streamable HTTP: not implemented yet
-  - The current ModelContextProtocol .NET package in use (0.3.0-preview.4) does not provide an HTTP server transport out of the box.
-  - Plan (see TODO): add `--transport http`, `--http-prefix`, and `--http-api-key`, host with `HttpListener`, and route POST `/mcp` to the MCP handlers. Later align with MCP Streamable HTTP spec.
+- Streamable HTTP: not implemented yet
+  - A later ChatGPT connection kit will use a standards-compliant gateway.
+  - A bespoke `HttpListener` JSON bridge is not considered a supported MCP transport.
 
-## Copilot Chat
+## VS Code
 
-- Example mcp.json, when using VS Code extension [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp) and TIA-Portal V18
-  ```json
-  {
-      "servers": {
-          "vscode-tiaportal-mcp": {
-          "command": "c:\\Users\\<user>\\.vscode\\extensions\\jheilingbrunner.vscode-tiaportal-mcp-<version>\\srv\\net48\\TiaMcpServer.exe",
-          "args": [
-              "--tia-major-version",
-              "18"
-          ],
-          "env": {}
-          }
-      }
-  }
-  ```
+- The current upstream VS Code extension remains available for the released
+  single-worker server: [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp).
+- This branch supports a direct stdio installation from either extracted
+  profile ZIP. The broker chooses the exact bundled V17 to V20 worker.
+- The planned fork extension will automate profile selection, extraction and
+  upgrades. It is not built yet.
 
-## Claude Desktop
-
-- Create/Edit to add/remove server to `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`:
+  Add the selected broker to your user or workspace `mcp.json`:
 
   ```json
   {
-    "mcpServers": {
-      "vscode-tiaportal-mcp": {
-        "command": "<path-to>\\TiaMcpServer.exe",
-        "args": [],
+    "servers": {
+      "tia-portal-mcp-read": {
+        "type": "stdio",
+        "command": "C:\\path\\to\\tia-portal-mcp-read\\server\\TiaPortalMcp.exe",
+        "args": [
+          "--access-profile",
+          "Read",
+          "--tia-version",
+          "Auto"
+        ],
         "env": {}
       }
     }
   }
   ```
+
+  A copyable example is available in
+  [`samples/vscode/mcp.json`](samples/vscode/mcp.json). Select only one
+  profile for a TIA Portal process.
+
+## Claude Desktop
+
+- Two MCPB manifests and an optional packing step are defined for the Read and
+  ReadWrite bundles. After a release build is assembled with `-CreateMcpb`,
+  choose **Settings > Extensions > Advanced settings > Install Extension** in
+  Claude Desktop, select the matching `.mcpb` file, then review and install it.
+  See [Claude's local MCP server guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
+- The MCPB files remain experimental until the exact worker matrix and clean
+  account installation checks pass.
+- For development, add the matching broker directly to
+  `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`. A
+  complete example is in
+  [`samples/claude/claude_desktop_config.json`](samples/claude/claude_desktop_config.json).
+
+  ```json
+  {
+    "mcpServers": {
+      "tia-portal-mcp-read": {
+        "command": "C:\\path\\to\\tia-portal-mcp-read\\server\\TiaPortalMcp.exe",
+        "args": [
+          "--access-profile",
+          "Read",
+          "--tia-version",
+          "Auto"
+        ],
+        "env": {}
+      }
+    }
+  }
+  ```
+
+## ChatGPT
+
+ChatGPT connects to remote MCP endpoints rather than directly installing this
+local stdio executable. The planned connection kit will run the selected local
+profile behind a compliant Streamable HTTP gateway and Secure MCP Tunnel. It is
+not yet implemented on this branch.

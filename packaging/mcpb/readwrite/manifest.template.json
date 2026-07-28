@@ -1,0 +1,62 @@
+{
+  "manifest_version": "0.3",
+  "name": "tia-portal-mcp-readwrite",
+  "display_name": "TIA Portal MCP - Read and Write",
+  "version": "__VERSION__",
+  "description": "Inspect and deliberately modify locally installed TIA Portal projects.",
+  "long_description": "Connects Claude Desktop to a locally installed TIA Portal. The broker detects installed versions and starts a matching bundled read-write worker. Write tools use explicit conflict, output-root and overwrite policies.",
+  "author": {
+    "name": "Tim-Tadj"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tim-Tadj/tiaportal-mcp.git"
+  },
+  "support": "https://github.com/Tim-Tadj/tiaportal-mcp/issues",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/TiaPortalMcp.exe",
+    "mcp_config": {
+      "command": "${__dirname}/server/TiaPortalMcp.exe",
+      "args": [
+        "--access-profile",
+        "readwrite",
+        "--tia-version",
+        "${user_config.tia_version}",
+        "--output-root",
+        "${user_config.output_root}"
+      ],
+      "env": {}
+    }
+  },
+  "user_config": {
+    "tia_version": {
+      "type": "string",
+      "title": "TIA Portal version",
+      "description": "Use auto when exactly one supported version is installed, or enter V17, V18, V19 or V20.",
+      "default": "auto",
+      "required": true
+    },
+    "output_root": {
+      "type": "directory",
+      "title": "Export output directory",
+      "description": "All files written by export tools remain beneath this directory.",
+      "default": "${DOCUMENTS}/TIA Portal MCP/Exports",
+      "required": true
+    }
+  },
+  "tools_generated": true,
+  "keywords": [
+    "automation",
+    "industrial",
+    "plc",
+    "siemens",
+    "tia-portal"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "win32"
+    ]
+  }
+}

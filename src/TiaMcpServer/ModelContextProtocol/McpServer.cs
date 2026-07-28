@@ -14,6 +14,8 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using TiaMcpServer.Runtime;
+using TiaMcpServer.Security;
 using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer.ModelContextProtocol
@@ -56,14 +58,15 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region portal
 
-        [McpServerTool(Name = "Connect"), Description("Connect to TIA-Portal")]
+        [McpServerTool(Name = "Connect"), Description("Attach to the single running TIA Portal process. The read-write worker may launch TIA Portal when none is running; the read worker never launches it.")]
         public static ResponseConnect Connect()
         {
             Logger?.LogInformation("Connecting to TIA Portal...");
 
             try
             {
-                if (Portal.ConnectPortal())
+                var allowLaunch = WorkerBuild.Current.AccessProfile == AccessProfile.ReadWrite;
+                if (Portal.ConnectPortal(allowLaunch))
                 {
                     return new ResponseConnect
                     {
@@ -86,7 +89,8 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "Disconnect"), Description("Disconnect from TIA-Portal")]
+#if TIA_MCP_READ_WRITE
+        [McpServerTool(Name = "Disconnect"), Description("Detach this ReadWrite worker from TIA Portal. This changes connection state and is not available in the Read profile.")]
         public static ResponseDisconnect Disconnect()
         {
             try
@@ -113,12 +117,63 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error disconnecting from TIA-Portal: {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
         #endregion
 
         #region state
 
-        [McpServerTool(Name = "GetState"), Description("Get the state of the TIA-Portal MCP server")]
+        [McpServerTool(Name = "GetCapabilities"), Description("Call first to learn the exact TIA version, access profile, response defaults and safe discovery sequence for this worker.")]
+        public static ResponseCapabilities GetCapabilities()
+        {
+            var worker = WorkerBuild.Current;
+            var toolFamilies = new List<string>
+            {
+                "connection",
+                "state",
+                "projects",
+                "devices",
+                "plc-software",
+                "blocks",
+                "types"
+            };
+
+#if TIA_MCP_READ_WRITE
+            toolFamilies.Add("project-lifecycle");
+            toolFamilies.Add("compile");
+            toolFamilies.Add("xml-import-export");
+
+            if (worker.TiaMajorVersion >= 20)
+            {
+                toolFamilies.Add("simatic-sd-documents");
+            }
+#endif
+
+            return new ResponseCapabilities
+            {
+                TiaMajorVersion = worker.TiaMajorVersion,
+                AccessProfile = worker.AccessProfile.ToString(),
+                SupportStatus = "Experimental",
+                Contract = "v1-with-compact-query-preview",
+                DefaultPageLimit = PageRequest.DefaultLimit,
+                MaximumPageLimit = PageRequest.MaximumLimit,
+                DefaultDetailLevel = ResponseDetailLevel.Summary.ToString(),
+                CanModifyProject = worker.AccessProfile == AccessProfile.ReadWrite,
+                CanWriteFiles = worker.AccessProfile == AccessProfile.ReadWrite,
+                ToolFamilies = toolFamilies,
+                Guidance = new[]
+                {
+                    "Call GetState before project discovery.",
+                    "Use summary detail and follow cursors only as far as needed.",
+                    "Reuse exact names and paths returned by discovery tools.",
+                    worker.AccessProfile == AccessProfile.Read
+                        ? "This worker cannot save, compile, import, export or close projects."
+                        : "Use mutating tools only when the user clearly requests the side effect."
+                }
+            };
+        }
+
+        [McpServerTool(Name = "GetState"), Description("Report connection and selected project or session state. Call after GetCapabilities and before project-scoped tools.")]
         public static ResponseState GetState()
         {
             try
@@ -157,8 +212,16 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region project/session
 
-        [McpServerTool(Name = "GetProject"), Description("Get open local project/session")]
-        public static ResponseGetProjects GetProjects()
+        [McpServerTool(Name = "GetProject"), Description("Deprecated compatibility alias for ListProjects. Returns open projects and sessions.")]
+        public static ResponseGetProjects GetProjects(
+            [Description("detailLevel: Summary returns canonical identity; Full also includes bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary)
+        {
+            return ListProjects(detailLevel);
+        }
+
+        [McpServerTool(Name = "ListProjects"), Description("List open projects and sessions with canonical paths. Use this before selecting project-scoped tools.")]
+        public static ResponseGetProjects ListProjects(
+            [Description("detailLevel: Summary returns canonical identity; Full also includes bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary)
         {
             try
             {
@@ -167,29 +230,34 @@ namespace TiaMcpServer.ModelContextProtocol
                 list.AddRange(Portal.GetSessions());
 
                 var responseList = new List<ResponseProjectInfo>();
-                foreach (var project in list)
+                foreach (var project in list
+                    .Where(project => project != null)
+                    .OrderBy(project => project.Path?.ToString(), StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(project => project.Path?.ToString(), StringComparer.Ordinal))
                 {
-                    var attributes = Helper.GetAttributeList(project);
-
-                    if (project != null)
+                    responseList.Add(new ResponseProjectInfo
                     {
-                        responseList.Add(new ResponseProjectInfo
-                        {
-                            Name = project.Name,
-                            Attributes = attributes
-                        });
-                    }
+                        Path = project.Path?.ToString(),
+                        Name = project.Name,
+                        Attributes = detailLevel == ResponseDetailLevel.Full
+                            ? Helper.GetAttributeList(project)
+                            : null
+                    });
                 }
 
                 return new ResponseGetProjects
                 {
-                    Message = "Open projects and sessions retrieved",
+                    Message = detailLevel == ResponseDetailLevel.Full
+                        ? "Open projects and sessions retrieved"
+                        : null,
                     Items = responseList,
-                    Meta = new JsonObject
-                    {
-                        ["timestamp"] = DateTime.Now,
-                        ["success"] = true
-                    }
+                    Meta = detailLevel == ResponseDetailLevel.Full
+                        ? new JsonObject
+                        {
+                            ["timestamp"] = DateTime.Now,
+                            ["success"] = true
+                        }
+                        : null
                 };
             }
             catch (Exception ex) when (ex is not McpException)
@@ -198,40 +266,43 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "OpenProject"), Description("Open a TIA-Portal local project/session")]
+#if TIA_MCP_READ_WRITE
+        [McpServerTool(Name = "OpenProject"), Description("Open an exact-version local project or session. This may close the currently selected project, so use only with clear user intent.")]
         public static ResponseOpenProject OpenProject(
-            [Description("path: defines the path where to the project/session")] string path)
+            [Description("path: existing .apNN project or .alsNN session file matching this worker's exact TIA Portal major version")] string path)
         {
             try
             {
-                Portal.CloseProject();
-
-                // get project extension
-                string extension = Path.GetExtension(path).ToLowerInvariant();
-
-                // use regex to check if extension is .ap\d+ or .als\d+
-                if (!Regex.IsMatch(extension, @"^\.ap\d+$") &&
-                    !Regex.IsMatch(extension, @"^\.als\d+$"))
+                var resolvedPath = Path.GetFullPath(
+                    Environment.ExpandEnvironmentVariables(path));
+                if (!File.Exists(resolvedPath))
                 {
-                    throw new McpException("Invalid project file extension. Use .apXX for projects or .alsXX for sessions, where XX=18,19,20,....", McpErrorCode.InvalidParams);
+                    throw new McpException(
+                        $"Project or session file does not exist: '{resolvedPath}'.",
+                        McpErrorCode.InvalidParams);
                 }
 
-                bool success = false;
+                var extension = Path.GetExtension(resolvedPath).ToLowerInvariant();
+                var version = WorkerBuild.Current.TiaMajorVersion;
+                var projectExtension = $".ap{version}";
+                var sessionExtension = $".als{version}";
+                if (extension != projectExtension && extension != sessionExtension)
+                {
+                    throw new McpException(
+                        $"This exact TIA Portal V{version} worker accepts only " +
+                        $"{projectExtension} projects or {sessionExtension} sessions.",
+                        McpErrorCode.InvalidParams);
+                }
 
-                if (extension.StartsWith(".ap"))
-                {
-                    success = Portal.OpenProject(path);
-                }
-                if (extension.StartsWith(".als"))
-                {
-                    success = Portal.OpenSession(path);
-                }
+                var success = extension == projectExtension
+                    ? Portal.OpenProject(resolvedPath)
+                    : Portal.OpenSession(resolvedPath);
 
                 if (success)
                 {
                     return new ResponseOpenProject
                     {
-                        Message = $"Project '{path}' opened",
+                        Message = $"Project or session '{resolvedPath}' opened",
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
@@ -241,8 +312,17 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
                 else
                 {
-                    throw new McpException($"Failed to open project '{path}'", McpErrorCode.InternalError);
+                    throw new McpException(
+                        $"Failed to open project or session '{resolvedPath}'.",
+                        McpErrorCode.InternalError);
                 }
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is NotSupportedException ||
+                ex is PathTooLongException)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -250,7 +330,7 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "SaveProject"), Description("Save the current TIA-Portal local project/session")]
+        [McpServerTool(Name = "SaveProject"), Description("Persist the current project or local session in place. This mutates project data and requires clear user intent.")]
         public static ResponseSaveProject SaveProject()
         {
             try
@@ -300,7 +380,7 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "SaveAsProject"), Description("Save current TIA-Portal project/session with a new name")]
+        [McpServerTool(Name = "SaveAsProject"), Description("Save the current local project to a new path. This writes a new project and is unavailable for local sessions.")]
         public static ResponseSaveAsProject SaveAsProject(
             [Description("newProjectPath: defines the new path where to save the project")] string newProjectPath)
         {
@@ -337,7 +417,7 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "CloseProject"), Description("Close the current TIA-Portal project/session")]
+        [McpServerTool(Name = "CloseProject"), Description("Close the selected project or local session without closing TIA Portal. Save first only when the user explicitly requests it.")]
         public static ResponseCloseProject CloseProject()
         {
             try
@@ -391,12 +471,13 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error closing local project/session: {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
         #endregion
 
         #region devices
 
-        [McpServerTool(Name = "GetProjectTree"), Description("Get project structure as a tree view on current local project/session")]
+        [McpServerTool(Name = "GetProjectTree"), Description("Legacy unpaged project tree which may be large. Prefer ListProjects and paged GetDevices for discovery.")]
         public static ResponseProjectTree GetProjectTree()
         {
             try
@@ -427,9 +508,10 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetDeviceInfo"), Description("Get info from a device from the current project/session")]
+        [McpServerTool(Name = "GetDeviceInfo"), Description("Get one device using compact detail by default. Request Full only when bounded raw attributes are needed.")]
         public static ResponseDeviceInfo GetDeviceInfo(
-            [Description("devicePath: defines the path in the project structure to the device")] string devicePath)
+            [Description("devicePath: exact path returned by device discovery")] string devicePath,
+            [Description("detailLevel: Summary and Standard return identity; Full also includes bounded raw attributes and diagnostics")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
         {
             try
             {
@@ -437,24 +519,31 @@ namespace TiaMcpServer.ModelContextProtocol
 
                 if (device != null)
                 {
-                    var attributes = Helper.GetAttributeList(device);
-
                     return new ResponseDeviceInfo
                     {
-                        Message = $"Device info retrieved from '{devicePath}'",
+                        Message = detailLevel == ResponseDetailLevel.Full
+                            ? $"Device info retrieved from '{devicePath}'"
+                            : null,
+                        Path = Portal.GetDevicePath(device),
                         Name = device.Name,
-                        Attributes = attributes,
-                        Description = device.ToString(),
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true
-                        }
+                        Attributes = detailLevel == ResponseDetailLevel.Full
+                            ? Helper.GetAttributeList(device)
+                            : null,
+                        Description = detailLevel == ResponseDetailLevel.Full
+                            ? device.ToString()
+                            : null,
+                        Meta = detailLevel == ResponseDetailLevel.Full
+                            ? new JsonObject
+                            {
+                                ["timestamp"] = DateTime.Now,
+                                ["success"] = true
+                            }
+                            : null
                     };
                 }
                 else
                 {
-                    throw new McpException($"Device not found at '{devicePath}'", McpErrorCode.InternalError);
+                    throw new McpException($"Device not found at '{devicePath}'", McpErrorCode.InvalidParams);
                 }
             }
             catch (Exception ex) when (ex is not McpException)
@@ -463,9 +552,10 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetDeviceItemInfo"), Description("Get info from a device item from the current project/session")]
+        [McpServerTool(Name = "GetDeviceItemInfo"), Description("Get one device item using compact detail by default. Request Full only when bounded raw attributes are needed.")]
         public static ResponseDeviceItemInfo GetDeviceItemInfo(
-            [Description("deviceItemPath: defines the path in the project structure to the device item")] string deviceItemPath)
+            [Description("deviceItemPath: exact path returned by device discovery")] string deviceItemPath,
+            [Description("detailLevel: Summary and Standard return identity; Full also includes bounded raw attributes and diagnostics")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
         {
             try
             {
@@ -473,24 +563,31 @@ namespace TiaMcpServer.ModelContextProtocol
 
                 if (deviceItem != null)
                 {
-                    var attributes = Helper.GetAttributeList(deviceItem);
-
                     return new ResponseDeviceItemInfo
                     {
-                        Message = $"Device item info retrieved from '{deviceItemPath}'",
+                        Message = detailLevel == ResponseDetailLevel.Full
+                            ? $"Device item info retrieved from '{deviceItemPath}'"
+                            : null,
+                        Path = deviceItemPath,
                         Name = deviceItem.Name,
-                        Attributes = attributes,
-                        Description = deviceItem.ToString(),
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true
-                        }
+                        Attributes = detailLevel == ResponseDetailLevel.Full
+                            ? Helper.GetAttributeList(deviceItem)
+                            : null,
+                        Description = detailLevel == ResponseDetailLevel.Full
+                            ? deviceItem.ToString()
+                            : null,
+                        Meta = detailLevel == ResponseDetailLevel.Full
+                            ? new JsonObject
+                            {
+                                ["timestamp"] = DateTime.Now,
+                                ["success"] = true
+                            }
+                            : null
                     };
                 }
                 else
                 {
-                    throw new McpException($"Device item not found at '{deviceItemPath}'", McpErrorCode.InternalError);
+                    throw new McpException($"Device item not found at '{deviceItemPath}'", McpErrorCode.InvalidParams);
                 }
             }
             catch (Exception ex) when (ex is not McpException)
@@ -499,45 +596,107 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetDevices"), Description("Get a list of all devices in the project/session")]
-        public static ResponseDevices GetDevices()
+        [McpServerTool(Name = "GetDevices"), Description("List project devices using compact, deterministic and paged results. Start with Summary and request Full only for selected troubleshooting.")]
+        public static ResponseDevices GetDevices(
+            [Description("detailLevel: Summary returns names only, Standard is reserved for typed device fields, and Full includes raw attributes and diagnostic descriptions")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary,
+            [Description("limit: maximum devices to return. Defaults to 50 and is capped at 200")] int limit = PageRequest.DefaultLimit,
+            [Description("cursor: opaque cursor returned by the previous page; omit for the first page")] string cursor = "")
         {
             try
             {
-                var list = Portal.GetDevices();
+                var pageRequest = new PageRequest
+                {
+                    Limit = limit,
+                    Cursor = cursor
+                };
+                const string cursorScope = "GetDevices";
+                var boundedLimit = pageRequest.GetBoundedLimit();
+                var offset = pageRequest.GetOffset(cursorScope);
+                var list = Portal.GetDevices()
+                    .Where(device => device != null)
+                    .Select(device => new
+                    {
+                        Device = device,
+                        Path = Portal.GetDevicePath(device)
+                    })
+                    .OrderBy(entry => entry.Path, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(entry => entry.Path, StringComparer.Ordinal)
+                    .ToList();
                 var responseList = new List<ResponseDeviceInfo>();
 
-                if (list != null)
+                if (offset > list.Count)
                 {
-                    foreach (var device in list)
-                    {
-                        if (device != null)
-                        {
-                            var attributes = Helper.GetAttributeList(device);
-                            responseList.Add(new ResponseDeviceInfo
-                            {
-                                Name = device.Name,
-                                Attributes = attributes,
-                                Description = device.ToString()
-                            });
-                        }
-                    }
+                    throw new McpException("The paging cursor is outside the available device list.", McpErrorCode.InvalidParams);
+                }
 
-                    return new ResponseDevices
+                var pageItems = list
+                    .Skip(offset)
+                    .Take(boundedLimit + 1)
+                    .ToList();
+                var hasMore = pageItems.Count > boundedLimit;
+
+                if (hasMore)
+                {
+                    pageItems.RemoveAt(pageItems.Count - 1);
+                }
+
+                foreach (var entry in pageItems)
+                {
+                    var device = entry.Device;
+                    var attributes = detailLevel == ResponseDetailLevel.Full
+                        ? Helper.GetAttributeList(device)
+                        : null;
+
+                    responseList.Add(new ResponseDeviceInfo
                     {
-                        Message = "Devices retrieved",
-                        Items = responseList,
-                        Meta = new JsonObject
+                        Path = entry.Path,
+                        Name = device.Name,
+                        Attributes = attributes,
+                        Description = detailLevel == ResponseDetailLevel.Full
+                            ? device.ToString()
+                            : null
+                    });
+                }
+
+                var nextOffset = offset + responseList.Count;
+
+                return new ResponseDevices
+                {
+                    Message = detailLevel == ResponseDetailLevel.Full
+                        ? "Devices retrieved"
+                        : null,
+                    Items = responseList,
+                    Page = new PageInfo
+                    {
+                        Returned = responseList.Count,
+                        HasMore = hasMore,
+                        NextCursor = hasMore
+                            ? PageRequest.CreateCursor(nextOffset, cursorScope)
+                            : null
+                    },
+                    Meta = detailLevel == ResponseDetailLevel.Full
+                        ? new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
                             ["success"] = true
                         }
-                    };
-                }
-                else
-                {
-                    throw new McpException($"Failed retrieving devices", McpErrorCode.InternalError);
-                }
+                        : null
+                };
+            }
+            catch (RegexMatchTimeoutException ex)
+            {
+                throw new McpException(
+                    "The device filter exceeded the one-second match timeout.",
+                    ex,
+                    McpErrorCode.InvalidParams);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
+            }
+            catch (PortalException ex)
+            {
+                throw MapPortalException("Failed to retrieve devices", ex);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -549,9 +708,10 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region plc software
 
-        [McpServerTool(Name = "GetSoftwareInfo"), Description("Get plc software info")]
+        [McpServerTool(Name = "GetSoftwareInfo"), Description("Get one PLC software object using compact detail by default. Request Full only when bounded raw attributes are needed.")]
         public static ResponseSoftwareInfo GetSoftwareInfo(
-            [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath)
+            [Description("softwarePath: exact path returned by project discovery")] string softwarePath,
+            [Description("detailLevel: Summary and Standard return identity; Full also includes bounded raw attributes and diagnostics")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
         {
             try
             {
@@ -559,24 +719,31 @@ namespace TiaMcpServer.ModelContextProtocol
                 if (software != null)
                 {
 
-                    var attributes = Helper.GetAttributeList(software);
-
                     return new ResponseSoftwareInfo
                     {
-                        Message = $"Software info retrieved from '{softwarePath}'",
+                        Message = detailLevel == ResponseDetailLevel.Full
+                            ? $"Software info retrieved from '{softwarePath}'"
+                            : null,
+                        Path = softwarePath,
                         Name = software.Name,
-                        Attributes = attributes,
-                        Description = software.ToString(),
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true
-                        }
+                        Attributes = detailLevel == ResponseDetailLevel.Full
+                            ? Helper.GetAttributeList(software)
+                            : null,
+                        Description = detailLevel == ResponseDetailLevel.Full
+                            ? software.ToString()
+                            : null,
+                        Meta = detailLevel == ResponseDetailLevel.Full
+                            ? new JsonObject
+                            {
+                                ["timestamp"] = DateTime.Now,
+                                ["success"] = true
+                            }
+                            : null
                     };
                 }
                 else
                 {
-                    throw new McpException($"Software not found at '{softwarePath}'", McpErrorCode.InternalError);
+                    throw new McpException($"Software not found at '{softwarePath}'", McpErrorCode.InvalidParams);
                 }
             }
             catch (Exception ex) when (ex is not McpException)
@@ -585,10 +752,11 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "CompileSoftware"), Description("Compile the plc software")]
+#if TIA_MCP_READ_WRITE
+        [McpServerTool(Name = "CompileSoftware"), Description("Compile PLC software and return a compact state summary. Detailed diagnostics remain a planned paged surface.")]
         public static ResponseCompileSoftware CompileSoftware(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("password: the password to access adminsitration, default: no password")] string password = "")
+            [Description("password: optional safety administration password. Tool arguments may be retained by the MCP client, so leave empty unless the user explicitly accepts that exposure")] string password = "")
         {
             try
             {
@@ -597,17 +765,22 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     return new ResponseCompileSoftware
                     {
-                        Message = $"Software '{softwarePath}' compiled with {result}",
+                        Message =
+                            $"Software '{softwarePath}' compilation completed with state '{result.State}'.",
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
-                            ["success"] = true
+                            ["success"] = true,
+                            ["state"] = result.State.ToString()
                         }
                     };
                 }
                 else
                 {
-                    throw new McpException($"Failed compiling software '{softwarePath}': {result}", McpErrorCode.InternalError);
+                    var state = result?.State.ToString() ?? "NoResult";
+                    throw new McpException(
+                        $"Failed compiling software '{softwarePath}' with state '{state}'.",
+                        McpErrorCode.InternalError);
                 }
             }
             catch (Exception ex) when (ex is not McpException)
@@ -615,8 +788,9 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error compiling software '{softwarePath}': {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
-        [McpServerTool(Name = "GetSoftwareTree"), Description("Get the structure/tree of a given PLC software showing blocks, types, and external sources")]
+        [McpServerTool(Name = "GetSoftwareTree"), Description("Legacy unpaged PLC software tree which may be large. Prefer paged GetBlocks and GetTypes for discovery.")]
         public static ResponseSoftwareTree GetSoftwareTree(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath)
         {
@@ -652,42 +826,51 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region blocks
 
-        [McpServerTool(Name = "GetBlockInfo"), Description("Get a block info, which is located in the plc software")]
+        [McpServerTool(Name = "GetBlockInfo"), Description("Get one PLC block with typed compact detail. Request Full only when bounded raw attributes are needed.")]
         public static ResponseBlockInfo GetBlockInfo(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("blockPath: defines the path in the project structure to the block")] string blockPath)
+            [Description("blockPath: exact canonical path returned by GetBlocks")] string blockPath,
+            [Description("detailLevel: Summary returns identity and core PLC fields, Standard adds typed metadata, and Full adds bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
         {
             try
             {
                 var block = Portal.GetBlock(softwarePath, blockPath);
                 if (block != null)
                 {
-                    var attributes = Helper.GetAttributeList(block);
+                    var includeStandard = detailLevel >= ResponseDetailLevel.Standard;
+                    var includeFull = detailLevel == ResponseDetailLevel.Full;
 
                     return new ResponseBlockInfo
                     {
-                        Message = $"Block info retrieved from '{blockPath}' in '{softwarePath}'",
+                        Message = includeFull
+                            ? $"Block info retrieved from '{blockPath}' in '{softwarePath}'"
+                            : null,
+                        Path = Portal.GetBlockPath(block),
                         Name = block.Name,
                         TypeName = block.GetType().Name,
-                        Namespace = block.Namespace,
+                        Namespace = includeStandard ? block.Namespace : null,
                         ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage),block.ProgrammingLanguage),
-                        MemoryLayout = Enum.GetName(typeof(MemoryLayout), block.MemoryLayout),
+                        MemoryLayout = includeStandard
+                            ? Enum.GetName(typeof(MemoryLayout), block.MemoryLayout)
+                            : null,
                         IsConsistent = block.IsConsistent,
-                        HeaderName = block.HeaderName,
-                        ModifiedDate = block.ModifiedDate,
-                        IsKnowHowProtected = block.IsKnowHowProtected,
-                        Attributes = attributes,
-                        Description = block.ToString(),
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true
-                        }
+                        HeaderName = includeStandard ? block.HeaderName : null,
+                        ModifiedDate = includeStandard ? block.ModifiedDate : null,
+                        IsKnowHowProtected = includeStandard ? block.IsKnowHowProtected : null,
+                        Attributes = includeFull ? Helper.GetAttributeList(block) : null,
+                        Description = includeFull ? block.ToString() : null,
+                        Meta = includeFull
+                            ? new JsonObject
+                            {
+                                ["timestamp"] = DateTime.Now,
+                                ["success"] = true
+                            }
+                            : null
                     };
                 }
                 else
                 {
-                    throw new McpException($"Block not found at '{blockPath}' in '{softwarePath}'", McpErrorCode.InternalError);
+                    throw new McpException($"Block not found at '{blockPath}' in '{softwarePath}'", McpErrorCode.InvalidParams);
                 }
             }
             catch (Exception ex) when (ex is not McpException)
@@ -696,56 +879,119 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetBlocks"), Description("Get a list of blocks, which are located in plc software")]
+        [McpServerTool(Name = "GetBlocks"), Description("List PLC blocks with canonical paths, compact detail and opaque paging. Use returned paths with block-specific tools.")]
         public static ResponseBlocks GetBlocks(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("regexName: defines the name or regular expression to find the block. Use empty string (default) to find all")] string regexName = "")
+            [Description("regexName: optional regular expression applied to block names; maximum 256 characters and one-second match timeout")] string regexName = "",
+            [Description("detailLevel: Summary returns identity and core PLC fields, Standard adds typed metadata, and Full adds bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary,
+            [Description("limit: maximum blocks to return. Defaults to 50 and is capped at 200")] int limit = PageRequest.DefaultLimit,
+            [Description("cursor: opaque cursor returned by the previous page; omit for the first page")] string cursor = "")
         {
             try
             {
-                var list = Portal.GetBlocks(softwarePath, regexName);
-
-                var responseList = new List<ResponseBlockInfo>();
-                foreach (var block in list)
+                var pageRequest = new PageRequest
                 {
-                    if (block != null)
-                    {
-                        var attributes = Helper.GetAttributeList(block);
-
-                        responseList.Add(new ResponseBlockInfo
-                        {
-                            Name = block.Name,
-                            TypeName = block.GetType().Name,
-                            Namespace = block.Namespace,
-                            ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
-                            MemoryLayout = Enum.GetName(typeof(MemoryLayout), block.MemoryLayout),
-                            IsConsistent = block.IsConsistent,
-                            HeaderName = block.HeaderName,
-                            ModifiedDate = block.ModifiedDate,
-                            IsKnowHowProtected = block.IsKnowHowProtected,
-                            Attributes = attributes,
-                            Description = block.ToString()
-                        });
-                    }
+                    Limit = limit,
+                    Cursor = cursor
+                };
+                var cursorScope = $"GetBlocks\n{softwarePath}\n{regexName}";
+                var boundedLimit = pageRequest.GetBoundedLimit();
+                var offset = pageRequest.GetOffset(cursorScope);
+                if (!string.IsNullOrWhiteSpace(regexName))
+                {
+                    _ = BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
                 }
 
-                if (list != null)
-                {
-                    return new ResponseBlocks
+                var list = Portal.GetBlocks(softwarePath, regexName)
+                    .Select(block => new
                     {
-                        Message = $"Blocks with regex '{regexName}' retrieved from '{softwarePath}'",
-                        Items = responseList,
-                        Meta = new JsonObject
+                        Block = block,
+                        Path = Portal.GetBlockPath(block)
+                    })
+                    .OrderBy(entry => entry.Path, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(entry => entry.Path, StringComparer.Ordinal)
+                    .ToList();
+
+                if (offset > list.Count)
+                {
+                    throw new McpException("The paging cursor is outside the available block list.", McpErrorCode.InvalidParams);
+                }
+
+                var pageItems = list
+                    .Skip(offset)
+                    .Take(boundedLimit + 1)
+                    .ToList();
+                var hasMore = pageItems.Count > boundedLimit;
+
+                if (hasMore)
+                {
+                    pageItems.RemoveAt(pageItems.Count - 1);
+                }
+
+                var responseList = new List<ResponseBlockInfo>();
+                foreach (var entry in pageItems)
+                {
+                    var block = entry.Block;
+                    var includeStandard = detailLevel >= ResponseDetailLevel.Standard;
+                    var includeFull = detailLevel == ResponseDetailLevel.Full;
+
+                    responseList.Add(new ResponseBlockInfo
+                    {
+                        Path = entry.Path,
+                        Name = block.Name,
+                        TypeName = block.GetType().Name,
+                        Namespace = includeStandard ? block.Namespace : null,
+                        ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
+                        MemoryLayout = includeStandard
+                            ? Enum.GetName(typeof(MemoryLayout), block.MemoryLayout)
+                            : null,
+                        IsConsistent = block.IsConsistent,
+                        HeaderName = includeStandard ? block.HeaderName : null,
+                        ModifiedDate = includeStandard ? block.ModifiedDate : null,
+                        IsKnowHowProtected = includeStandard ? block.IsKnowHowProtected : null,
+                        Attributes = includeFull ? Helper.GetAttributeList(block) : null,
+                        Description = includeFull ? block.ToString() : null
+                    });
+                }
+
+                var nextOffset = offset + responseList.Count;
+                return new ResponseBlocks
+                {
+                    Message = detailLevel == ResponseDetailLevel.Full
+                        ? $"Blocks with regex '{regexName}' retrieved from '{softwarePath}'"
+                        : null,
+                    Items = responseList,
+                    Page = new PageInfo
+                    {
+                        Returned = responseList.Count,
+                        HasMore = hasMore,
+                        NextCursor = hasMore
+                            ? PageRequest.CreateCursor(nextOffset, cursorScope)
+                            : null
+                    },
+                    Meta = detailLevel == ResponseDetailLevel.Full
+                        ? new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
                             ["success"] = true
                         }
-                    };
-                }
-                else
-                {
-                    throw new McpException($"Failed retrieving blocks with regex '{regexName}' in '{softwarePath}'", McpErrorCode.InternalError);
-                }
+                        : null
+                };
+            }
+            catch (RegexMatchTimeoutException ex)
+            {
+                throw new McpException(
+                    "The block filter exceeded the one-second match timeout.",
+                    ex,
+                    McpErrorCode.InvalidParams);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
+            }
+            catch (PortalException ex)
+            {
+                throw MapPortalException("Failed to retrieve PLC blocks", ex);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -753,16 +999,17 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetBlocksWithHierarchy"), Description("Get a list of all blocks with their group hierarchy from the plc software.")]
+        [McpServerTool(Name = "GetBlocksWithHierarchy"), Description("Legacy unpaged block hierarchy which may be large. Prefer paged GetBlocks unless the complete hierarchy is explicitly required.")]
         public static ResponseBlocksWithHierarchy GetBlocksWithHierarchy(
-        [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath)
+            [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
+            [Description("detailLevel: Summary returns identity and core PLC fields; Full also includes bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary)
         {
             try
             {
                 var rootGroup = Portal.GetBlockRootGroup(softwarePath);
                 if (rootGroup != null)
                 {
-                    var hierarchy = Helper.BuildBlockHierarchy(rootGroup);
+                    var hierarchy = Helper.BuildBlockHierarchy(rootGroup, detailLevel);
                     return new ResponseBlocksWithHierarchy
                     {
                         Message = $"Block hierarchy retrieved from '{softwarePath}'",
@@ -777,8 +1024,12 @@ namespace TiaMcpServer.ModelContextProtocol
                 else
                 {
                     // Specific failure: root group could not be resolved
-                    throw new McpException($"Block root group not found for '{softwarePath}'", McpErrorCode.InternalError);
+                    throw new McpException($"Block root group not found for '{softwarePath}'", McpErrorCode.InvalidParams);
                 }
+            }
+            catch (PortalException ex)
+            {
+                throw MapPortalException("Failed to retrieve the PLC block hierarchy", ex);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -789,21 +1040,29 @@ namespace TiaMcpServer.ModelContextProtocol
 
 
 
-        [McpServerTool(Name = "ExportBlock"), Description("Export a block from plc software to file")]
+#if TIA_MCP_READ_WRITE
+        [McpServerTool(Name = "ExportBlock"), Description("Export one exact PLC block as XML beneath the configured output root. Existing files are preserved unless overwrite is explicitly true.")]
         public static ResponseExportBlock ExportBlock(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("blockPath: full path to the block in the project structure, e.g. 'Group/Subgroup/Name' (single names are ambiguous)")] string blockPath,
-            [Description("exportPath: defines the path where to export the block")] string exportPath,
-            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false)
+            [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
+            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false,
+            [Description("overwrite: replace an existing output file. Defaults to false")] bool overwrite = false)
         {
             try
             {
-                var block = Portal.ExportBlock(softwarePath, blockPath, exportPath, preservePath);
+                var resolvedExportPath = ResolveOutputDirectory(exportPath);
+                var block = Portal.ExportBlock(
+                    softwarePath,
+                    blockPath,
+                    resolvedExportPath,
+                    preservePath,
+                    overwrite);
                 if (block != null)
                 {
                     return new ResponseExportBlock
                     {
-                        Message = $"Block exported from '{blockPath}' to '{exportPath}'",
+                        Message = $"Block exported from '{blockPath}' to '{resolvedExportPath}'",
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
@@ -927,15 +1186,33 @@ namespace TiaMcpServer.ModelContextProtocol
                 return string.Empty; // best effort only
             }
         }
-        [McpServerTool(Name = "ImportBlock"), Description("Import a block file to plc software")]
-        public static ResponseImportBlock ImportBlock(
-            [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("groupPath: defines the path in the project structure to the group, where to import the block")] string groupPath,
-            [Description("importPath: defines the path of the xml file from where to import the block")] string importPath)
+
+        private static string ResolveOutputDirectory(string requestedPath)
         {
             try
             {
-                if (Portal.ImportBlock(softwarePath, groupPath, importPath))
+                return OutputPathPolicy.ResolveDirectory(requestedPath);
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is InvalidOperationException ||
+                ex is NotSupportedException ||
+                ex is PathTooLongException)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
+            }
+        }
+
+        [McpServerTool(Name = "ImportBlock"), Description("Import one XML block into PLC software. This mutates the project and does not replace an existing block unless overwrite is explicitly true.")]
+        public static ResponseImportBlock ImportBlock(
+            [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
+            [Description("groupPath: defines the path in the project structure to the group, where to import the block")] string groupPath,
+            [Description("importPath: defines the path of the xml file from where to import the block")] string importPath,
+            [Description("overwrite: replace an existing block with the same identity. Defaults to false")] bool overwrite = false)
+        {
+            try
+            {
+                if (Portal.ImportBlock(softwarePath, groupPath, importPath, overwrite))
                 {
                     return new ResponseImportBlock
                     {
@@ -958,22 +1235,34 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "ExportBlocks"), Description("Export all blocks from the plc software to path")]
+        [McpServerTool(Name = "ExportBlocks"), Description("Export matching PLC blocks as XML beneath the configured output root. Use a bounded filter and inspect the compact partial-result counts.")]
         public static async Task<ResponseExportBlocks> ExportBlocks(
             IMcpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("exportPath: defines the path where to export the blocks")] string exportPath,
-            [Description("regexName: defines the name or regular expression to find the block. Use empty string (default) to find all")] string regexName = "",
-            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false)
+            [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
+            [Description("regexName: optional regular expression applied to block names; maximum 256 characters and one-second match timeout")] string regexName = "",
+            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false,
+            [Description("overwrite: replace existing output files. Defaults to false; existing items are skipped")] bool overwrite = false,
+            [Description("resultLimit: maximum compact item summaries returned after the bulk operation. Defaults to 50 and is capped at 200")] int resultLimit = PageRequest.DefaultLimit)
         {
             var startTime = DateTime.Now;
             var progressToken = context.Params?.ProgressToken;
             
             try
             {
+                var resolvedExportPath = ResolveOutputDirectory(exportPath);
+                var boundedResultLimit = new PageRequest
+                {
+                    Limit = resultLimit
+                }.GetBoundedLimit();
+                if (!string.IsNullOrWhiteSpace(regexName))
+                {
+                    _ = BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
+                }
+
                 // First, get the list of blocks to determine total count
-                Logger?.LogInformation($"Starting export of blocks from '{softwarePath}' to '{exportPath}'");
+                Logger?.LogInformation($"Starting export of blocks from '{softwarePath}' to '{resolvedExportPath}'");
                 
                 var allBlocks = await Task.Run(() => Portal.GetBlocks(softwarePath, regexName));
                 var totalBlocks = allBlocks?.Count ?? 0;
@@ -1019,31 +1308,36 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
 
                 // Export blocks asynchronously
-                var exportedBlocks = await Task.Run(() => Portal.ExportBlocks(softwarePath, exportPath, regexName, preservePath));
+                var exportedBlocks = await Task.Run(() => Portal.ExportBlocks(
+                    softwarePath,
+                    resolvedExportPath,
+                    regexName,
+                    preservePath,
+                    overwrite));
 
                 // Build list of inconsistent (skipped) blocks for reporting
                 var inconsistentInfos = new List<ResponseBlockInfo>();
+                var inconsistentCount = 0;
                 if (allBlocks != null)
                 {
                     foreach (var b in allBlocks)
                     {
                         if (b != null && b.IsConsistent == false)
                         {
-                            var attrs = Helper.GetAttributeList(b);
-                            inconsistentInfos.Add(new ResponseBlockInfo
+                            inconsistentCount++;
+                            if (inconsistentInfos.Count < boundedResultLimit)
                             {
-                                Name = b.Name,
-                                TypeName = b.GetType().Name,
-                                Namespace = b.Namespace,
-                                ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), b.ProgrammingLanguage),
-                                MemoryLayout = Enum.GetName(typeof(MemoryLayout), b.MemoryLayout),
-                                IsConsistent = b.IsConsistent,
-                                HeaderName = b.HeaderName,
-                                ModifiedDate = b.ModifiedDate,
-                                IsKnowHowProtected = b.IsKnowHowProtected,
-                                Attributes = attrs,
-                                Description = b.ToString()
-                            });
+                                inconsistentInfos.Add(new ResponseBlockInfo
+                                {
+                                    Path = Portal.GetBlockPath(b),
+                                    Name = b.Name,
+                                    TypeName = b.GetType().Name,
+                                    ProgrammingLanguage = Enum.GetName(
+                                        typeof(ProgrammingLanguage),
+                                        b.ProgrammingLanguage),
+                                    IsConsistent = b.IsConsistent
+                                });
+                            }
                         }
                     }
                 }
@@ -1070,22 +1364,19 @@ namespace TiaMcpServer.ModelContextProtocol
                     {
                         if (block != null)
                         {
-                            var attributes = Helper.GetAttributeList(block);
-
-                            responseList.Add(new ResponseBlockInfo
+                            if (responseList.Count < boundedResultLimit)
                             {
-                                Name = block.Name,
-                                TypeName = block.GetType().Name,
-                                Namespace = block.Namespace,
-                                ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
-                                MemoryLayout = Enum.GetName(typeof(MemoryLayout), block.MemoryLayout),
-                                IsConsistent = block.IsConsistent,
-                                HeaderName = block.HeaderName,
-                                ModifiedDate = block.ModifiedDate,
-                                IsKnowHowProtected = block.IsKnowHowProtected,
-                                Attributes = attributes,
-                                Description = block.ToString()
-                            });
+                                responseList.Add(new ResponseBlockInfo
+                                {
+                                    Path = Portal.GetBlockPath(block),
+                                    Name = block.Name,
+                                    TypeName = block.GetType().Name,
+                                    ProgrammingLanguage = Enum.GetName(
+                                        typeof(ProgrammingLanguage),
+                                        block.ProgrammingLanguage),
+                                    IsConsistent = block.IsConsistent
+                                });
+                            }
                         }
                         processedCount++;
                     }
@@ -1103,20 +1394,29 @@ namespace TiaMcpServer.ModelContextProtocol
                     }
 
                     var duration = (DateTime.Now - startTime).TotalSeconds;
+                    var expectedExportCount = Math.Max(
+                        0,
+                        totalBlocks - inconsistentCount);
+                    var notExportedCount = Math.Max(
+                        0,
+                        expectedExportCount - processedCount);
                     Logger?.LogInformation($"Export completed: {processedCount} blocks exported in {duration:F2} seconds");
 
                     return new ResponseExportBlocks
                     {
-                        Message = $"Export completed: {processedCount} blocks with regex '{regexName}' exported from '{softwarePath}' to '{exportPath}'",
+                        Message = $"Export completed: {processedCount} blocks with regex '{regexName}' exported from '{softwarePath}' to '{resolvedExportPath}'",
                         Items = responseList,
                         Inconsistent = inconsistentInfos,
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
-                            ["success"] = true,
+                            ["success"] = notExportedCount == 0,
                             ["totalBlocks"] = totalBlocks,
                             ["exportedBlocks"] = processedCount,
-                            ["inconsistentBlocks"] = inconsistentInfos.Count,
+                            ["inconsistentBlocks"] = inconsistentCount,
+                            ["notExportedBlocks"] = notExportedCount,
+                            ["returnedItems"] = responseList.Count,
+                            ["itemsTruncated"] = processedCount > responseList.Count,
                             ["duration"] = duration
                         }
                     };
@@ -1125,6 +1425,15 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     throw new McpException($"Failed exporting blocks with '{regexName}' from '{softwarePath}' to {exportPath}", McpErrorCode.InternalError);
                 }
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is RegexMatchTimeoutException)
+            {
+                throw new McpException(
+                    $"Invalid block filter '{regexName}': {ex.Message}",
+                    ex,
+                    McpErrorCode.InvalidParams);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -1152,44 +1461,52 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error exporting blocks with '{regexName}' from '{softwarePath}' to {exportPath}: {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
         #endregion
 
         #region types
 
-        [McpServerTool(Name = "GetTypeInfo"), Description("Get a type info from the plc software")]
+        [McpServerTool(Name = "GetTypeInfo"), Description("Get one PLC data type with typed compact detail. Request Full only when bounded raw attributes are needed.")]
         public static ResponseTypeInfo GetTypeInfo(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("typePath: defines the path in the project structure to the type")] string typePath)
+            [Description("typePath: exact canonical path returned by GetTypes")] string typePath,
+            [Description("detailLevel: Summary returns identity and consistency, Standard adds typed metadata, and Full adds bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
         {
             try
             {
                 var type = Portal.GetType(softwarePath, typePath);
                 if (type != null)
                 {
-                    var attributes = Helper.GetAttributeList(type);
+                    var includeStandard = detailLevel >= ResponseDetailLevel.Standard;
+                    var includeFull = detailLevel == ResponseDetailLevel.Full;
 
                     return new ResponseTypeInfo
                     {
-                        Message = $"Type info retrieved from '{typePath}' in '{softwarePath}'",
+                        Message = includeFull
+                            ? $"Type info retrieved from '{typePath}' in '{softwarePath}'"
+                            : null,
+                        Path = Portal.GetTypePath(type),
                         Name = type.Name,
                         TypeName = type.GetType().Name,
-                        Namespace = type.Namespace,
+                        Namespace = includeStandard ? type.Namespace : null,
                         IsConsistent = type.IsConsistent,
-                        ModifiedDate = type.ModifiedDate,
-                        IsKnowHowProtected = type.IsKnowHowProtected,
-                        Attributes = attributes,
-                        Description = type.ToString(),
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true
-                        }
+                        ModifiedDate = includeStandard ? type.ModifiedDate : null,
+                        IsKnowHowProtected = includeStandard ? type.IsKnowHowProtected : null,
+                        Attributes = includeFull ? Helper.GetAttributeList(type) : null,
+                        Description = includeFull ? type.ToString() : null,
+                        Meta = includeFull
+                            ? new JsonObject
+                            {
+                                ["timestamp"] = DateTime.Now,
+                                ["success"] = true
+                            }
+                            : null
                     };
                 }
                 else
                 {
-                    throw new McpException($"Type not found at '{typePath}' in '{softwarePath}'", McpErrorCode.InternalError);
+                    throw new McpException($"Type not found at '{typePath}' in '{softwarePath}'", McpErrorCode.InvalidParams);
                 }
             }
             catch (Exception ex) when (ex is not McpException)
@@ -1198,53 +1515,114 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetTypes"), Description("Get a list of types from the plc software")]
+        [McpServerTool(Name = "GetTypes"), Description("List PLC data types with canonical paths, compact detail and opaque paging. Use returned paths with type-specific tools.")]
         public static ResponseTypes GetTypes(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("regexName: defines the name or regular expression to find the block. Use empty string (default) to find all")] string regexName = "")
+            [Description("regexName: optional regular expression applied to type names; maximum 256 characters and one-second match timeout")] string regexName = "",
+            [Description("detailLevel: Summary returns identity and consistency, Standard adds typed metadata, and Full adds bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary,
+            [Description("limit: maximum types to return. Defaults to 50 and is capped at 200")] int limit = PageRequest.DefaultLimit,
+            [Description("cursor: opaque cursor returned by the previous page; omit for the first page")] string cursor = "")
         {
             try
             {
-                var list = Portal.GetTypes(softwarePath, regexName);
-
-                var responseList = new List<ResponseTypeInfo>();
-                foreach (var type in list)
+                var pageRequest = new PageRequest
                 {
-                    if (type != null)
-                    {
-                        var attributes = Helper.GetAttributeList(type);
-
-                        responseList.Add(new ResponseTypeInfo
-                        {
-                            Name = type.Name,
-                            TypeName = type.GetType().Name,
-                            Namespace = type.Namespace,
-                            IsConsistent = type.IsConsistent,
-                            ModifiedDate = type.ModifiedDate,
-                            IsKnowHowProtected = type.IsKnowHowProtected,
-                            Attributes = attributes,
-                            Description = type.ToString()
-                        });
-                    }
+                    Limit = limit,
+                    Cursor = cursor
+                };
+                var cursorScope = $"GetTypes\n{softwarePath}\n{regexName}";
+                var boundedLimit = pageRequest.GetBoundedLimit();
+                var offset = pageRequest.GetOffset(cursorScope);
+                if (!string.IsNullOrWhiteSpace(regexName))
+                {
+                    _ = BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
                 }
 
-                if (list != null)
-                {
-                    return new ResponseTypes
+                var list = Portal.GetTypes(softwarePath, regexName)
+                    .Select(type => new
                     {
-                        Message = $"Types with regex '{regexName}' retrieved from '{softwarePath}'",
-                        Items = responseList,
-                        Meta = new JsonObject
+                        Type = type,
+                        Path = Portal.GetTypePath(type)
+                    })
+                    .OrderBy(entry => entry.Path, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(entry => entry.Path, StringComparer.Ordinal)
+                    .ToList();
+
+                if (offset > list.Count)
+                {
+                    throw new McpException("The paging cursor is outside the available type list.", McpErrorCode.InvalidParams);
+                }
+
+                var pageItems = list
+                    .Skip(offset)
+                    .Take(boundedLimit + 1)
+                    .ToList();
+                var hasMore = pageItems.Count > boundedLimit;
+
+                if (hasMore)
+                {
+                    pageItems.RemoveAt(pageItems.Count - 1);
+                }
+
+                var responseList = new List<ResponseTypeInfo>();
+                foreach (var entry in pageItems)
+                {
+                    var type = entry.Type;
+                    var includeStandard = detailLevel >= ResponseDetailLevel.Standard;
+                    var includeFull = detailLevel == ResponseDetailLevel.Full;
+
+                    responseList.Add(new ResponseTypeInfo
+                    {
+                        Path = entry.Path,
+                        Name = type.Name,
+                        TypeName = type.GetType().Name,
+                        Namespace = includeStandard ? type.Namespace : null,
+                        IsConsistent = type.IsConsistent,
+                        ModifiedDate = includeStandard ? type.ModifiedDate : null,
+                        IsKnowHowProtected = includeStandard ? type.IsKnowHowProtected : null,
+                        Attributes = includeFull ? Helper.GetAttributeList(type) : null,
+                        Description = includeFull ? type.ToString() : null
+                    });
+                }
+
+                var nextOffset = offset + responseList.Count;
+                return new ResponseTypes
+                {
+                    Message = detailLevel == ResponseDetailLevel.Full
+                        ? $"Types with regex '{regexName}' retrieved from '{softwarePath}'"
+                        : null,
+                    Items = responseList,
+                    Page = new PageInfo
+                    {
+                        Returned = responseList.Count,
+                        HasMore = hasMore,
+                        NextCursor = hasMore
+                            ? PageRequest.CreateCursor(nextOffset, cursorScope)
+                            : null
+                    },
+                    Meta = detailLevel == ResponseDetailLevel.Full
+                        ? new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
                             ["success"] = true
                         }
-                    };
-                }
-                else
-                {
-                    throw new McpException($"Failed retrieving user defined types with regex '{regexName}' in '{softwarePath}'", McpErrorCode.InternalError);
-                }
+                        : null
+                };
+            }
+            catch (RegexMatchTimeoutException ex)
+            {
+                throw new McpException(
+                    "The type filter exceeded the one-second match timeout.",
+                    ex,
+                    McpErrorCode.InvalidParams);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
+            }
+            catch (PortalException ex)
+            {
+                throw MapPortalException("Failed to retrieve PLC data types", ex);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -1252,21 +1630,29 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "ExportType"), Description("Export a type from the plc software")]
+#if TIA_MCP_READ_WRITE
+        [McpServerTool(Name = "ExportType"), Description("Export one exact PLC data type as XML beneath the configured output root. Existing files are preserved unless overwrite is explicitly true.")]
         public static ResponseExportType ExportType(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("exportPath: defines the path where export the type")] string exportPath,
+            [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
             [Description("typePath: defines the path in the project structure to the type")] string typePath,
-            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false)
+            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false,
+            [Description("overwrite: replace an existing output file. Defaults to false")] bool overwrite = false)
         {
             try
             {
-                var type = Portal.ExportType(softwarePath, typePath, exportPath, preservePath);
+                var resolvedExportPath = ResolveOutputDirectory(exportPath);
+                var type = Portal.ExportType(
+                    softwarePath,
+                    typePath,
+                    resolvedExportPath,
+                    preservePath,
+                    overwrite);
                 if (type != null)
                 {
                     return new ResponseExportType
                     {
-                        Message = $"Type exported from '{typePath}' to '{exportPath}'",
+                        Message = $"Type exported from '{typePath}' to '{resolvedExportPath}'",
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
@@ -1306,15 +1692,16 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "ImportType"), Description("Import a type from file into the plc software")]
+        [McpServerTool(Name = "ImportType"), Description("Import one XML PLC data type. This mutates the project and does not replace an existing type unless overwrite is explicitly true.")]
         public static ResponseImportType ImportType(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("groupPath: defines the path in the project structure to the group, where to import the type")] string groupPath,
-            [Description("importPath: defines the path of the xml file from where to import the type")] string importPath)
+            [Description("importPath: defines the path of the xml file from where to import the type")] string importPath,
+            [Description("overwrite: replace an existing type with the same identity. Defaults to false")] bool overwrite = false)
         {
             try
             {
-                if (Portal.ImportType(softwarePath, groupPath, importPath))
+                if (Portal.ImportType(softwarePath, groupPath, importPath, overwrite))
                 {
                     return new ResponseImportType
                     {
@@ -1337,22 +1724,34 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "ExportTypes"), Description("Export types from the plc software to path")]
+        [McpServerTool(Name = "ExportTypes"), Description("Export matching PLC data types as XML beneath the configured output root. Use a bounded filter and inspect the compact partial-result counts.")]
         public static async Task<ResponseExportTypes> ExportTypes(
             IMcpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("exportPath: defines the path where to export the types")] string exportPath,
-            [Description("regexName: defines the name or regular expression to find the block. Use empty string (default) to find all")] string regexName = "",
-            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false)
+            [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
+            [Description("regexName: optional regular expression applied to type names; maximum 256 characters and one-second match timeout")] string regexName = "",
+            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false,
+            [Description("overwrite: replace existing output files. Defaults to false; existing items are skipped")] bool overwrite = false,
+            [Description("resultLimit: maximum compact item summaries returned after the bulk operation. Defaults to 50 and is capped at 200")] int resultLimit = PageRequest.DefaultLimit)
         {
             var startTime = DateTime.Now;
             var progressToken = context.Params?.ProgressToken;
             
             try
             {
+                var resolvedExportPath = ResolveOutputDirectory(exportPath);
+                var boundedResultLimit = new PageRequest
+                {
+                    Limit = resultLimit
+                }.GetBoundedLimit();
+                if (!string.IsNullOrWhiteSpace(regexName))
+                {
+                    _ = BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
+                }
+
                 // First, get the list of types to determine total count
-                Logger?.LogInformation($"Starting export of types from '{softwarePath}' to '{exportPath}'");
+                Logger?.LogInformation($"Starting export of types from '{softwarePath}' to '{resolvedExportPath}'");
                 
                 var allTypes = await Task.Run(() => Portal.GetTypes(softwarePath, regexName));
                 var totalTypes = allTypes?.Count ?? 0;
@@ -1398,28 +1797,33 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
 
                 // Export types asynchronously
-                var exportedTypes = await Task.Run(() => Portal.ExportTypes(softwarePath, exportPath, regexName, preservePath));
+                var exportedTypes = await Task.Run(() => Portal.ExportTypes(
+                    softwarePath,
+                    resolvedExportPath,
+                    regexName,
+                    preservePath,
+                    overwrite));
 
                 // Build list of inconsistent (skipped) types for reporting
                 var inconsistentTypeInfos = new List<ResponseTypeInfo>();
+                var inconsistentTypeCount = 0;
                 if (allTypes != null)
                 {
                     foreach (var t in allTypes)
                     {
                         if (t != null && t.IsConsistent == false)
                         {
-                            var attrs = Helper.GetAttributeList(t);
-                            inconsistentTypeInfos.Add(new ResponseTypeInfo
+                            inconsistentTypeCount++;
+                            if (inconsistentTypeInfos.Count < boundedResultLimit)
                             {
-                                Name = t.Name,
-                                TypeName = t.GetType().Name,
-                                Namespace = t.Namespace,
-                                IsConsistent = t.IsConsistent,
-                                ModifiedDate = t.ModifiedDate,
-                                IsKnowHowProtected = t.IsKnowHowProtected,
-                                Attributes = attrs,
-                                Description = t.ToString()
-                            });
+                                inconsistentTypeInfos.Add(new ResponseTypeInfo
+                                {
+                                    Path = Portal.GetTypePath(t),
+                                    Name = t.Name,
+                                    TypeName = t.GetType().Name,
+                                    IsConsistent = t.IsConsistent
+                                });
+                            }
                         }
                     }
                 }
@@ -1446,19 +1850,16 @@ namespace TiaMcpServer.ModelContextProtocol
                     {
                         if (type != null)
                         {
-                            var attributes = Helper.GetAttributeList(type);
-
-                            responseList.Add(new ResponseTypeInfo
+                            if (responseList.Count < boundedResultLimit)
                             {
-                                Name = type.Name,
-                                TypeName = type.GetType().Name,
-                                Namespace = type.Namespace,
-                                IsConsistent = type.IsConsistent,
-                                ModifiedDate = type.ModifiedDate,
-                                IsKnowHowProtected = type.IsKnowHowProtected,
-                                Attributes = attributes,
-                                Description = type.ToString()
-                            });
+                                responseList.Add(new ResponseTypeInfo
+                                {
+                                    Path = Portal.GetTypePath(type),
+                                    Name = type.Name,
+                                    TypeName = type.GetType().Name,
+                                    IsConsistent = type.IsConsistent
+                                });
+                            }
                         }
                         processedCount++;
                     }
@@ -1476,20 +1877,29 @@ namespace TiaMcpServer.ModelContextProtocol
                     }
 
                     var duration = (DateTime.Now - startTime).TotalSeconds;
+                    var expectedExportCount = Math.Max(
+                        0,
+                        totalTypes - inconsistentTypeCount);
+                    var notExportedCount = Math.Max(
+                        0,
+                        expectedExportCount - processedCount);
                     Logger?.LogInformation($"Type export completed: {processedCount} types exported in {duration:F2} seconds");
 
                     return new ResponseExportTypes
                     {
-                        Message = $"Export completed: {processedCount} types with regex '{regexName}' exported from '{softwarePath}' to '{exportPath}'",
+                        Message = $"Export completed: {processedCount} types with regex '{regexName}' exported from '{softwarePath}' to '{resolvedExportPath}'",
                         Items = responseList,
                         Inconsistent = inconsistentTypeInfos,
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
-                            ["success"] = true,
+                            ["success"] = notExportedCount == 0,
                             ["totalTypes"] = totalTypes,
                             ["exportedTypes"] = processedCount,
-                            ["inconsistentTypes"] = inconsistentTypeInfos.Count,
+                            ["inconsistentTypes"] = inconsistentTypeCount,
+                            ["notExportedTypes"] = notExportedCount,
+                            ["returnedItems"] = responseList.Count,
+                            ["itemsTruncated"] = processedCount > responseList.Count,
                             ["duration"] = duration
                         }
                     };
@@ -1498,6 +1908,15 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     throw new McpException($"Failed exporting types '{regexName}' from '{softwarePath}' to {exportPath}", McpErrorCode.InternalError);
                 }
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is RegexMatchTimeoutException)
+            {
+                throw new McpException(
+                    $"Invalid type filter '{regexName}': {ex.Message}",
+                    ex,
+                    McpErrorCode.InvalidParams);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -1525,29 +1944,38 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error exporting types '{regexName}' from '{softwarePath}' to {exportPath}: {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
         #endregion
 
         #region documents
 
-        [McpServerTool(Name = "ExportAsDocuments"), Description("Export as documents (.s7dcl/.s7res) from a block in the plc software to path")]
+#if TIA_MCP_READ_WRITE && TIA_MCP_V20
+        [McpServerTool(Name = "ExportAsDocuments"), Description("V20 only. Export one exact block as SIMATIC SD documents beneath the configured output root, without replacing files by default.")]
         public static ResponseExportAsDocuments ExportAsDocuments(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("blockPath: defines the path in the project structure to the block")] string blockPath,
-            [Description("exportPath: defines the path where to export the documents")] string exportPath,
-            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false)
+            [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
+            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false,
+            [Description("overwrite: replace existing .s7dcl or .s7res files. Defaults to false")] bool overwrite = false)
         {
             try
             {
+                var resolvedExportPath = ResolveOutputDirectory(exportPath);
                 if (Engineering.TiaMajorVersion < 20)
                 {
                     throw new McpException("ExportAsDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
                 }
-                if (Portal.ExportAsDocuments(softwarePath, blockPath, exportPath, preservePath))
+                if (Portal.ExportAsDocuments(
+                    softwarePath,
+                    blockPath,
+                    resolvedExportPath,
+                    preservePath,
+                    overwrite))
                 {
                     return new ResponseExportAsDocuments
                     {
-                        Message = $"Documents exported from '{blockPath}' to '{exportPath}'",
+                        Message = $"Documents exported from '{blockPath}' to '{resolvedExportPath}'",
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
@@ -1560,32 +1988,50 @@ namespace TiaMcpServer.ModelContextProtocol
                     throw new McpException($"Failed exporting documents from '{blockPath}' to '{exportPath}'", McpErrorCode.InternalError);
                 }
             }
+            catch (PortalException ex) when (
+                ex.Code == PortalErrorCode.NotFound ||
+                ex.Code == PortalErrorCode.InvalidParams ||
+                ex.Code == PortalErrorCode.InvalidState)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
+            }
             catch (Exception ex) when (ex is not McpException)
             {
                 throw new McpException($"Unexpected error exporting documents from '{blockPath}' to '{exportPath}': {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
 
-        [McpServerTool(Name = "ExportBlocksAsDocuments"), Description("Export as documents (.s7dcl/.s7res) from blocks in the plc software to path")]
+        [McpServerTool(Name = "ExportBlocksAsDocuments"), Description("V20 only. Export matching blocks as SIMATIC SD documents beneath the configured output root and return bounded result counts.")]
         public static async Task<ResponseExportBlocksAsDocuments> ExportBlocksAsDocuments(
             IMcpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("exportPath: defines the path where to export the documents")] string exportPath,
-            [Description("regexName: defines the name or regular expression to find the block. Use empty string (default) to find all")] string regexName = "",
-            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false)
+            [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
+            [Description("regexName: optional regular expression applied to block names; maximum 256 characters and one-second match timeout")] string regexName = "",
+            [Description("preservePath: preserves the path/structure of the plc software")] bool preservePath = false,
+            [Description("overwrite: replace existing .s7dcl or .s7res files. Defaults to false; existing items are skipped")] bool overwrite = false,
+            [Description("resultLimit: maximum compact item summaries returned after the bulk operation. Defaults to 50 and is capped at 200")] int resultLimit = PageRequest.DefaultLimit)
         {
             var startTime = DateTime.Now;
             var progressToken = context.Params?.ProgressToken;
             
             try
             {
+                var resolvedExportPath = ResolveOutputDirectory(exportPath);
+                var boundedResultLimit = new PageRequest
+                {
+                    Limit = resultLimit
+                }.GetBoundedLimit();
+                if (!string.IsNullOrWhiteSpace(regexName))
+                {
+                    _ = BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
+                }
                 if (Engineering.TiaMajorVersion < 20)
                 {
                     throw new McpException("ExportBlocksAsDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
                 }
                 // First, get the list of blocks to determine total count
-                Logger?.LogInformation($"Starting export of blocks as documents from '{softwarePath}' to '{exportPath}'");
+                Logger?.LogInformation($"Starting export of blocks as documents from '{softwarePath}' to '{resolvedExportPath}'");
                 
                 var allBlocks = await Task.Run(() => Portal.GetBlocks(softwarePath, regexName));
                 var totalBlocks = allBlocks?.Count ?? 0;
@@ -1631,7 +2077,12 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
 
                 // Export blocks as documents asynchronously
-                var exportedBlocks = await Task.Run(() => Portal.ExportBlocksAsDocuments(softwarePath, exportPath, regexName, preservePath));
+                var exportedBlocks = await Task.Run(() => Portal.ExportBlocksAsDocuments(
+                    softwarePath,
+                    resolvedExportPath,
+                    regexName,
+                    preservePath,
+                    overwrite));
                 
                 // Send progress update after export completion
                 if (exportedBlocks != null && progressToken != null)
@@ -1655,22 +2106,19 @@ namespace TiaMcpServer.ModelContextProtocol
                     {
                         if (block != null)
                         {
-                            var attributes = Helper.GetAttributeList(block);
-
-                            responseList.Add(new ResponseBlockInfo
+                            if (responseList.Count < boundedResultLimit)
                             {
-                                Name = block.Name,
-                                TypeName = block.GetType().Name,
-                                Namespace = block.Namespace,
-                                ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
-                                MemoryLayout = Enum.GetName(typeof(MemoryLayout), block.MemoryLayout),
-                                IsConsistent = block.IsConsistent,
-                                HeaderName = block.HeaderName,
-                                ModifiedDate = block.ModifiedDate,
-                                IsKnowHowProtected = block.IsKnowHowProtected,
-                                Attributes = attributes,
-                                Description = block.ToString()
-                            });
+                                responseList.Add(new ResponseBlockInfo
+                                {
+                                    Path = Portal.GetBlockPath(block),
+                                    Name = block.Name,
+                                    TypeName = block.GetType().Name,
+                                    ProgrammingLanguage = Enum.GetName(
+                                        typeof(ProgrammingLanguage),
+                                        block.ProgrammingLanguage),
+                                    IsConsistent = block.IsConsistent
+                                });
+                            }
                         }
                         processedCount++;
                     }
@@ -1688,18 +2136,24 @@ namespace TiaMcpServer.ModelContextProtocol
                     }
 
                     var duration = (DateTime.Now - startTime).TotalSeconds;
+                    var notExportedCount = Math.Max(
+                        0,
+                        totalBlocks - processedCount);
                     Logger?.LogInformation($"Document export completed: {processedCount} blocks exported in {duration:F2} seconds");
 
                     return new ResponseExportBlocksAsDocuments
                     {
-                        Message = $"Document export completed: {processedCount} blocks with regex '{regexName}' exported from '{softwarePath}' to '{exportPath}'",
+                        Message = $"Document export completed: {processedCount} blocks with regex '{regexName}' exported from '{softwarePath}' to '{resolvedExportPath}'",
                         Items = responseList,
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
-                            ["success"] = true,
+                            ["success"] = notExportedCount == 0,
                             ["totalBlocks"] = totalBlocks,
                             ["exportedBlocks"] = processedCount,
+                            ["notExportedOrInconsistentBlocks"] = notExportedCount,
+                            ["returnedItems"] = responseList.Count,
+                            ["itemsTruncated"] = processedCount > responseList.Count,
                             ["duration"] = duration
                         }
                     };
@@ -1708,6 +2162,15 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     throw new McpException($"Failed exporting documents to '{exportPath}'", McpErrorCode.InternalError);
                 }
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is RegexMatchTimeoutException)
+            {
+                throw new McpException(
+                    $"Invalid block filter '{regexName}': {ex.Message}",
+                    ex,
+                    McpErrorCode.InvalidParams);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -1736,13 +2199,13 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "ImportFromDocuments"), Description("Import program block from SIMATIC SD documents (.s7dcl/.s7res) into PLC software (V20+)")]
+        [McpServerTool(Name = "ImportFromDocuments"), Description("V20 only. Import one SIMATIC SD document pair into PLC software using an explicit conflict policy. This mutates the project.")]
         public static ResponseImportFromDocuments ImportFromDocuments(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("groupPath: optional path within the PLC program where the block should be placed (empty for root)")] string groupPath,
             [Description("importPath: directory containing the document files (.s7dcl/.s7res)")] string importPath,
             [Description("fileNameWithoutExtension: name of the block file without extension") ] string fileNameWithoutExtension,
-            [Description("importOption: ImportDocumentOptions value (None, Override, SkipInactiveCultures, ActivateInactiveCultures)")] string importOption = "Override")
+            [Description("importOption: conflict policy. Defaults to None; use Override only when the user explicitly asks to replace existing content")] string importOption = "None")
         {
             try
             {
@@ -1798,21 +2261,30 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "ImportBlocksFromDocuments"), Description("Import program blocks from SIMATIC SD documents (.s7dcl/.s7res) into PLC software (V20+)")]
+        [McpServerTool(Name = "ImportBlocksFromDocuments"), Description("V20 only. Import matching SIMATIC SD documents into PLC software using an explicit conflict policy and return bounded result counts.")]
         public static async Task<ResponseImportBlocksFromDocuments> ImportBlocksFromDocuments(
             IMcpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("groupPath: optional path within the PLC program where the blocks should be placed (empty for root)")] string groupPath,
             [Description("importPath: directory containing the document files (.s7dcl/.s7res)")] string importPath,
-            [Description("regexName: name or regular expression to select block files (empty for all)")] string regexName = "",
-            [Description("importOption: ImportDocumentOptions value (None, Override, SkipInactiveCultures, ActivateInactiveCultures)")] string importOption = "Override")
+            [Description("regexName: optional regular expression applied to block filenames; maximum 256 characters and one-second match timeout")] string regexName = "",
+            [Description("importOption: conflict policy. Defaults to None; use Override only when the user explicitly asks to replace existing content")] string importOption = "None",
+            [Description("resultLimit: maximum compact item summaries returned after the bulk operation. Defaults to 50 and is capped at 200")] int resultLimit = PageRequest.DefaultLimit)
         {
             var startTime = DateTime.Now;
             var progressToken = context.Params?.ProgressToken;
 
             try
             {
+                var boundedResultLimit = new PageRequest
+                {
+                    Limit = resultLimit
+                }.GetBoundedLimit();
+                var filterRegex = string.IsNullOrWhiteSpace(regexName)
+                    ? null
+                    : BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
+
                 if (Engineering.TiaMajorVersion < 20)
                 {
                     throw new McpException("ImportBlocksFromDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
@@ -1825,12 +2297,11 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     if (Directory.Exists(importPath))
                     {
-                        var rx = string.IsNullOrWhiteSpace(regexName) ? null : new Regex(regexName, RegexOptions.Compiled);
                         var files = Directory.GetFiles(importPath, "*.s7dcl", SearchOption.TopDirectoryOnly);
                         foreach (var f in files)
                         {
                             var name = Path.GetFileNameWithoutExtension(f);
-                            if (rx != null && !rx.IsMatch(name))
+                            if (filterRegex != null && !filterRegex.IsMatch(name))
                                 continue;
                             total++;
 
@@ -1850,7 +2321,14 @@ namespace TiaMcpServer.ModelContextProtocol
                         }
                     }
                 }
-                catch { /* ignore pre-scan errors */ }
+                catch (RegexMatchTimeoutException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // Ignore non-filter pre-scan errors; the import reports its own result.
+                }
 
                 if (progressToken != null)
                 {
@@ -1874,21 +2352,19 @@ namespace TiaMcpServer.ModelContextProtocol
                     {
                         if (block != null)
                         {
-                            var attributes = Helper.GetAttributeList(block);
-                            responseList.Add(new ResponseBlockInfo
+                            if (responseList.Count < boundedResultLimit)
                             {
-                                Name = block.Name,
-                                TypeName = block.GetType().Name,
-                                Namespace = block.Namespace,
-                                ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
-                                MemoryLayout = Enum.GetName(typeof(MemoryLayout), block.MemoryLayout),
-                                IsConsistent = block.IsConsistent,
-                                HeaderName = block.HeaderName,
-                                ModifiedDate = block.ModifiedDate,
-                                IsKnowHowProtected = block.IsKnowHowProtected,
-                                Attributes = attributes,
-                                Description = block.ToString()
-                            });
+                                responseList.Add(new ResponseBlockInfo
+                                {
+                                    Path = Portal.GetBlockPath(block),
+                                    Name = block.Name,
+                                    TypeName = block.GetType().Name,
+                                    ProgrammingLanguage = Enum.GetName(
+                                        typeof(ProgrammingLanguage),
+                                        block.ProgrammingLanguage),
+                                    IsConsistent = block.IsConsistent
+                                });
+                            }
                         }
                         processed++;
                     }
@@ -1906,6 +2382,7 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
 
                 var duration = (DateTime.Now - startTime).TotalSeconds;
+                var notImportedCount = Math.Max(0, total - processed);
                 Logger?.LogInformation($"Document import completed: {processed} blocks imported in {duration:F2} seconds");
 
                 return new ResponseImportBlocksFromDocuments
@@ -1915,13 +2392,25 @@ namespace TiaMcpServer.ModelContextProtocol
                     Meta = new JsonObject
                     {
                         ["timestamp"] = DateTime.Now,
-                        ["success"] = true,
+                        ["success"] = notImportedCount == 0,
                         ["totalBlocks"] = total,
                         ["importedBlocks"] = processed,
+                        ["notImportedBlocks"] = notImportedCount,
+                        ["returnedItems"] = responseList.Count,
+                        ["itemsTruncated"] = processed > responseList.Count,
                         ["duration"] = duration,
                         ["warnings"] = scanWarnings
                     }
                 };
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is RegexMatchTimeoutException)
+            {
+                throw new McpException(
+                    $"Invalid document filter '{regexName}': {ex.Message}",
+                    ex,
+                    McpErrorCode.InvalidParams);
             }
             catch (Exception ex) when (ex is not McpException)
             {
@@ -1948,7 +2437,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         private static ImportDocumentOptions ParseImportDocumentOption(string option)
         {
-            if (string.IsNullOrWhiteSpace(option)) return ImportDocumentOptions.Override;
+            if (string.IsNullOrWhiteSpace(option)) return ImportDocumentOptions.None;
 
             var normalized = option.Trim();
 
@@ -1999,6 +2488,24 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
             }
             return missing;
+        }
+#endif
+
+        private static McpException MapPortalException(
+            string operation,
+            PortalException exception)
+        {
+            var errorCode =
+                exception.Code == PortalErrorCode.NotFound ||
+                exception.Code == PortalErrorCode.InvalidParams ||
+                exception.Code == PortalErrorCode.InvalidState
+                    ? McpErrorCode.InvalidParams
+                    : McpErrorCode.InternalError;
+
+            return new McpException(
+                $"{operation}: {exception.Message}",
+                exception,
+                errorCode);
         }
 
         #endregion

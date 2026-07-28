@@ -4,6 +4,8 @@
     <LangVersion>latest</LangVersion>
 	<Nullable>enable</Nullable>
 	<BaseOutputPath>.\bin</BaseOutputPath>
+    <TiaWorkerVersion Condition="'$(TiaWorkerVersion)' == ''">20</TiaWorkerVersion>
+    <DefineConstants>$(DefineConstants);TIA_MCP_V$(TiaWorkerVersion)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />

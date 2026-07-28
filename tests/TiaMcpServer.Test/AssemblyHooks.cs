@@ -1,5 +1,7 @@
 ﻿using System;
 
+using TiaMcpServer.Security;
+
 namespace TiaMcpServer.Test
 {
     [TestClass]
@@ -10,6 +12,7 @@ namespace TiaMcpServer.Test
         {
             // Runs once before any tests in the assembly  
             // context.WriteLine("Assembly initialization started");
+            OutputPathPolicy.Configure("D:\\Temp\\TIA-Portal");
         }
 
         [AssemblyCleanup]

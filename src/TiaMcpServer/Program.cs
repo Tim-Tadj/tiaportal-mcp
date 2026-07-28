@@ -3,42 +3,96 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
-using System.Xml;
 using TiaMcpServer.ModelContextProtocol;
+using TiaMcpServer.Runtime;
+using TiaMcpServer.Security;
 using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer
 {
     public class Program
     {
-
-        public static async Task Main(string[] args)
+        public static async Task<int> Main(string[] args)
         {
             var options = CliOptions.ParseArgs(args);
 
-            Engineering.TiaMajorVersion = options.TiaMajorVersion ?? 20;
-
-            if (Engineering.TiaMajorVersion < 20)
+            if (options.ShowHelp)
             {
-                AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
+                Console.Out.WriteLine(CliOptions.Usage);
+                Console.Out.WriteLine();
+                Console.Out.WriteLine($"Current worker: {WorkerBuild.Current}");
+                return 0;
             }
-            else
+
+            if (options.Error != null)
             {
-                Openness.Initialize(Engineering.TiaMajorVersion);
+                WriteStartupError(options.Error);
+                return 2;
+            }
+
+            try
+            {
+                OutputPathPolicy.Configure(options.OutputRoot);
+            }
+            catch (Exception exception)
+            {
+                WriteStartupError($"Invalid output root: {exception.Message}");
+                return 3;
+            }
+
+            RuntimeSelection runtimeSelection;
+            try
+            {
+                var broker = new RuntimeBroker(new TiaInstallationDetector());
+                var resolution = broker.Resolve(options.TiaVersion, options.AccessProfile);
+
+                // The resolver is deliberately separate from the current worker binding.
+                // A future dependency-free supervisor can launch an isolated exact-version
+                // worker here instead of binding the request to its own process.
+                runtimeSelection = WorkerBuild.Current.Bind(resolution);
+                RuntimeSelectionLock.Lock(runtimeSelection);
+            }
+            catch (RuntimeSelectionException exception)
+            {
+                WriteStartupError(exception.Message);
+                return 4;
+            }
+
+            Engineering.TiaMajorVersion = runtimeSelection.TiaMajorVersion;
+
+            try
+            {
+                if (runtimeSelection.TiaMajorVersion < 20)
+                {
+                    AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
+                }
+                else
+                {
+                    Openness.Initialize(runtimeSelection.TiaMajorVersion);
+                }
+            }
+            catch (Exception exception)
+            {
+                WriteStartupError(
+                    $"Failed to initialise the exact TIA Portal V{runtimeSelection.TiaMajorVersion} " +
+                    $"{runtimeSelection.AccessProfile} worker: {exception.Message}");
+                return 5;
             }
 
             // Ensure user is in user group 'Siemens TIA Openness'
             if (await Openness.IsUserInGroup())
             {
-                await RunStdioHost(options);
+                await RunStdioHost(options, runtimeSelection);
+                return 0;
             }
-            else
-            {
-                Console.WriteLine("User is not in the required group. Exiting...");
-            }
+
+            WriteStartupError("User is not in the required 'Siemens TIA Openness' group.");
+            return 6;
         }
 
-        public static async Task RunStdioHost(CliOptions? options)
+        public static async Task RunStdioHost(
+            CliOptions? options,
+            RuntimeSelection? runtimeSelection = null)
         {
             var builder = Host.CreateEmptyApplicationBuilder(settings: null);
             if (builder != null)
@@ -101,6 +155,14 @@ namespace TiaMcpServer
 
                     logger.LogInformation($"=== TIA Portal MCP Server '{DateTime.Now.ToShortTimeString()}' ===");
 
+                    if (runtimeSelection != null)
+                    {
+                        logger.LogInformation(
+                            "Runtime locked to TIA Portal V{TiaMajorVersion} with {AccessProfile} access",
+                            runtimeSelection.TiaMajorVersion,
+                            runtimeSelection.AccessProfile);
+                    }
+
                     switch (options.Logging)
                     {
                         case 1:
@@ -118,6 +180,11 @@ namespace TiaMcpServer
                 await host.RunAsync();
             }
 
+        }
+
+        private static void WriteStartupError(string message)
+        {
+            Console.Error.WriteLine($"TIA Portal MCP Server: {message}");
         }
     }
 }

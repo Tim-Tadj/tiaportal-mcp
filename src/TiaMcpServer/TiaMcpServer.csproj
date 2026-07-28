@@ -6,13 +6,25 @@
     <OutputType>Exe</OutputType>
     <AssemblyVersion>0.0.18</AssemblyVersion>
     <BaseOutputPath>.\bin</BaseOutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Deterministic>true</Deterministic>
+    <TiaWorkerVersion Condition="'$(TiaWorkerVersion)' == ''">20</TiaWorkerVersion>
+    <TiaAccessProfile Condition="'$(TiaAccessProfile)' == ''">ReadWrite</TiaAccessProfile>
+    <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '17'">17.0.1685432625</TiaOpennessPackageVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '18'">18.0.1685432622</TiaOpennessPackageVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '19'">19.0.1725520202</TiaOpennessPackageVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '20'">20.0.1744190253</TiaOpennessPackageVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '21'">21.0.1765349347</TiaOpennessPackageVersion>
+    <DefineConstants>$(DefineConstants);TIA_MCP_V$(TiaWorkerVersion)</DefineConstants>
+    <DefineConstants Condition="'$(TiaAccessProfile)' == 'ReadWrite'">$(DefineConstants);TIA_MCP_READ_WRITE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0-preview.4.25258.110" />
     <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.4" />
     <PackageReference Include="Siemens.Collaboration.Net.OperatingSystem.Windows" Version="3.0.1725521661" />
     <PackageReference Include="Siemens.Collaboration.Net.TiaPortal.Openness.Resolver" Version="1.1.1725480302" />
-    <PackageReference Include="Siemens.Collaboration.Net.TiaPortal.Packages.Openness" Version="20.0.1744190253" />
+    <PackageReference Include="Siemens.Collaboration.Net.TiaPortal.Packages.Openness" Version="$(TiaOpennessPackageVersion)" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Management">
@@ -23,4 +35,15 @@
     <Compile Remove="tests\**" />
     <None Include="tests\**" />
   </ItemGroup>
+  <Target Name="ValidateWorkerConfiguration" BeforeTargets="PrepareForBuild">
+    <Error
+      Condition="'$(TiaWorkerVersion)' != '17' and '$(TiaWorkerVersion)' != '18' and '$(TiaWorkerVersion)' != '19' and '$(TiaWorkerVersion)' != '20' and '$(TiaWorkerVersion)' != '21'"
+      Text="TiaWorkerVersion must be 17, 18, 19, 20 or 21." />
+    <Error
+      Condition="'$(TiaAccessProfile)' != 'Read' and '$(TiaAccessProfile)' != 'ReadWrite'"
+      Text="TiaAccessProfile must be Read or ReadWrite." />
+    <Error
+      Condition="'$(TiaWorkerVersion)' == '21'"
+      Text="TIA Portal V21 requires the dedicated modular adapter project and is not yet buildable from the legacy worker project." />
+  </Target>
 </Project>

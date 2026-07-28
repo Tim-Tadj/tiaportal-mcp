@@ -206,6 +206,7 @@ namespace TiaMcpServer.Test
             Assert.IsNotNull(result, "No types");
         }
 
+#if TIA_MCP_V20
         [TestMethod]
         [DataRow(Settings.Project1ProjectPath, Settings.Project1PlcSoftwarePath0, Settings.Project1ExportPath0, "0_OBs/Main_1", true)]
         [DataRow(Settings.Project1ProjectPath, Settings.Project1PlcSoftwarePath0, Settings.Project1ExportPath0, "0_OBs/Main_1", false)]
@@ -223,7 +224,12 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ExportBlock(softwarePath, blockPath, exportPath, preservePath);
+            var result = _portal.ExportBlock(
+                softwarePath,
+                blockPath,
+                exportPath,
+                preservePath,
+                overwrite: true);
 
             if (result != null)
             {
@@ -255,7 +261,11 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ImportBlock(softwarePath, groupPath, importPath);
+            var result = _portal.ImportBlock(
+                softwarePath,
+                groupPath,
+                importPath,
+                overwrite: true);
 
             success &= Common.CloseProject(_portal, projectPath);
 
@@ -276,7 +286,12 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ExportType(softwarePath, typePath, exportPath, preservePath);
+            var result = _portal.ExportType(
+                softwarePath,
+                typePath,
+                exportPath,
+                preservePath,
+                overwrite: true);
 
             if (result != null)
             {
@@ -306,7 +321,11 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ImportType(softwarePath, groupPath, importPath);
+            var result = _portal.ImportType(
+                softwarePath,
+                groupPath,
+                importPath,
+                overwrite: true);
 
             success &= Common.CloseProject(_portal, projectPath);
 
@@ -331,7 +350,12 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ExportBlocks(softwarePath, exportPath, regexName, preservePath);
+            var result = _portal.ExportBlocks(
+                softwarePath,
+                exportPath,
+                regexName,
+                preservePath,
+                overwrite: true);
 
             if (result != null)
             {
@@ -369,7 +393,12 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ExportTypes(softwarePath, exportPath, regexName, preservePath);
+            var result = _portal.ExportTypes(
+                softwarePath,
+                exportPath,
+                regexName,
+                preservePath,
+                overwrite: true);
             if (result != null)
             {
                 Console.WriteLine($"Exported Types:");
@@ -406,7 +435,12 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ExportAsDocuments(softwarePath, blockPath, exportPath, preservePath);
+            var result = _portal.ExportAsDocuments(
+                softwarePath,
+                blockPath,
+                exportPath,
+                preservePath,
+                overwrite: true);
 
             success &= Common.CloseProject(_portal, projectPath);
 
@@ -431,7 +465,12 @@ namespace TiaMcpServer.Test
 
             bool success = Common.OpenProject(_portal, projectPath);
 
-            var result = _portal.ExportBlocksAsDocuments(softwarePath, exportPath, regexName, preservePath);
+            var result = _portal.ExportBlocksAsDocuments(
+                softwarePath,
+                exportPath,
+                regexName,
+                preservePath,
+                overwrite: true);
 
             if (result != null)
             {
@@ -455,5 +494,6 @@ namespace TiaMcpServer.Test
 
             Assert.IsTrue(success, "Failed to export blocks as documents");
         }
+#endif
     }
 }

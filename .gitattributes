@@ -15,6 +15,9 @@
 *.jpg binary
 *.png binary
 *.gif binary
+*.s7dcl binary
+*.s7res binary
+*.zap20 binary
 
 *.lss text
 
@@ -23,11 +26,15 @@
 *.in text eol=lf
 *.sh text eol=lf
 
-# Likewise, force cmd and batch scripts to always use crlf
+# Likewise, force Windows and project text files to use CRLF.
 *.cmd text eol=crlf
 *.bat text eol=crlf
+*.ps1 text eol=crlf
+*.md text eol=crlf
+*.json text eol=crlf
+*.txt text eol=crlf
 
-*.cs text diff=csharp
+*.cs text eol=crlf diff=csharp
 *.vb text
 *.resx text
 *.c text
@@ -57,7 +64,7 @@
 *.fsx text
 *.hs text
 
-*.csproj text
+*.csproj text eol=crlf
 *.vbproj text
 *.fsproj text
 *.dbproj text

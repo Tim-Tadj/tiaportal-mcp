@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "productVersion": "__VERSION__",
+  "bundledTiaVersions": [
+    17,
+    18,
+    19,
+    20
+  ],
+  "plannedTiaVersions": [
+    21
+  ],
+  "supportStatus": "experimental",
+  "profiles": {
+    "read": {
+      "package": "tia-portal-mcp-__VERSION__-read-win-x64.zip"
+    },
+    "readwrite": {
+      "package": "tia-portal-mcp-__VERSION__-readwrite-win-x64.zip"
+    }
+  }
+}

@@ -21,17 +21,9 @@ namespace TiaMcpServer.Siemens
             Api.Global.Openness().Initialize(tiaMajorVersion: tiaMajorVersion);
         }
 
-        public static async Task<bool> IsUserInGroup()
+        public static Task<bool> IsUserInGroup()
         {
-            if (Api.Global.Openness().IsUserInGroup())
-            {
-                // user is in group
-                return true;
-            }
-            else
-            {
-                return await Api.Global.Openness().AddUserToGroupAsync();
-            }
+            return Task.FromResult(Api.Global.Openness().IsUserInGroup());
         }
     }
 }
