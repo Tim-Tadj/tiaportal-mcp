@@ -246,10 +246,49 @@ try
         -ProfileKey 'readwrite' `
         -ExpectedVersion $Version
 
+    $chatGptScriptDirectory = Join-Path `
+        $temporaryRoot `
+        'readwrite\clients\chatgpt'
+    $serverDirectory = Join-Path $temporaryRoot 'readwrite\server'
+    $null = New-Item `
+        -ItemType Directory `
+        -Path $chatGptScriptDirectory `
+        -Force
+    $null = New-Item `
+        -ItemType Directory `
+        -Path $serverDirectory `
+        -Force
+    Copy-Item `
+        -LiteralPath (Join-Path `
+            $clientRoot `
+            'chatgpt\Configure-ChatGptTunnel.ps1') `
+        -Destination $chatGptScriptDirectory
+    $null = New-Item `
+        -ItemType File `
+        -Path (Join-Path $serverDirectory 'TiaPortalMcp.exe') `
+        -Force
+    $quotedCommand = & (Join-Path `
+        $chatGptScriptDirectory `
+        'Configure-ChatGptTunnel.ps1') `
+        -TiaVersion V19 `
+        -OutputRoot 'D:\' `
+        -PrintMcpCommand
+    if (-not $quotedCommand.EndsWith(
+        '"D:\\"',
+        [System.StringComparison]::Ordinal))
+    {
+        throw 'The ChatGPT MCP command does not safely quote an output root with a trailing backslash.'
+    }
+
     if ($releaseManifest.productVersion -cne $Version -or
         $releaseManifest.platform -ne 'win-x64' -or
         $releaseManifest.tiaVersionValidation.'17'.runtimeValidated -ne $false -or
-        $releaseManifest.tiaVersionValidation.'19'.runtimeValidated -ne $true -or
+        $releaseManifest.tiaVersionValidation.'19'.runtimeValidated -ne $false -or
+        $releaseManifest.tiaVersionValidation.'19'.classification -cne
+            'experimental-prior-runtime-evidence' -or
+        $releaseManifest.tiaVersionValidation.'20'.bundled -ne $false -or
+        $releaseManifest.tiaVersionValidation.'20'.classification -cne
+            'planned-later-alpha' -or
         $releaseManifest.tiaVersionValidation.'21'.bundled -ne $false -or
         $releaseManifest.clients.vscode.transport -ne 'stdio' -or
         $releaseManifest.clients.chatgpt.serverExecution -ne 'local' -or

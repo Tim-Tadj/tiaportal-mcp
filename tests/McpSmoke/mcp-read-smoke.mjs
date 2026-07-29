@@ -128,6 +128,17 @@ async function runSmokeTest() {
     capabilities.defaultResponseFormat === "Auto",
     "GetCapabilities did not advertise Auto as the default response format.");
 
+  if (options.offlineOnly) {
+    return {
+      server: initialised.serverInfo.name,
+      protocolVersion: initialised.protocolVersion,
+      tools: tools.length,
+      mode: "offline-contract",
+      profile: capabilities.accessProfile,
+      tiaMajorVersion: capabilities.tiaMajorVersion
+    };
+  }
+
   const connectResult = await callTool("Connect", {});
   assertToolSucceeded("Connect", connectResult);
 
@@ -352,6 +363,11 @@ function parseArguments(args) {
 
   for (let index = 0; index < args.length; index++) {
     const argument = args[index];
+    if (argument === "--offline-only") {
+      parsed.offlineOnly = true;
+      continue;
+    }
+
     if (argument === "--broker" || argument === "--tia-version") {
       const value = args[++index];
       if (!value) {
@@ -367,7 +383,7 @@ function parseArguments(args) {
   if (!parsed.broker || !parsed.tiaVersion) {
     throw new Error(
       "Usage: node mcp-read-smoke.mjs --broker <path> " +
-      "--tia-version <V17|V18|V19|V20>");
+      "--tia-version <V17|V18|V19|V20> [--offline-only]");
   }
 
   return parsed;

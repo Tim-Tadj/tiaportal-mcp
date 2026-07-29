@@ -14,11 +14,14 @@ The target design has four primary goals:
   internal binary.
 
 The supported-release target worker set is TIA Portal V17, V18, V19, V20 and
-V21 on Windows x64. The narrower `0.1.0-alpha.1` package includes V17 to V20:
-V19 is runtime-validated, V17, V18 and V20 are build-only and
-runtime-unverified, and V21 is excluded. An experimental worker may be
-advertised for alpha evaluation with that label, but support requires the full
-release definition of done.
+V21 on Windows x64. The narrower `0.1.0-alpha.1` package includes V17, V18 and
+V19. V17 and V18 are `experimental-build-only`. V19 is
+`experimental-prior-runtime-evidence` with `runtimeValidated=false` because its
+earlier live-project evidence predates the Siemens-DLL-free resolver in the
+exact candidate. V20 is planned for a later alpha. V21 is unsupported in this
+release because its dedicated adapter does not yet exist.
+An experimental worker may be advertised for alpha evaluation with that label,
+but support requires the full release definition of done.
 
 ## Two Public Packages
 
@@ -310,11 +313,13 @@ Every public package includes:
 - a capability manifest for the selected profile;
 - a doctor command which performs read-only preflight checks.
 
-Siemens assemblies are located from an installed TIA Portal environment and are
-not redistributed without an explicit licence review.
+Siemens-supplied runtime and object-code DLLs, including
+`Siemens.Engineering*` and `Siemens.Collaboration.Net*`, are not included in
+the public packages. Workers load the matching Siemens assemblies from the
+user's installed TIA Portal environment.
 
 The experimental `0.1.0-alpha.1` gate is intentionally narrower. It permits
 unsigned artefacts and defers the formal SBOM, provenance and complete licensed
 runtime matrix, while still requiring checksums, dependency notices, an
-explicit Siemens redistribution decision and accurate experimental version
-labels. See [Alpha Release Gate](alpha-release.md).
+automated package check which excludes Siemens-supplied DLLs and accurate
+experimental version labels. See [Alpha Release Gate](alpha-release.md).

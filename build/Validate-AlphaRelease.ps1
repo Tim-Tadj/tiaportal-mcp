@@ -159,6 +159,8 @@ function Assert-VersionConsistency
         "/Project/ItemGroup/PackageReference[@Include='Microsoft.Extensions.Hosting']")
     $mcpReference = $workerProject.SelectSingleNode(
         "/Project/ItemGroup/PackageReference[@Include='ModelContextProtocol']")
+    $opennessBuildReference = $workerProject.SelectSingleNode(
+        "/Project/ItemGroup/PackageReference[@Include='Siemens.Collaboration.Net.TiaPortal.Packages.Openness']")
     Assert-Condition `
         -Condition ($null -ne $hostingReference -and
             $hostingReference.GetAttribute('Version') -ceq '10.0.10') `
@@ -167,6 +169,26 @@ function Assert-VersionConsistency
         -Condition ($null -ne $mcpReference -and
             $mcpReference.GetAttribute('Version') -ceq '1.4.1') `
         -Message 'ModelContextProtocol must remain pinned to stable version 1.4.1 for this alpha.'
+    Assert-Condition `
+        -Condition ($null -ne $opennessBuildReference -and
+            $opennessBuildReference.GetAttribute('Version') -ceq
+                '$(TiaOpennessPackageVersion)') `
+        -Message 'The Siemens Openness package must remain a version-selected build-only reference.'
+    foreach ($forbiddenRuntimePackage in @(
+        'Siemens.Collaboration.Net.OperatingSystem.Windows',
+        'Siemens.Collaboration.Net.TiaPortal.Openness.Resolver'
+    ))
+    {
+        Assert-Condition `
+            -Condition ($null -eq $workerProject.SelectSingleNode(
+                "/Project/ItemGroup/PackageReference[@Include='$forbiddenRuntimePackage']")) `
+            -Message "Runtime package '$forbiddenRuntimePackage' must not be distributed by this alpha."
+    }
+    Assert-Condition `
+        -Condition ((Get-XmlPropertyValue `
+            -Document $workerProject `
+            -PropertyName 'TiaWorkerVersion') -ceq '19') `
+        -Message 'The default local worker must target the latest bundled version, TIA Portal V19.'
 
     $changelog = Get-Content `
         -LiteralPath (Join-Path $RepositoryRoot 'CHANGELOG.md') `
@@ -445,6 +467,12 @@ function Assert-SourceProfileBoundaries
     Assert-Condition `
         -Condition (-not $program.Contains('WithPromptsFromAssembly')) `
         -Message 'Assembly-wide MCP prompt discovery is not permitted for the alpha profiles.'
+    Assert-Condition `
+        -Condition ($program.Contains(
+            'Openness.Initialize(') -and
+            $program.Contains('runtimeSelection.TiaMajorVersion') -and
+            $program.Contains('runtimeSelection.InstallPath')) `
+        -Message 'Every worker must preflight Siemens.Engineering from the locked local TIA Portal installation.'
 
     $gatePath = Join-Path `
         $RepositoryRoot `
@@ -484,6 +512,58 @@ function Assert-SourceProfileBoundaries
             ([string]$gateCompile.Link) -ceq
                 'Runtime\TiaOperationGate.cs') `
         -Message 'The Siemens-free contract test project must compile the production operation gate.'
+
+    $opennessSource = Get-Content `
+        -LiteralPath (Join-Path `
+            $RepositoryRoot `
+            'src\TiaMcpServer\Siemens\Openness.cs') `
+        -Raw
+    Assert-Condition `
+        -Condition (-not $opennessSource.Contains('Siemens.Collaboration.Net') -and
+            $opennessSource.Contains('WindowsIdentity.GetCurrent()') -and
+            $opennessSource.Contains('Environment.MachineName') -and
+            $opennessSource.Contains('SecurityIdentifier') -and
+            $opennessSource.Contains(
+                'new WindowsPrincipal(identity).IsInRole(') -and
+            $opennessSource.Contains(
+                'Engineering.Configure(selectedVersion, tiaInstallPath)') -and
+            $opennessSource.Contains('Engineering.Preflight()')) `
+        -Message 'Openness group membership must compare the exact local group SID without Siemens Collaboration runtime code.'
+
+    $assemblyPolicyPath = Join-Path `
+        $RepositoryRoot `
+        'src\TiaMcpServer\Runtime\SiemensEngineeringAssemblyPolicy.cs'
+    $assemblyPolicyTestsPath = Join-Path `
+        $RepositoryRoot `
+        'tests\TiaMcp.Contracts.Test\SiemensEngineeringAssemblyPolicyTests.cs'
+    $assemblyPolicyCompile = $gateTestProject.SelectSingleNode(
+        "/Project/ItemGroup/Compile[@Include='..\..\src\TiaMcpServer\Runtime\SiemensEngineeringAssemblyPolicy.cs']")
+    Assert-Condition `
+        -Condition ((Test-Path -LiteralPath $assemblyPolicyPath -PathType Leaf) -and
+            (Test-Path -LiteralPath $assemblyPolicyTestsPath -PathType Leaf) -and
+            $null -ne $assemblyPolicyCompile -and
+            ([string]$assemblyPolicyCompile.Link) -ceq
+                'Runtime\SiemensEngineeringAssemblyPolicy.cs') `
+        -Message 'The exact Siemens assembly identity policy and Siemens-free tests are required.'
+
+    $engineeringSource = Get-Content `
+        -LiteralPath (Join-Path `
+            $RepositoryRoot `
+            'src\TiaMcpServer\Siemens\Engineering.cs') `
+        -Raw
+    foreach ($requiredResolverText in @(
+        'GetConfiguredInstallPath()',
+        '.SelectMany(directory => FindAssembliesRecursive(',
+        'SiemensEngineeringAssemblyPolicy.FindFirstMatch('
+    ))
+    {
+        Assert-Condition `
+            -Condition ($engineeringSource.Contains($requiredResolverText)) `
+            -Message "The local Siemens assembly resolver is missing '$requiredResolverText'."
+    }
+    Assert-Condition `
+        -Condition (-not $engineeringSource.Contains('RegistryKey')) `
+        -Message 'The Siemens resolver must use the locked expanded installation path rather than re-reading the registry.'
 
     $policyPath = Join-Path `
         $RepositoryRoot `
@@ -544,7 +624,7 @@ function Get-RejectionMessage
     return $message
 }
 
-function Assert-V21Rejection
+function Assert-DeferredVersionBoundaries
 {
     param(
         [Parameter(Mandatory = $true)]
@@ -558,9 +638,9 @@ function Assert-V21Rejection
         [System.IO.Path]::GetTempPath())
     $temporaryRoot = Join-Path `
         $temporaryParent `
-        "tia-mcp-v21-rejection-$([System.Guid]::NewGuid().ToString('N'))"
+        "tia-mcp-version-rejection-$([System.Guid]::NewGuid().ToString('N'))"
     $temporaryRoot = [System.IO.Path]::GetFullPath($temporaryRoot)
-    $expectedPrefix = Join-Path $temporaryParent 'tia-mcp-v21-rejection-'
+    $expectedPrefix = Join-Path $temporaryParent 'tia-mcp-version-rejection-'
 
     try
     {
@@ -577,17 +657,31 @@ function Assert-V21Rejection
             -Message "Build-Workers.ps1 did not reject V21 at validation time. Message: '$buildMessage'."
 
         $assembleScript = Join-Path $RepositoryRoot 'build\Assemble-Bundles.ps1'
-        $assembleMessage = Get-RejectionMessage -Operation {
+        $v20AssembleMessage = Get-RejectionMessage -Operation {
+            & $assembleScript `
+                -Version $ReleaseVersion `
+                -TiaVersions 20 `
+                -BuildDirectory (Join-Path $temporaryRoot 'missing-build') `
+                -OutputDirectory (Join-Path $temporaryRoot 'release-v20')
+        }
+        Assert-Condition `
+            -Condition (-not [string]::IsNullOrWhiteSpace(
+                    $v20AssembleMessage) -and
+                $v20AssembleMessage -match 'V20.*planned for a later alpha') `
+            -Message "Assemble-Bundles.ps1 did not reject V20 at validation time. Message: '$v20AssembleMessage'."
+
+        $v21AssembleMessage = Get-RejectionMessage -Operation {
             & $assembleScript `
                 -Version $ReleaseVersion `
                 -TiaVersions 21 `
                 -BuildDirectory (Join-Path $temporaryRoot 'missing-build') `
-                -OutputDirectory (Join-Path $temporaryRoot 'release')
+                -OutputDirectory (Join-Path $temporaryRoot 'release-v21')
         }
         Assert-Condition `
-            -Condition (-not [string]::IsNullOrWhiteSpace($assembleMessage) -and
-                $assembleMessage -match 'V21.*dedicated modular adapter') `
-            -Message "Assemble-Bundles.ps1 did not reject V21 at validation time. Message: '$assembleMessage'."
+            -Condition (-not [string]::IsNullOrWhiteSpace(
+                    $v21AssembleMessage) -and
+                $v21AssembleMessage -match 'V21.*unsupported') `
+            -Message "Assemble-Bundles.ps1 did not reject V21 at validation time. Message: '$v21AssembleMessage'."
     }
     finally
     {
@@ -604,6 +698,9 @@ function Assert-V21Rejection
         $RepositoryRoot `
         'src\TiaMcpBroker\TiaVersionResolver.cs'
     $resolver = Get-Content -LiteralPath $resolverPath -Raw
+    $v20CheckIndex = $resolver.IndexOf(
+        'request == TiaVersionRequest.V20',
+        [System.StringComparison]::Ordinal)
     $v21CheckIndex = $resolver.IndexOf(
         'request == TiaVersionRequest.V21',
         [System.StringComparison]::Ordinal)
@@ -611,9 +708,10 @@ function Assert-V21Rejection
         'installationDetector.Scan()',
         [System.StringComparison]::Ordinal)
     Assert-Condition `
-        -Condition ($v21CheckIndex -ge 0 -and
+        -Condition ($v20CheckIndex -ge 0 -and
+            $v21CheckIndex -gt $v20CheckIndex -and
             $installationScanIndex -gt $v21CheckIndex) `
-        -Message 'The broker must reject V21 before scanning TIA Portal installations.'
+        -Message 'The broker must reject deferred V20 and unsupported V21 before scanning TIA Portal installations.'
 }
 
 function Assert-ReleaseManifest
@@ -641,18 +739,18 @@ function Assert-ReleaseManifest
         -Message 'The release manifest has inconsistent alpha identity or platform metadata.'
     Assert-ExactSequence `
         -Actual @($manifest.bundledTiaVersions) `
-        -Expected @(17, 18, 19, 20) `
+        -Expected @(17, 18, 19) `
         -Description 'bundledTiaVersions'
     Assert-ExactSequence `
         -Actual @($manifest.plannedTiaVersions) `
-        -Expected @(21) `
+        -Expected @(20, 21) `
         -Description 'plannedTiaVersions'
 
     $expectedValidation = @{
         '17' = @($true, $false, 'experimental-build-only')
         '18' = @($true, $false, 'experimental-build-only')
-        '19' = @($true, $true, 'experimental-runtime-validated')
-        '20' = @($true, $false, 'experimental-build-only')
+        '19' = @($true, $false, 'experimental-prior-runtime-evidence')
+        '20' = @($false, $false, 'planned-later-alpha')
         '21' = @($false, $false, 'unsupported-in-this-release')
     }
     foreach ($versionKey in @('17', '18', '19', '20', '21'))
@@ -680,6 +778,12 @@ function Assert-ReleaseManifest
             $manifest.clients.chatgpt.serverExecution -ceq 'local' -and
             $manifest.clients.chatgpt.directLocalConnection -eq $false) `
         -Message 'The release manifest does not preserve the local client execution contract.'
+    Assert-Condition `
+        -Condition ($manifest.siemensRuntime.runtimeOrObjectCodeDllsBundled -eq
+            $false -and
+            $manifest.siemensRuntime.assemblySource -ceq
+                'local-tia-portal-installation') `
+        -Message 'The release manifest must state that Siemens runtime DLLs come from the local TIA Portal installation.'
 
     $clientValidator = Join-Path `
         $RepositoryRoot `
@@ -720,12 +824,13 @@ function Assert-ThirdPartyNoticeCoverage
         'Microsoft.Extensions.Hosting',
         'Apache-2.0',
         'MIT',
-        'Siemens.Collaboration.Net',
-        'licence review',
+        'Siemens.Collaboration.Net.TiaPortal.Packages.Openness',
+        'build',
+        'runtime or object-code DLL',
+        'not a grant to redistribute Siemens object code',
+        'installed TIA Portal',
         'complete Apache 2.0',
-        'Microsoft MIT licence',
-        'Siemens package conditions',
-        'ReadMe OSS material'
+        'Microsoft MIT licence'
     ))
     {
         Assert-Condition `
@@ -776,19 +881,13 @@ function Assert-ThirdPartyNoticeCoverage
         $RepositoryRoot `
         'src\TiaMcpServer\TiaMcpServer.csproj'
     [xml]$serverProject = Get-Content -LiteralPath $serverProjectPath -Raw
-    foreach ($packagePathProperty in @(
-        'Microsoft.Extensions.Hosting',
-        'Siemens.Collaboration.Net.OperatingSystem.Windows'
-    ))
-    {
-        $packageReference = $serverProject.SelectSingleNode(
-            "/Project/ItemGroup/PackageReference[@Include='$packagePathProperty']")
-        Assert-Condition `
-            -Condition ($null -ne $packageReference -and
-                $packageReference.GetAttribute('GeneratePathProperty') -ceq
-                    'true') `
-            -Message "Package '$packagePathProperty' must expose its resolved path for legal-payload staging."
-    }
+    $hostingPackageReference = $serverProject.SelectSingleNode(
+        "/Project/ItemGroup/PackageReference[@Include='Microsoft.Extensions.Hosting']")
+    Assert-Condition `
+        -Condition ($null -ne $hostingPackageReference -and
+            $hostingPackageReference.GetAttribute('GeneratePathProperty') -ceq
+                'true') `
+        -Message "Package 'Microsoft.Extensions.Hosting' must expose its resolved path for legal-payload staging."
 
     $requiredWorkerPayload = @(
         [pscustomobject]@{
@@ -802,14 +901,6 @@ function Assert-ThirdPartyNoticeCoverage
         [pscustomobject]@{
             Include = '$(PkgMicrosoft_Extensions_Hosting)\THIRD-PARTY-NOTICES.TXT'
             Link = 'third-party-licenses\Microsoft-THIRD-PARTY-NOTICES.txt'
-        },
-        [pscustomobject]@{
-            Include = '$(PkgSiemens_Collaboration_Net_OperatingSystem_Windows)\LICENSE_NuGet.org.md'
-            Link = 'third-party-licenses\Siemens-Collaboration-Net-LICENSE.md'
-        },
-        [pscustomobject]@{
-            Include = '$(PkgSiemens_Collaboration_Net_OperatingSystem_Windows)\Multilingual_ReadMe_OSS.html'
-            Link = 'third-party-licenses\Siemens-Collaboration-Net-ReadMe-OSS.html'
         }
     )
     foreach ($payloadEntry in $requiredWorkerPayload)
@@ -832,9 +923,8 @@ function Assert-ThirdPartyNoticeCoverage
         'Apache-2.0.txt',
         'Microsoft-MIT.txt',
         'Microsoft-THIRD-PARTY-NOTICES.txt',
-        'Siemens-Collaboration-Net-LICENSE.md',
-        'Siemens-Collaboration-Net-ReadMe-OSS.html',
-        'LicenceReviewMarker',
+        'Get-DllPolicyCategory',
+        'A Siemens DLL reached the public bundle',
         "'.pdb'"
     ))
     {
@@ -856,35 +946,16 @@ function Assert-ThirdPartyNoticeCoverage
             -Message "The bundle assembler does not stage root '$rootPayload' at the package root."
     }
 
-    $dependencyInventoryIndex = $assembler.IndexOf(
-        '$siemensDependencies = @(',
-        [System.StringComparison]::Ordinal)
-    $licenceGateIndex = $assembler.IndexOf(
-        '$licenceReviewMarkerPath = Assert-LicenceReviewMarker',
-        [System.StringComparison]::Ordinal)
-    $releaseOutputIndex = $assembler.IndexOf(
-        '$releaseRoot = Assert-SafeEmptyOutputDirectory',
-        [System.StringComparison]::Ordinal)
-    Assert-Condition `
-        -Condition ($dependencyInventoryIndex -ge 0 -and
-            $licenceGateIndex -gt $dependencyInventoryIndex -and
-            $releaseOutputIndex -gt $licenceGateIndex -and
-            $assembler.Contains('-Dependencies $siemensDependencies') -and
-            $assembler.Contains('-ReleaseVersion $Version')) `
-        -Message 'The Siemens dependency inventory and hash-bound licence-review gate must run before release staging.'
-
-    foreach ($requiredLicenceGateText in @(
-        "status -ne 'approved'",
-        "scope -ne 'Siemens.Collaboration.Net'",
-        'releaseVersion -cne $ReleaseVersion',
+    foreach ($forbiddenLicenceMarkerText in @(
+        'LicenceReviewMarker',
         'approvedSha256',
-        '$approvedHashes -notcontains $_.Sha256',
-        'Supply -LicenceReviewMarker'
+        'Siemens-Collaboration-Net-LICENSE.md',
+        'Siemens-Collaboration-Net-ReadMe-OSS.html'
     ))
     {
         Assert-Condition `
-            -Condition ($assembler.Contains($requiredLicenceGateText)) `
-            -Message "The Siemens redistribution approval gate no longer enforces '$requiredLicenceGateText'."
+            -Condition (-not $assembler.Contains($forbiddenLicenceMarkerText)) `
+            -Message "The public assembler must not rely on obsolete Siemens redistribution marker '$forbiddenLicenceMarkerText'."
     }
 }
 
@@ -1098,33 +1169,50 @@ function Assert-BrokerBuildBoundary
             -Condition ($versionInfo.FileVersion -ceq $NumericVersion) `
             -Message "The $($profile.Name) broker FileVersion is '$($versionInfo.FileVersion)', expected '$NumericVersion'."
 
-        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $startInfo.FileName = $brokerExecutable
-        $startInfo.Arguments = '--tia-version V21'
-        $startInfo.WorkingDirectory = $brokerDirectory
-        $startInfo.UseShellExecute = $false
-        $startInfo.CreateNoWindow = $true
-        $startInfo.RedirectStandardOutput = $true
-        $startInfo.RedirectStandardError = $true
-        $process = New-Object System.Diagnostics.Process
-        $process.StartInfo = $startInfo
-        try
+        foreach ($rejection in @(
+            [pscustomobject]@{
+                Version = 'V20'
+                Diagnostic = 'planned for a later alpha'
+            },
+            [pscustomobject]@{
+                Version = 'V21'
+                Diagnostic = 'unsupported in this release'
+            }
+        ))
         {
-            Assert-Condition `
-                -Condition $process.Start() `
-                -Message "The $($profile.Name) broker could not be started for its V21 rejection check."
-            $standardOutput = $process.StandardOutput.ReadToEnd()
-            $standardError = $process.StandardError.ReadToEnd()
-            $process.WaitForExit()
-            Assert-Condition `
-                -Condition ($process.ExitCode -eq 3 -and
-                    $standardError -match 'V21.*not included in this bundle' -and
-                    [string]::IsNullOrWhiteSpace($standardOutput)) `
-                -Message "The $($profile.Name) broker did not reject V21 with the bounded preflight diagnostic."
-        }
-        finally
-        {
-            $process.Dispose()
+            $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $startInfo.FileName = $brokerExecutable
+            $startInfo.Arguments = "--tia-version $($rejection.Version)"
+            $startInfo.WorkingDirectory = $brokerDirectory
+            $startInfo.UseShellExecute = $false
+            $startInfo.CreateNoWindow = $true
+            $startInfo.RedirectStandardOutput = $true
+            $startInfo.RedirectStandardError = $true
+            $process = New-Object System.Diagnostics.Process
+            $process.StartInfo = $startInfo
+            try
+            {
+                Assert-Condition `
+                    -Condition $process.Start() `
+                    -Message "The $($profile.Name) broker could not be started for its $($rejection.Version) rejection check."
+                $standardOutput = $process.StandardOutput.ReadToEnd()
+                $standardError = $process.StandardError.ReadToEnd()
+                $process.WaitForExit()
+                Assert-Condition `
+                    -Condition ($process.ExitCode -eq 3 -and
+                        $standardError.IndexOf(
+                            $rejection.Version,
+                            [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+                        $standardError.IndexOf(
+                            $rejection.Diagnostic,
+                            [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+                        [string]::IsNullOrWhiteSpace($standardOutput)) `
+                    -Message "The $($profile.Name) broker did not reject $($rejection.Version) with the bounded preflight diagnostic."
+            }
+            finally
+            {
+                $process.Dispose()
+            }
         }
 
         $metadataPath = Join-Path $brokerDirectory 'tia-mcp-build.json'
@@ -1146,7 +1234,94 @@ function Assert-BrokerBuildBoundary
         }
     }
 
-    return 2
+    $validatedWorkerCount = 0
+    $workerRoot = Join-Path $fullBuildRoot 'workers'
+    if (Test-Path -LiteralPath $workerRoot -PathType Container)
+    {
+        foreach ($profile in @(
+            [pscustomobject]@{ Key = 'read'; Name = 'Read' },
+            [pscustomobject]@{ Key = 'readwrite'; Name = 'ReadWrite' }
+        ))
+        {
+            foreach ($tiaVersion in @(17, 18, 19))
+            {
+                $workerDirectory = Join-Path `
+                    $workerRoot `
+                    "$($profile.Key)\v$tiaVersion"
+                $workerExecutable = Join-Path `
+                    $workerDirectory `
+                    'TiaMcpServer.exe'
+                Assert-Condition `
+                    -Condition (Test-Path `
+                        -LiteralPath $workerExecutable `
+                        -PathType Leaf) `
+                    -Message "The V$tiaVersion $($profile.Name) worker executable was not found: '$workerExecutable'."
+
+                $siemensWorkerFiles = @(
+                    Get-ChildItem `
+                        -LiteralPath $workerDirectory `
+                        -Recurse `
+                        -File |
+                    Where-Object { $_.Name -like 'Siemens*.dll' }
+                )
+                Assert-Condition `
+                    -Condition ($siemensWorkerFiles.Count -eq 0) `
+                    -Message "The V$tiaVersion $($profile.Name) worker output contains Siemens DLLs."
+
+                $workerReferences = @(
+                    Get-MetadataAssemblyReferenceNames `
+                        -AssemblyPath $workerExecutable
+                )
+                $collaborationReferences = @(
+                    $workerReferences |
+                    Where-Object {
+                        $_.StartsWith(
+                            'Siemens.Collaboration.Net',
+                            [System.StringComparison]::OrdinalIgnoreCase)
+                    }
+                )
+                Assert-Condition `
+                    -Condition ($collaborationReferences.Count -eq 0) `
+                    -Message "The V$tiaVersion $($profile.Name) worker references Siemens Collaboration runtime assemblies: $($collaborationReferences -join ', ')."
+
+                $workerVersionInfo =
+                    [System.Diagnostics.FileVersionInfo]::GetVersionInfo(
+                        $workerExecutable)
+                Assert-Condition `
+                    -Condition ($workerVersionInfo.ProductVersion -ceq
+                        $ReleaseVersion -and
+                        $workerVersionInfo.FileVersion -ceq $NumericVersion) `
+                    -Message "The V$tiaVersion $($profile.Name) worker version is inconsistent with '$ReleaseVersion'."
+
+                $workerMetadataPath = Join-Path `
+                    $workerDirectory `
+                    'tia-mcp-build.json'
+                $workerMetadata = Get-Content `
+                    -LiteralPath $workerMetadataPath `
+                    -Raw |
+                    ConvertFrom-Json
+                $workerHash = (Get-FileHash `
+                    -LiteralPath $workerExecutable `
+                    -Algorithm SHA256).Hash.ToLowerInvariant()
+                Assert-Condition `
+                    -Condition ($workerMetadata.schemaVersion -eq 1 -and
+                        $workerMetadata.component -ceq 'worker' -and
+                        $workerMetadata.accessProfile -ceq $profile.Name -and
+                        $workerMetadata.tiaVersion -eq $tiaVersion -and
+                        $workerMetadata.releaseVersion -ceq $ReleaseVersion -and
+                        $workerMetadata.executable -ceq 'TiaMcpServer.exe' -and
+                        $workerMetadata.executableSha256 -ceq $workerHash) `
+                    -Message "The V$tiaVersion $($profile.Name) worker build metadata is inconsistent."
+
+                $validatedWorkerCount++
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Brokers = 2
+        Workers = $validatedWorkerCount
+    }
 }
 
 $repositoryRoot = [System.IO.Path]::GetFullPath(
@@ -1156,7 +1331,7 @@ $versionResult = Assert-VersionConsistency `
     -RequestedVersion $Version
 $profileResult = Assert-SourceProfileBoundaries `
     -RepositoryRoot $repositoryRoot
-Assert-V21Rejection `
+Assert-DeferredVersionBoundaries `
     -RepositoryRoot $repositoryRoot `
     -ReleaseVersion $versionResult.ReleaseVersion
 Assert-ReleaseManifest `
@@ -1165,10 +1340,13 @@ Assert-ReleaseManifest `
 Assert-ThirdPartyNoticeCoverage -RepositoryRoot $repositoryRoot
 Assert-SiemensFreeWorkflowBoundary -RepositoryRoot $repositoryRoot
 
-$builtBrokerCount = 0
+$builtBoundary = [pscustomobject]@{
+    Brokers = 0
+    Workers = 0
+}
 if (-not [string]::IsNullOrWhiteSpace($BuildDirectory))
 {
-    $builtBrokerCount = Assert-BrokerBuildBoundary `
+    $builtBoundary = Assert-BrokerBuildBoundary `
         -BuildRoot $BuildDirectory `
         -ReleaseVersion $versionResult.ReleaseVersion `
         -NumericVersion $versionResult.NumericVersion
@@ -1181,7 +1359,9 @@ Write-Output ([pscustomobject]@{
     ReadWriteTools = $profileResult.ReadWriteToolCount
     ReadWriteV20Tools = $profileResult.ReadWriteV20ToolCount
     DirectMutationPolicyChecks = $profileResult.DirectMutationPolicyChecks
-    BuiltBrokersValidated = $builtBrokerCount
+    BuiltBrokersValidated = $builtBoundary.Brokers
+    BuiltWorkersValidated = $builtBoundary.Workers
+    V20 = 'Deferred and rejected before installation discovery'
     V21 = 'Rejected before installation discovery or build'
     ClientPackaging = 'Validated'
     WorkerRuntime = 'Not invoked'

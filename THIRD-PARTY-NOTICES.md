@@ -1,9 +1,8 @@
 # Third-Party Notices
 
-This notice covers the direct runtime dependencies of TIA Portal MCP
-`0.1.0-alpha.1`. It does not replace the licence files supplied with each
-dependency or the release-specific redistribution review required by the
-bundle assembler.
+This notice covers the direct runtime dependencies and build inputs of TIA
+Portal MCP `0.1.0-alpha.1`. It does not replace the licence files supplied
+with each dependency.
 
 ## MCP and Microsoft Runtime Components
 
@@ -19,28 +18,20 @@ The public bundles include the complete Apache 2.0 and Microsoft MIT licence
 texts plus Microsoft's bundled third-party notices under each worker's
 `third-party-licenses` directory.
 
-## Siemens Collaboration Packages
+## Siemens Build Inputs
 
-The worker build uses these Siemens-supplied packages:
+The worker build uses
+`Siemens.Collaboration.Net.TiaPortal.Packages.Openness` for the exact worker
+major version. This package provides build targets which reference the
+matching local TIA Portal PublicAPI assemblies. It is a build input and no
+Siemens-supplied runtime or object-code DLL from it is included in the public
+bundles.
 
-- `Siemens.Collaboration.Net.OperatingSystem.Windows` 3.0.1725521661;
-- `Siemens.Collaboration.Net.TiaPortal.Openness.Resolver` 1.1.1725480302;
-- `Siemens.Collaboration.Net.TiaPortal.Packages.Openness` for the exact worker
-  major version.
-
-Their NuGet packages contain the Siemens "Royalty-free Software provided by
-Siemens on sharing platforms for developers/users of Siemens products"
-conditions. Source-code portions identify an MIT licence, while object-code
-portions have separate Siemens conditions and intended-purpose restrictions.
-
-Each worker carries the Siemens package conditions and ReadMe OSS material
-under its `third-party-licenses` directory. This notice and those copied terms
-do not authorise redistribution of Siemens object code. Release assembly
-remains blocked until a named reviewer supplies the
-`Siemens.Collaboration.Net` licence review marker required by
-`build/Assemble-Bundles.ps1`. That marker must approve the exact hashes included
-in the release. Siemens.Engineering assemblies from an installed TIA Portal
-remain excluded from the bundle.
+The package also carries Siemens licence material. Those terms govern the
+build input but are not a grant to redistribute Siemens object code. Package
+inspection must reject `Siemens.Engineering*` and
+`Siemens.Collaboration.Net*` DLLs. At runtime, the worker resolves the matching
+Siemens assemblies from the user's installed TIA Portal environment.
 
 ## Test-Only Dependencies
 

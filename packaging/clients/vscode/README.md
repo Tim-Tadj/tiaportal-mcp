@@ -3,6 +3,30 @@
 This bundle runs TIA Portal MCP locally over standard input and output. No
 extension or VSIX is required.
 
+The `0.1.0-alpha.1` bundles contain workers for TIA Portal V17, V18 and V19
+only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
+release. V21 is unsupported in this release.
+
+## Windows download trust
+
+The alpha and its PowerShell helper are unsigned. Before running an extracted
+script, verify the downloaded ZIP against its entry in `SHA256SUMS.txt`, using
+the matching profile filename:
+
+```powershell
+Get-FileHash -Algorithm SHA256 -LiteralPath `
+    .\tia-portal-mcp-0.1.0-alpha.1-read-win-x64.zip
+```
+
+If Windows then blocks the verified script because it carries
+Mark-of-the-Web, remove that mark only from this helper:
+
+```powershell
+Unblock-File -LiteralPath .\clients\vscode\Install-VsCodeMcp.ps1
+```
+
+Do not change the global or user execution policy.
+
 From PowerShell in the extracted bundle, run:
 
 ```powershell
@@ -13,7 +37,7 @@ The installer reads `manifest.json`, so it cannot change a Read bundle into a
 ReadWrite bundle. It resolves the broker relative to the extracted bundle and
 adds the server to the current VS Code user profile with `code --add-mcp`.
 
-Use an exact version when several supported TIA Portal versions are installed:
+Use an exact version when several bundled TIA Portal versions are installed:
 
 ```powershell
 .\clients\vscode\Install-VsCodeMcp.ps1 -TiaVersion V19
@@ -39,7 +63,7 @@ For workspace configuration, copy the adjacent `mcp.json` into
 `.vscode\mcp.json`. The portable file is fixed to the bundle profile and uses
 an input variable so VS Code prompts for the absolute extracted bundle path.
 It defaults to automatic TIA version detection. Change `Auto` to an exact
-version in `mcp.json` when several supported versions are installed.
+version in `mcp.json` when several bundled versions are installed.
 
 VS Code asks the user to trust a newly added local MCP server. Windows does not
 currently provide VS Code MCP sandboxing, so use the Read bundle unless write

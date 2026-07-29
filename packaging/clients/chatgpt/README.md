@@ -9,6 +9,33 @@ OpenAI and does not open an inbound firewall port.
 This is currently a ChatGPT web custom-app workflow, not a direct ChatGPT
 Desktop installation.
 
+The `0.1.0-alpha.1` bundles contain workers for TIA Portal V17, V18 and V19
+only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
+release. V21 is unsupported in this release.
+
+## Windows download trust
+
+The alpha and its PowerShell helpers are unsigned. Before running an extracted
+script, verify the downloaded ZIP against its entry in `SHA256SUMS.txt`, using
+the matching profile filename:
+
+```powershell
+Get-FileHash -Algorithm SHA256 -LiteralPath `
+    .\tia-portal-mcp-0.1.0-alpha.1-read-win-x64.zip
+```
+
+If Windows then blocks the verified scripts because they carry
+Mark-of-the-Web, remove that mark only from the two ChatGPT helpers:
+
+```powershell
+Unblock-File -LiteralPath `
+    .\clients\chatgpt\Configure-ChatGptTunnel.ps1
+Unblock-File -LiteralPath `
+    .\clients\chatgpt\Start-ChatGptTunnel.ps1
+```
+
+Do not change the global or user execution policy.
+
 ## Prerequisites
 
 - an eligible ChatGPT plan and developer-mode permission;

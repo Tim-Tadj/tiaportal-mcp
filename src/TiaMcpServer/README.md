@@ -44,8 +44,8 @@ The TiaMcpServer project provides the following functionality:
 *   **Working with blocks:** The `GetBlockInfo`, `GetBlocks`, `GetBlocksWithHierarchy`, `ExportBlock`, `ImportBlock`, and `ExportBlocks` tools allow the LLM to work with blocks.
     - `ExportBlock` expects `blockPath` to be a fully qualified path like `Group/Subgroup/Name`. Passing just a name is ambiguous; the MCP layer will return `InvalidParams` and may suggest likely full paths based on project contents.
 *   **Working with types:** The `GetTypeInfo`, `GetTypes`, `ExportType`, `ImportType`, and `ExportTypes` tools allow the LLM to work with types.
-*   **Exporting blocks as documents (V20):** The `ExportAsDocuments` and `ExportBlocksAsDocuments` tools export blocks as SIMATIC SD documents (.s7dcl/.s7res). They are available only in the V20 worker for this alpha.
-*   **Importing blocks from documents (V20):** The `ImportFromDocuments` and `ImportBlocksFromDocuments` tools import blocks from SIMATIC SD documents into PLC software. They are available only in the V20 worker for this alpha.
+*   **Exporting blocks as documents (V20 source only):** The `ExportAsDocuments` and `ExportBlocksAsDocuments` tools export blocks as SIMATIC SD documents (.s7dcl/.s7res). They require a V20 worker and are deferred from `0.1.0-alpha.1`.
+*   **Importing blocks from documents (V20 source only):** The `ImportFromDocuments` and `ImportBlocksFromDocuments` tools import blocks from SIMATIC SD documents into PLC software. They require a V20 worker and are deferred from `0.1.0-alpha.1`.
 
 ## 5. Model-Facing Output Contract
 
@@ -92,11 +92,11 @@ The TiaMcpServer project is a powerful tool that allows LLMs to interact with th
   - For stdio, all logs must go to stderr.
 - Streams transport: available in SDK (not wired here)
   - The SDK also exposes `WithStreamServerTransport(Stream input, Stream output)` which can be used to host over TCP or other custom streams.
-- Streamable HTTP (planned)
-  - This repo does not yet include an HTTP transport. A later local-only
-    ChatGPT connection kit may add a standards-compliant, loopback-only
-    Streamable HTTP adapter. A bespoke `HttpListener` JSON bridge is not a
-    supported MCP transport.
+- Streamable HTTP: not implemented or required for this alpha
+  - The ChatGPT connection kit uses OpenAI Secure MCP Tunnel to launch the
+    local stdio broker directly through `--mcp-command`.
+  - No local HTTP listener or bespoke `HttpListener` JSON bridge is part of the
+    supported transport path.
   - Output negotiation affects successful model-facing tool text only.
     JSON-RPC remains JSON on every transport.
 
@@ -111,7 +111,7 @@ The TiaMcpServer project is a powerful tool that allows LLMs to interact with th
   - Maps `ExportFailed` to `InternalError` and includes a concise reason from `InnerException.Message`.
   - Consistency: TIA Portal does not export inconsistent blocks/types. Single-item exports return `InvalidParams` advising to compile first. Bulk exports skip inconsistent items and include them in an `Inconsistent` list in the response.
   - Keeps user messages concise; structured details live in logs and context.
-  - Current standardization is applied to `ExportBlock` and will be rolled out to other methods incrementally.
+  - Current standardisation is applied to `ExportBlock` and will be rolled out to other methods incrementally.
   - Exception metadata: Context keys (e.g., `softwarePath`, `blockPath`/`typePath`, `exportPath`) are attached in a single catch per portal method just before rethrow, not at inline throw sites. See `docs/error-model.md`.
 
 ## Contributing

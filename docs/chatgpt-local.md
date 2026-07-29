@@ -125,16 +125,19 @@ assembly copies these helpers into each fixed-profile release artefact.
 The ChatGPT alpha kit is releasable only when:
 
 - all project components execute on the user's PC;
-- the tunnel client launches the selected local stdio broker;
+- the generated tunnel profile launches the selected local stdio broker through
+  `--mcp-command`;
 - no MCP listener is required or reachable from another machine;
 - no public DNS name, public inbound firewall rule or third-party hosting is
   required;
 - the Read and ReadWrite installations cannot be confused;
-- stopping the connection terminates the local tunnel client, broker and owned
-  worker;
-- a non-TIA installation, doctor and stop flow have been exercised;
-- the documented app, hosted endpoint and local profile removal flow has been
-  reviewed without inventing a tunnel-client command;
+- the configure helper renders a relocatable command for each profile without
+  starting TIA Portal;
+- package validation confirms the local broker, fixed profile and required
+  client assets;
+- the documented app, hosted endpoint and local profile removal guidance has
+  been reviewed without inventing a tunnel-client command or deleting shared
+  configuration;
 - documentation states which MCP request and response content is sent to
   ChatGPT;
 - the tunnel path passes `responseFormat` through unchanged and preserves the
@@ -142,6 +145,8 @@ The ChatGPT alpha kit is releasable only when:
 - JSON-RPC, configuration and manifests remain JSON even when tool result text
   is CSV or TOON.
 
-Code signing, a formal SBOM, production lifecycle management and further
-TIA-dependent runtime tests are deferred from `0.1.0-alpha.1`. The complete
-supported-release requirements remain in [Current Status](status.md).
+Authenticated tunnel execution, live clean-account installation, doctor,
+start, stop and removal execution, code signing, a formal SBOM, production
+lifecycle management and further TIA-dependent runtime tests are deferred from
+`0.1.0-alpha.1`. The complete supported-release requirements remain in
+[Current Status](status.md).

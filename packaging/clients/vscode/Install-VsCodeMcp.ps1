@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateSet('Auto', 'V17', 'V18', 'V19', 'V20')]
+    [ValidateSet('Auto', 'V17', 'V18', 'V19')]
     [string]$TiaVersion = 'Auto',
 
     [Parameter()]

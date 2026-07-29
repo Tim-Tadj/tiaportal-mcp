@@ -11,9 +11,11 @@ sample which matches the bundle:
   fallback.
 
 Do not configure both profiles against the same TIA Portal process at once.
-The broker chooses the exact internal V17 to V20 worker. `Auto` succeeds when
-exactly one supported TIA Portal version is installed. Use `V17`, `V18`, `V19`
-or `V20` when more than one version is installed.
+The `0.1.0-alpha.1` broker chooses an internal V17, V18 or V19 worker. `Auto`
+succeeds when exactly one bundled TIA Portal version is installed. Use `V17`,
+`V18` or `V19` when more than one version is installed. V20 is planned for a
+later alpha; v0.0.18 remains the legacy V20 release. V21 is unsupported in
+this release.
 
 The VS Code examples use input variables instead of a repository-specific or
 machine-specific path. VS Code prompts for the extracted bundle path when the

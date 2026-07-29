@@ -25,3 +25,16 @@ node .\tests\McpSmoke\mcp-read-smoke.mjs `
 
 The command prints one JSON summary containing counts and selected formats. It
 does not print project names, paths or device data.
+
+For a release-candidate check which loads the exact local Siemens assemblies,
+initialises MCP, validates `tools/list` and calls only `GetCapabilities`, add
+`--offline-only`. This mode requires the matching TIA Portal installation and
+Openness group membership, but it does not connect to or start TIA Portal and
+does not require an open project:
+
+```powershell
+node .\tests\McpSmoke\mcp-read-smoke.mjs `
+    --broker C:\path\to\read\TiaPortalMcp.exe `
+    --tia-version V19 `
+    --offline-only
+```

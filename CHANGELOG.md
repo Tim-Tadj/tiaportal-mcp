@@ -86,9 +86,10 @@ Target prerelease: `0.1.0-alpha.1`.
   allow read-profile workers to detach cleanly during shutdown.
 - [RW] Match already-open projects and local sessions by canonical path rather
   than selecting a same-named project from another directory.
-- [RW][V20] Roll back unchanged SIMATIC SD targets when committing an export
-  pair fails part-way through, and preserve recovery files when a concurrent
-  change prevents safe rollback.
+- [RW][V20] Prepare source-only rollback of unchanged SIMATIC SD targets when
+  committing an export pair fails part-way through, and preserve recovery
+  files when a concurrent change prevents safe rollback. The V20 worker is
+  deferred from `0.1.0-alpha.1`, so this is not an available alpha capability.
 
 ### Security
 
@@ -114,19 +115,24 @@ Target prerelease: `0.1.0-alpha.1`.
 - [Claude][RO][RW] Add source templates for the two MCPB packages.
 - [RO][RW] Add the two-profile release manifest and packaging metadata
   renderer.
-- [RO][RW][V17][V18][V19][V20] Add experimental worker-build and bundle
-  assembly orchestration. V21 remains blocked on its modular adapter.
+- [RO][RW][V17][V18][V19][V20] Add experimental exact-worker build
+  orchestration. The first alpha bundles V17 to V19; V20 moves to a later
+  alpha and V21 is unsupported in this release pending its modular adapter.
 - [Claude][VS Code][RO][RW] Replace version-specific development samples with
   fixed-profile broker configurations.
-- [RO][RW] Add complete third-party licence payloads, a hash-bound Siemens
-  redistribution review gate and public bundles without debug symbols.
+- [RO][RW] Add complete redistributable third-party licence payloads and
+  public bundles without debug symbols or Siemens-supplied runtime and
+  object-code DLLs.
 
 ### Compatibility
 
-- [RO][RW][V17][V18][V20] Include experimental build-only workers in the
+- [RO][RW][V17][V18] Include experimental build-only workers in the
   `0.1.0-alpha.1` candidate without claiming runtime validation or support.
-- [RO][RW][V19] Record the licensed live-project validation evidence for both
-  profiles while retaining the prerelease classification.
+- [RO][RW][V19] Retain prior licensed live-project evidence for both profiles,
+  while classifying the exact Siemens-DLL-free resolver candidate as
+  `experimental-prior-runtime-evidence` with `runtimeValidated=false`.
+- [RO][RW][V20] Defer the exact-version worker to a later alpha. The published
+  v0.0.18 release remains the legacy V20 option.
 - [RO][RW][V21] Exclude V21 from `0.1.0-alpha.1`; the broker must return a
   clear unsupported-version diagnostic.
 - [ChatGPT] Deliver a Secure MCP Tunnel configuration kit for a ChatGPT custom

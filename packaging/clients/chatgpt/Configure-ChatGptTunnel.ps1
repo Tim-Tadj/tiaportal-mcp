@@ -11,7 +11,7 @@ param(
     [string]$TunnelProfile,
 
     [Parameter()]
-    [ValidateSet('Auto', 'V17', 'V18', 'V19', 'V20')]
+    [ValidateSet('Auto', 'V17', 'V18', 'V19')]
     [string]$TiaVersion = 'Auto',
 
     [Parameter()]
@@ -92,7 +92,23 @@ function ConvertTo-WindowsCommandArgument
         throw 'Windows command arguments cannot contain a double-quote character.'
     }
 
-    return '"' + $Value + '"'
+    $trailingBackslashCount = 0
+    for ($index = $Value.Length - 1;
+        $index -ge 0 -and $Value[$index] -eq [char]'\';
+        $index--)
+    {
+        $trailingBackslashCount++
+    }
+
+    $escapedValue = $Value
+    if ($trailingBackslashCount -gt 0)
+    {
+        $escapedValue = $Value.PadRight(
+            $Value.Length + $trailingBackslashCount,
+            [char]'\')
+    }
+
+    return '"' + $escapedValue + '"'
 }
 
 $bundleRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))

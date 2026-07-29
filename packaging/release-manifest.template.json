@@ -5,10 +5,10 @@
   "bundledTiaVersions": [
     17,
     18,
-    19,
-    20
+    19
   ],
   "plannedTiaVersions": [
+    20,
     21
   ],
   "tiaVersionValidation": {
@@ -24,13 +24,13 @@
     },
     "19": {
       "bundled": true,
-      "runtimeValidated": true,
-      "classification": "experimental-runtime-validated"
+      "runtimeValidated": false,
+      "classification": "experimental-prior-runtime-evidence"
     },
     "20": {
-      "bundled": true,
+      "bundled": false,
       "runtimeValidated": false,
-      "classification": "experimental-build-only"
+      "classification": "planned-later-alpha"
     },
     "21": {
       "bundled": false,
@@ -39,6 +39,10 @@
     }
   },
   "supportStatus": "experimental",
+  "siemensRuntime": {
+    "runtimeOrObjectCodeDllsBundled": false,
+    "assemblySource": "local-tia-portal-installation"
+  },
   "clients": {
     "claudeDesktop": {
       "distribution": "mcpb",

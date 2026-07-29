@@ -6,7 +6,7 @@ param(
 
     [Parameter()]
     [ValidateSet(17, 18, 19, 20, 21)]
-    [int[]]$TiaVersions = @(17, 18, 19, 20),
+    [int[]]$TiaVersions = @(17, 18, 19),
 
     [Parameter()]
     [string]$BuildDirectory,
@@ -17,9 +17,6 @@ param(
     [Parameter()]
     [ValidateSet('Debug', 'Release')]
     [string]$BuildConfiguration = 'Release',
-
-    [Parameter()]
-    [string]$LicenceReviewMarker,
 
     [Parameter()]
     [switch]$CreateMcpb
@@ -58,16 +55,21 @@ function Get-SupportedTiaVersions
     }
 
     $normalisedVersions = @($Versions | Sort-Object -Unique)
+    if ($normalisedVersions -contains 20)
+    {
+        throw 'TIA Portal V20 is planned for a later alpha and cannot be included in 0.1.0-alpha.1. Request V17 to V19 only.'
+    }
+
     if ($normalisedVersions -contains 21)
     {
-        throw 'TIA Portal V21 awaits its dedicated modular adapter and cannot be assembled from the legacy worker project. Request V17 to V20 only.'
+        throw 'TIA Portal V21 is unsupported in 0.1.0-alpha.1 and cannot be assembled. Request V17 to V19 only.'
     }
 
     foreach ($tiaVersion in $normalisedVersions)
     {
-        if ($tiaVersion -lt 17 -or $tiaVersion -gt 20)
+        if ($tiaVersion -lt 17 -or $tiaVersion -gt 19)
         {
-            throw "TIA Portal V$tiaVersion is unsupported. Request V17 to V20 only."
+            throw "TIA Portal V$tiaVersion is unsupported. Request V17 to V19 only."
         }
     }
 
@@ -336,29 +338,6 @@ function Get-DllPolicyCategory
         Write-Verbose "Could not read a managed assembly identity from '$($File.FullName)'. Filename and company metadata will still be checked."
     }
 
-    if ($File.BaseName.StartsWith('Siemens.Engineering', [System.StringComparison]::OrdinalIgnoreCase) -or
-        (-not [string]::IsNullOrWhiteSpace($managedAssemblyName) -and
-            $managedAssemblyName.StartsWith('Siemens.Engineering', [System.StringComparison]::OrdinalIgnoreCase)))
-    {
-        # TIA Openness runtime assemblies are supplied by the local TIA Portal
-        # installation and must never be redistributed in these bundles.
-        return 'ProprietaryTiaRuntime'
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($managedAssemblyName) -and
-        $managedAssemblyName.StartsWith('Siemens.Collaboration.Net', [System.StringComparison]::OrdinalIgnoreCase))
-    {
-        if ($File.BaseName.StartsWith('Siemens', [System.StringComparison]::OrdinalIgnoreCase) -and
-            -not $File.BaseName.StartsWith('Siemens.Collaboration.Net', [System.StringComparison]::OrdinalIgnoreCase))
-        {
-            return 'UnreviewedSiemens'
-        }
-
-        # These resolver dependencies are distinct from Siemens.Engineering.
-        # They may be bundled only after a release-specific licence review.
-        return 'ReviewableRedistributable'
-    }
-
     $companyName = $null
     try
     {
@@ -372,18 +351,18 @@ function Get-DllPolicyCategory
     if (-not [string]::IsNullOrWhiteSpace($managedAssemblyName) -and
         $managedAssemblyName.StartsWith('Siemens', [System.StringComparison]::OrdinalIgnoreCase))
     {
-        return 'UnreviewedSiemens'
+        return 'Siemens'
     }
 
     if ($File.BaseName.StartsWith('Siemens', [System.StringComparison]::OrdinalIgnoreCase))
     {
-        return 'UnreviewedSiemens'
+        return 'Siemens'
     }
 
     if (-not [string]::IsNullOrWhiteSpace($companyName) -and
         $companyName.IndexOf('Siemens', [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
     {
-        return 'UnreviewedSiemens'
+        return 'Siemens'
     }
 
     return 'Other'
@@ -419,15 +398,9 @@ function Copy-DirectoryContents
         }
 
         $dllPolicyCategory = Get-DllPolicyCategory -File $file
-        if ($dllPolicyCategory -eq 'ProprietaryTiaRuntime')
+        if ($dllPolicyCategory -eq 'Siemens')
         {
-            Write-Verbose "Excluding proprietary TIA runtime assembly '$($file.FullName)'."
-            continue
-        }
-
-        if ($dllPolicyCategory -eq 'UnreviewedSiemens')
-        {
-            throw "The build output contains an unreviewed Siemens DLL which is not on the explicit resolver allow-list: '$($file.FullName)'."
+            throw "A Siemens DLL reached the public bundle input. Siemens-supplied runtime and resolver assemblies must be loaded from the user's local installation and must not be redistributed: '$($file.FullName)'."
         }
 
         if (-not $file.FullName.StartsWith($sourcePrefix, [System.StringComparison]::OrdinalIgnoreCase))
@@ -514,12 +487,37 @@ function Update-RenderedMetadata
                 $tiaVersion.ToString()].Value
         $isBundled = $Versions -contains $tiaVersion
         $validationEntry.bundled = $isBundled
-        if (-not $isBundled)
+        if ($isBundled)
         {
             $validationEntry.runtimeValidated = $false
-            $validationEntry.classification = 'not-bundled-in-this-package'
+            if ($tiaVersion -eq 19)
+            {
+                $validationEntry.classification =
+                    'experimental-prior-runtime-evidence'
+            }
+            else
+            {
+                $validationEntry.classification = 'experimental-build-only'
+            }
+        }
+        else
+        {
+            $validationEntry.runtimeValidated = $false
+            if ($tiaVersion -eq 20)
+            {
+                $validationEntry.classification = 'planned-later-alpha'
+            }
+            else
+            {
+                $validationEntry.classification = 'not-bundled-in-this-package'
+            }
         }
     }
+    $v21ValidationEntry =
+        $releaseManifest.tiaVersionValidation.PSObject.Properties['21'].Value
+    $v21ValidationEntry.bundled = $false
+    $v21ValidationEntry.runtimeValidated = $false
+    $v21ValidationEntry.classification = 'unsupported-in-this-release'
     Write-JsonFile -Value $releaseManifest -Path $releaseManifestPath
 
     $versionList = Format-TiaVersionList -Versions $Versions
@@ -533,204 +531,19 @@ function Update-RenderedMetadata
     }
 }
 
-function Get-SiemensDependencyInventory
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$BuildRoot,
-
-        [Parameter(Mandatory = $true)]
-        [object[]]$Profiles,
-
-        [Parameter(Mandatory = $true)]
-        [int[]]$Versions
-    )
-
-    $directories = New-Object System.Collections.Generic.List[string]
-    foreach ($profile in $Profiles)
-    {
-        $directories.Add((Join-Path $BuildRoot "brokers\$($profile.Key)"))
-        foreach ($tiaVersion in $Versions)
-        {
-            $directories.Add((Join-Path $BuildRoot "workers\$($profile.Key)\v$tiaVersion"))
-        }
-    }
-
-    $dependenciesByHash = @{}
-    foreach ($directory in $directories)
-    {
-        foreach ($file in Get-ChildItem -LiteralPath $directory -Recurse -File)
-        {
-            $category = Get-DllPolicyCategory -File $file
-            if ($category -eq 'UnreviewedSiemens')
-            {
-                throw "The build output contains an unreviewed Siemens DLL which is not on the explicit resolver allow-list: '$($file.FullName)'."
-            }
-
-            if ($category -ne 'ReviewableRedistributable')
-            {
-                continue
-            }
-
-            $fileHash = Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256
-            $normalisedHash = $fileHash.Hash.ToLowerInvariant()
-            if (-not $dependenciesByHash.ContainsKey($normalisedHash))
-            {
-                $assemblyName = $null
-                try
-                {
-                    $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($file.FullName).Name
-                }
-                catch
-                {
-                    $assemblyName = $file.BaseName
-                }
-
-                $dependenciesByHash[$normalisedHash] = [pscustomobject]@{
-                    Name = $file.Name
-                    AssemblyName = $assemblyName
-                    Sha256 = $normalisedHash
-                }
-            }
-        }
-    }
-
-    return @($dependenciesByHash.Values | Sort-Object -Property AssemblyName, Sha256)
-}
-
-function Assert-LicenceReviewMarker
-{
-    # The marker records an explicit release decision, not a general claim that
-    # every Siemens-prefixed DLL is redistributable. Its JSON contract is:
-    # schemaVersion 1, status "approved", scope "Siemens.Collaboration.Net",
-    # the exact releaseVersion, a non-empty reviewedBy value, and an
-    # approvedSha256 array covering every resolver dependency in the build.
-    param(
-        [Parameter()]
-        [string]$MarkerPath,
-
-        [Parameter(Mandatory = $true)]
-        [AllowEmptyCollection()]
-        [object[]]$Dependencies,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ReleaseVersion
-    )
-
-    if ($null -eq $Dependencies -or $Dependencies.Count -eq 0)
-    {
-        return $null
-    }
-
-    if ([string]::IsNullOrWhiteSpace($MarkerPath))
-    {
-        $requiredHashes = @($Dependencies | ForEach-Object { "$($_.Name) [$($_.AssemblyName)]: $($_.Sha256)" }) -join [System.Environment]::NewLine
-        throw "Siemens.Collaboration.Net resolver DLLs are required by the workers. Supply -LicenceReviewMarker with JSON containing schemaVersion 1, status 'approved', scope 'Siemens.Collaboration.Net', releaseVersion '$ReleaseVersion', reviewedBy, and approvedSha256 entries for:$([System.Environment]::NewLine)$requiredHashes"
-    }
-
-    $fullMarkerPath = Get-NormalisedFullPath -Path $MarkerPath
-    if (-not (Test-Path -LiteralPath $fullMarkerPath -PathType Leaf))
-    {
-        throw "The licence review marker was not found: '$fullMarkerPath'."
-    }
-
-    try
-    {
-        $marker = Get-Content -LiteralPath $fullMarkerPath -Raw | ConvertFrom-Json
-    }
-    catch
-    {
-        throw "The licence review marker is not valid JSON: '$fullMarkerPath'. $($_.Exception.Message)"
-    }
-
-    $requiredProperties = @(
-        'schemaVersion',
-        'status',
-        'scope',
-        'releaseVersion',
-        'reviewedBy',
-        'approvedSha256'
-    )
-    foreach ($requiredProperty in $requiredProperties)
-    {
-        if ($null -eq $marker.PSObject.Properties[$requiredProperty])
-        {
-            throw "The licence review marker is missing '$requiredProperty': '$fullMarkerPath'."
-        }
-    }
-
-    if ($marker.schemaVersion -ne 1 -or
-        $marker.status -ne 'approved' -or
-        $marker.scope -ne 'Siemens.Collaboration.Net' -or
-        $marker.releaseVersion -cne $ReleaseVersion -or
-        [string]::IsNullOrWhiteSpace([string]$marker.reviewedBy))
-    {
-        throw "The licence review marker is not an approved Siemens.Collaboration.Net review for release '$ReleaseVersion': '$fullMarkerPath'."
-    }
-
-    if (-not ($marker.approvedSha256 -is [System.Array]))
-    {
-        throw "The licence review marker property 'approvedSha256' must be a JSON array: '$fullMarkerPath'."
-    }
-
-    $invalidApprovedHashes = @(
-        $marker.approvedSha256 |
-            Where-Object { ([string]$_) -notmatch '^[0-9A-Fa-f]{64}$' }
-    )
-    if ($invalidApprovedHashes.Count -ne 0)
-    {
-        throw "Every licence review marker approvedSha256 entry must be a 64-character hexadecimal SHA-256 value: '$fullMarkerPath'."
-    }
-
-    $approvedHashes = @(
-        $marker.approvedSha256 |
-            ForEach-Object { ([string]$_).ToLowerInvariant() } |
-            Sort-Object -Unique
-    )
-    $missingDependencies = @(
-        $Dependencies |
-            Where-Object { $approvedHashes -notcontains $_.Sha256 }
-    )
-
-    if ($missingDependencies.Count -ne 0)
-    {
-        $missingHashes = @($missingDependencies | ForEach-Object { "$($_.Name) [$($_.AssemblyName)]: $($_.Sha256)" }) -join [System.Environment]::NewLine
-        throw "The licence review marker does not approve every required Siemens.Collaboration.Net dependency:$([System.Environment]::NewLine)$missingHashes"
-    }
-
-    return $fullMarkerPath
-}
-
 function Assert-BundledDllPolicy
 {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$BundleDirectory,
-
-        [Parameter()]
-        [string[]]$ApprovedRedistributableHashes
+        [string]$BundleDirectory
     )
 
     foreach ($file in Get-ChildItem -LiteralPath $BundleDirectory -Recurse -File)
     {
         $category = Get-DllPolicyCategory -File $file
-        if ($category -eq 'ProprietaryTiaRuntime')
+        if ($category -eq 'Siemens')
         {
-            throw "A proprietary TIA runtime assembly reached the bundle staging directory: '$($file.FullName)'."
-        }
-
-        if ($category -eq 'UnreviewedSiemens')
-        {
-            throw "An unreviewed Siemens DLL reached the bundle staging directory: '$($file.FullName)'."
-        }
-
-        if ($category -eq 'ReviewableRedistributable')
-        {
-            $fileHash = Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256
-            if ($ApprovedRedistributableHashes -notcontains $fileHash.Hash.ToLowerInvariant())
-            {
-                throw "A Siemens.Collaboration.Net DLL is not covered by the release licence review: '$($file.FullName)'."
-            }
+            throw "A Siemens DLL reached the public bundle staging directory and must not be redistributed: '$($file.FullName)'."
         }
     }
 }
@@ -878,9 +691,7 @@ function Assert-ClientBundleAssets
     $requiredThirdPartyLicenceFiles = @(
         'Apache-2.0.txt',
         'Microsoft-MIT.txt',
-        'Microsoft-THIRD-PARTY-NOTICES.txt',
-        'Siemens-Collaboration-Net-LICENSE.md',
-        'Siemens-Collaboration-Net-ReadMe-OSS.html'
+        'Microsoft-THIRD-PARTY-NOTICES.txt'
     )
     foreach ($tiaVersion in $Versions)
     {
@@ -1063,18 +874,6 @@ Assert-BuildInputs `
     -ReleaseVersion $Version `
     -ExpectedConfiguration $BuildConfiguration
 
-$siemensDependencies = @(
-    Get-SiemensDependencyInventory `
-        -BuildRoot $buildRoot `
-        -Profiles $profiles `
-        -Versions $versionsToBundle
-)
-$licenceReviewMarkerPath = Assert-LicenceReviewMarker `
-    -MarkerPath $LicenceReviewMarker `
-    -Dependencies $siemensDependencies `
-    -ReleaseVersion $Version
-$approvedRedistributableHashes = @($siemensDependencies | ForEach-Object { $_.Sha256 })
-
 $releaseRoot = Assert-SafeEmptyOutputDirectory `
     -Path $OutputDirectory `
     -RepositoryRoot $repositoryRoot `
@@ -1144,13 +943,6 @@ try
             -ManifestPath (Join-Path $profileStage 'manifest.json') `
             -Profile $profile `
             -ExpectedVersion $Version
-        if (-not [string]::IsNullOrWhiteSpace($licenceReviewMarkerPath))
-        {
-            Copy-Item `
-                -LiteralPath $licenceReviewMarkerPath `
-                -Destination (Join-Path $profileStage 'siemens-collaboration-net-licence-review.json')
-        }
-
         $brokerInput = Join-Path $buildRoot "brokers\$($profile.Key)"
         Copy-DirectoryContents -SourceDirectory $brokerInput -DestinationDirectory $serverStage
 
@@ -1184,9 +976,7 @@ try
             -Profile $profile `
             -Versions $versionsToBundle
 
-        Assert-BundledDllPolicy `
-            -BundleDirectory $profileStage `
-            -ApprovedRedistributableHashes $approvedRedistributableHashes
+        Assert-BundledDllPolicy -BundleDirectory $profileStage
 
         $zipName = "tia-portal-mcp-$Version-$($profile.Key)-win-x64.zip"
         $zipPath = Join-Path $releaseRoot $zipName
@@ -1250,7 +1040,6 @@ try
         Profiles = @($profiles | ForEach-Object { $_.Name })
         TiaVersions = $versionsToBundle
         BuildConfiguration = $BuildConfiguration
-        LicenceReviewMarker = $licenceReviewMarkerPath
         ZipFiles = @($createdArtefacts | Where-Object { [System.IO.Path]::GetExtension($_) -ieq '.zip' })
         McpbFiles = @($createdArtefacts | Where-Object { [System.IO.Path]::GetExtension($_) -ieq '.mcpb' })
         ChecksumFile = $checksumPath

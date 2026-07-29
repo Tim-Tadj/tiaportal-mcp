@@ -4,7 +4,7 @@
   "display_name": "TIA Portal MCP - Read and Write",
   "version": "__VERSION__",
   "description": "Inspect and deliberately modify locally installed TIA Portal projects.",
-  "long_description": "Connects Claude Desktop to a locally installed TIA Portal. The broker detects installed versions and starts a matching bundled read-write worker. Write tools use explicit conflict, output-root and overwrite policies.",
+  "long_description": "Connects Claude Desktop to a locally installed TIA Portal V17, V18 or V19. The broker detects installed versions and starts a matching bundled read-write worker. Siemens-supplied runtime or object-code DLLs are not included. Write tools use explicit conflict, output-root and overwrite policies.",
   "author": {
     "name": "Tim-Tadj"
   },
@@ -33,7 +33,7 @@
     "tia_version": {
       "type": "string",
       "title": "TIA Portal version",
-      "description": "Use auto when exactly one supported version is installed, or enter V17, V18, V19 or V20.",
+      "description": "Use auto when exactly one bundled version is installed, or enter V17, V18 or V19.",
       "default": "auto",
       "required": true
     },

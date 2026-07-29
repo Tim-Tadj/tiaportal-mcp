@@ -58,18 +58,11 @@ namespace TiaMcpServer
                 return 4;
             }
 
-            Engineering.TiaMajorVersion = runtimeSelection.TiaMajorVersion;
-
             try
             {
-                if (runtimeSelection.TiaMajorVersion < 20)
-                {
-                    AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
-                }
-                else
-                {
-                    Openness.Initialize(runtimeSelection.TiaMajorVersion);
-                }
+                Openness.Initialize(
+                    runtimeSelection.TiaMajorVersion,
+                    runtimeSelection.InstallPath);
             }
             catch (Exception exception)
             {

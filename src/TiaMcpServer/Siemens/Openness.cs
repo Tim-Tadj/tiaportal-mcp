@@ -1,29 +1,76 @@
-﻿using Siemens.Collaboration.Net;
+﻿using System;
+using System.Linq;
+using System.Security.Principal;
 using System.Threading.Tasks;
+using TiaMcpServer.Runtime;
 
 namespace TiaMcpServer.Siemens
 {
     public static class Openness
     {
-        public static int TiaMajorVersion { get; private set; }
+        private const string TiaOpennessGroupName = "Siemens TIA Openness";
 
-        public static void Initialize(int? tiaMajorVersion = 20)
+        public static void Initialize(
+            int? tiaMajorVersion = null,
+            string? tiaInstallPath = null)
         {
-            // with nuget packages:
-            // 2.1 nuget package: Siemens.Collaboration.Net.TiaPortal.Openness.Resolver
-            //     & User Environment Variable: TiaPortalLocation=C:\Program Files\Siemens\Automation\Portal V20
-            // 2.2 nuget package: Siemens.Collaboration.Net.TiaPortal.Packages.Openness
-            // 2.3 Api.Global.Openness().Initialize(tiaMajorVersion: 20); // fixed version 20
+            var selectedVersion =
+                tiaMajorVersion ?? WorkerBuild.Current.TiaMajorVersion;
+            if (string.IsNullOrWhiteSpace(tiaInstallPath))
+            {
+                var installation = new TiaInstallationDetector()
+                    .Scan()
+                    .Installations
+                    .SingleOrDefault(candidate =>
+                        candidate.MajorVersion == selectedVersion);
+                if (installation == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not find a valid TIA Portal V{selectedVersion} " +
+                        "Openness installation.");
+                }
 
-            TiaMajorVersion = tiaMajorVersion ?? 20; // Default to TIA Portal V20 if not specified
+                tiaInstallPath = installation.InstallPath;
+            }
 
-            // Initialize the Openness API with the specified TIA Portal major version
-            Api.Global.Openness().Initialize(tiaMajorVersion: tiaMajorVersion);
+            if (tiaInstallPath == null)
+            {
+                throw new InvalidOperationException(
+                    "The TIA Portal installation path was not resolved.");
+            }
+
+            Engineering.Configure(selectedVersion, tiaInstallPath);
+            AppDomain.CurrentDomain.AssemblyResolve -= Engineering.Resolver;
+            AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
+            Engineering.Preflight();
         }
 
         public static Task<bool> IsUserInGroup()
         {
-            return Task.FromResult(Api.Global.Openness().IsUserInGroup());
+            using var identity = WindowsIdentity.GetCurrent();
+            var groups = identity.Groups;
+            if (groups == null)
+            {
+                return Task.FromResult(false);
+            }
+
+            SecurityIdentifier localGroupSid;
+            try
+            {
+                localGroupSid = (SecurityIdentifier)new NTAccount(
+                    Environment.MachineName,
+                    TiaOpennessGroupName).Translate(
+                        typeof(SecurityIdentifier));
+            }
+            catch (IdentityNotMappedException)
+            {
+                return Task.FromResult(false);
+            }
+
+            var isMember = new WindowsPrincipal(identity).IsInRole(
+                localGroupSid);
+
+            return Task.FromResult(isMember);
         }
     }
 }

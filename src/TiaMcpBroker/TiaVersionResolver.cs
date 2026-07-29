@@ -14,12 +14,20 @@ namespace TiaMcpBroker
 
         public int Resolve(TiaVersionRequest request)
         {
+            if (request == TiaVersionRequest.V20)
+            {
+                throw new BrokerException(
+                    BrokerExitCode.InstallationResolutionFailed,
+                    "TIA Portal V20 is planned for a later alpha and is not included in this bundle. " +
+                    "Install or select TIA Portal V17, V18 or V19.");
+            }
+
             if (request == TiaVersionRequest.V21)
             {
                 throw new BrokerException(
                     BrokerExitCode.InstallationResolutionFailed,
-                    "TIA Portal V21 is recognised but is not included in this bundle. " +
-                    "Install or select TIA Portal V17, V18, V19 or V20.");
+                    "TIA Portal V21 is unsupported in this release. " +
+                    "Install or select TIA Portal V17, V18 or V19.");
             }
 
             var scan = installationDetector.Scan();
@@ -38,7 +46,7 @@ namespace TiaMcpBroker
             {
                 throw new BrokerException(
                     BrokerExitCode.InstallationResolutionFailed,
-                    "No valid TIA Portal Openness installation was found for V17 to V20." +
+                    "No valid TIA Portal Openness installation was found for V17 to V19." +
                     FormatInvalidEntries(scan.InvalidEntries));
             }
 
@@ -48,7 +56,7 @@ namespace TiaMcpBroker
                 throw new BrokerException(
                     BrokerExitCode.InstallationResolutionFailed,
                     $"Auto version selection is ambiguous. Detected: {detected}. Choose one with " +
-                    "--tia-version V<major>, for example --tia-version V20.");
+                    "--tia-version V<major>, for example --tia-version V19.");
             }
 
             return scan.Installations[0].MajorVersion;

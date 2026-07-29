@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Security;
 
 namespace TiaMcpBroker
@@ -35,7 +36,7 @@ namespace TiaMcpBroker
     internal sealed class TiaInstallationDetector
     {
         private const int MinimumMajorVersion = 17;
-        private const int MaximumMajorVersion = 20;
+        private const int MaximumMajorVersion = 19;
 
         public TiaInstallationScan Scan()
         {
@@ -104,8 +105,76 @@ namespace TiaMcpBroker
                     return;
                 }
 
+                var engineeringAssemblyPath = Path.Combine(
+                    installPath,
+                    "PublicAPI",
+                    $"V{majorVersion}",
+                    "Siemens.Engineering.dll");
+                if (!HasExpectedEngineeringIdentity(
+                    engineeringAssemblyPath,
+                    majorVersion,
+                    out var identityError))
+                {
+                    invalidEntries.Add($"V{majorVersion}: {identityError}");
+                    return;
+                }
+
                 installations.Add(new TiaInstallation(majorVersion, installPath));
             }
+        }
+
+        private static bool HasExpectedEngineeringIdentity(
+            string assemblyPath,
+            int majorVersion,
+            out string error)
+        {
+            if (!File.Exists(assemblyPath))
+            {
+                error =
+                    $"expected PublicAPI assembly is missing: {assemblyPath}";
+                return false;
+            }
+
+            try
+            {
+                var identity = AssemblyName.GetAssemblyName(assemblyPath);
+                var token = identity.GetPublicKeyToken();
+                var tokenText = token == null
+                    ? string.Empty
+                    : BitConverter
+                        .ToString(token)
+                        .Replace("-", string.Empty)
+                        .ToLowerInvariant();
+                if (!string.Equals(
+                        identity.Name,
+                        "Siemens.Engineering",
+                        StringComparison.Ordinal) ||
+                    !Equals(
+                        identity.Version,
+                        new Version(majorVersion, 0, 0, 0)) ||
+                    !string.Equals(
+                        tokenText,
+                        "d29ec89bac048f84",
+                        StringComparison.Ordinal))
+                {
+                    error =
+                        $"PublicAPI assembly identity is incompatible: " +
+                        $"{identity.FullName}";
+                    return false;
+                }
+            }
+            catch (Exception exception) when (
+                exception is BadImageFormatException ||
+                exception is FileLoadException)
+            {
+                error =
+                    $"PublicAPI assembly identity could not be read: " +
+                    $"{exception.Message}";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
         }
     }
 }

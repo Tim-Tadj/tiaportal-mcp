@@ -18,19 +18,21 @@ Status date: 29 July 2026.
 The first prerelease is a deliberately narrower evaluation milestone:
 
 - publish separate Read and ReadWrite Windows x64 bundles;
-- bundle V17 to V20 workers through the broker;
-- label V19 runtime-validated and V17, V18 and V20 build-only and
-  runtime-unverified;
-- exclude V21 with a clear unsupported-version diagnostic;
+- bundle V17, V18 and V19 workers through the broker;
+- label V17 and V18 `experimental-build-only`, and label V19
+  `experimental-prior-runtime-evidence` with `runtimeValidated=false` because
+  its live-project evidence predates the candidate resolver;
+- defer V20 to a later alpha with clear not-bundled diagnostics, retain v0.0.18
+  as the legacy V20 release and reject unsupported V21 explicitly;
 - publish two Claude Desktop MCPBs and direct VS Code stdio helpers;
 - publish ChatGPT Secure MCP Tunnel profiles which launch the local broker
   through `--mcp-command`;
 - complete the Siemens-free build, schema, profile-boundary, packaging and
   installation checks in [Alpha Release Gate](alpha-release.md).
 
-No further TIA-dependent test blocks this alpha. Signing, a formal SBOM,
-provenance, V21, a VSIX, further runtime matrices and broader tool coverage move
-to later prereleases or the supported-release gate.
+No further TIA-dependent test blocks this alpha. V20, signing, a formal SBOM,
+provenance, V21, a VSIX, further runtime matrices and broader tool coverage
+move to later prereleases or the supported-release gate.
 
 ## Phase 0: Baseline and Decisions
 
@@ -47,8 +49,8 @@ releases, and every existing tool has an owner and access classification.
 ## Phase 1: Version and Safety Foundation
 
 - Create a broker with no Siemens API reference.
-- Create exact-version workers for V17 to V20, then add V21 through its
-  dedicated adapter after the alpha.
+- Create exact-version workers for V17 to V19 for the first alpha, add V20 in
+  a later alpha, then add V21 through its dedicated adapter.
 - Use a dedicated V21 adapter while sharing legacy source where practical.
 - Generate read-only and read-write manifests from the explicit registered tool
   types and shared metadata registry.
@@ -200,8 +202,8 @@ is listed below.
 | [#7](https://github.com/heilingbrunner/tiaportal-mcp/issues/7) | Adapt | Address path ambiguity and duplicate prompts through the metadata registry and workflow prompts. |
 | [#18](https://github.com/heilingbrunner/tiaportal-mcp/issues/18) | Partially integrated with an adapted contract | The central output root, reparse checks and default no-overwrite policy now exist. The architecture deliberately permits relative or root-contained absolute paths instead of adopting the proposed filename-only contract. Handle-level race protection and a separate import-source policy are explicitly deferred for the experimental alpha and remain required before a supported ReadWrite release. |
 | [#22](https://github.com/heilingbrunner/tiaportal-mcp/issues/22) | Adapt | Add external-source import, generate and export as separate version-aware operations. |
-| [#24](https://github.com/heilingbrunner/tiaportal-mcp/issues/24) | In progress and alpha-gated | Exact-package workers and clear mismatch diagnostics exist. V17 to V19 compile in the current environment; V20 still needs its exact PublicAPI references in the prepared release environment before the alpha can be published. |
-| [#25](https://github.com/heilingbrunner/tiaportal-mcp/issues/25) | Deferred from the alpha; supported-release critical | V21 is rejected explicitly in `0.1.0-alpha.1`. Implement and validate its dedicated adapter before advertising V21 or completing the supported-release gate. |
+| [#24](https://github.com/heilingbrunner/tiaportal-mcp/issues/24) | In progress; first-alpha scope implemented | Exact-package workers and clear mismatch diagnostics exist. V17 to V19 compile and form the `0.1.0-alpha.1` package. V20 is planned for a later alpha after its exact PublicAPI references are available in the prepared release environment. |
+| [#25](https://github.com/heilingbrunner/tiaportal-mcp/issues/25) | Deferred from the alpha; supported-release critical | V21 is reported as unsupported in `0.1.0-alpha.1`. Implement and validate its dedicated adapter before advertising V21 or completing the supported-release gate. |
 | [#27](https://github.com/heilingbrunner/tiaportal-mcp/issues/27) | Defer | Evaluate `TiaFileFormat` only as an optional, separately licensed offline read adapter. Its published scope and commercial terms require separate review. |
 | [#29](https://github.com/heilingbrunner/tiaportal-mcp/issues/29) | Partially integrated | Bounded JSON-safe attribute normalisation and typed guards now cover the main device, block and type reads. Complete read-tool logging and structured partial-result handling before expanding the surface. |
 

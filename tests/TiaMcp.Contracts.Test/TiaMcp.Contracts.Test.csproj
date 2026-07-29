@@ -17,6 +17,8 @@
   <ItemGroup>
     <Compile Include="..\..\src\TiaMcpServer\Runtime\TiaOperationGate.cs"
              Link="Runtime\TiaOperationGate.cs" />
+    <Compile Include="..\..\src\TiaMcpServer\Runtime\SiemensEngineeringAssemblyPolicy.cs"
+             Link="Runtime\SiemensEngineeringAssemblyPolicy.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />

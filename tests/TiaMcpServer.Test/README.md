@@ -44,6 +44,10 @@ multiuser session to be created separately.
 The bundled project archive targets TIA Portal V20. Set the project and session
 variables to matching assets when testing another worker version.
 
+This V20 development suite and its assets are not part of the
+`0.1.0-alpha.1` publication gate. That prerelease bundles V17, V18 and V19,
+and requires no additional TIA-dependent test.
+
 ## Running tests
 
 From the repository root, select the required worker version:

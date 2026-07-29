@@ -6,8 +6,9 @@ This directory contains source definitions for the two public distributions:
 - `tia-portal-mcp-readwrite`
 
 Each distribution contains a fixed-profile broker and internal exact-version
-workers. The current experimental legacy worker set is V17, V18, V19 and V20.
-V21 remains planned until its modular adapter is implemented.
+workers. `0.1.0-alpha.1` bundles V17, V18 and V19. V20 is planned for a later
+alpha, while v0.0.18 remains the legacy V20 release. V21 is unsupported in
+this release and requires a dedicated modular adapter before inclusion.
 
 ## Source layout
 
@@ -44,8 +45,7 @@ server/
 `-- workers/
     |-- v17/
     |-- v18/
-    |-- v19/
-    `-- v20/
+    `-- v19/
 
 clients/
 |-- claude/
@@ -58,10 +58,10 @@ clients/
     `-- mcp.json
 ```
 
-`Siemens.Engineering*` runtime assemblies are never bundled. The exact worker
-resolves them from the matching local TIA Portal installation.
-`Siemens.Collaboration.Net*` resolver dependencies are a separate category and
-may be included only with a release-specific, hash-bound licence approval.
+No Siemens-supplied runtime or object-code DLL is bundled. This includes
+`Siemens.Engineering*` and `Siemens.Collaboration.Net*`. The exact worker
+resolves the required Siemens assemblies from the matching local TIA Portal
+installation. Siemens NuGet packages are build inputs only.
 
 ## Packaging flow
 
@@ -69,7 +69,7 @@ Use [the build guide](../build/README.md) to:
 
 1. build both brokers and the exact worker matrix;
 2. validate component identity and hashes;
-3. supply the required dependency licence review;
+3. verify that no Siemens-supplied runtime or object-code DLL is staged;
 4. create the two ZIP bundles and checksums;
 5. validate the profile-specific client assets and removal guides;
 6. optionally pack and inspect the two Claude Desktop MCPB files.

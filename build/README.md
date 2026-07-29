@@ -6,8 +6,10 @@ These scripts produce the two public Windows x64 profiles:
 - `ReadWrite`
 
 Each profile bundle contains one dependency-free broker and exact internal
-workers for the selected TIA Portal versions. V17 to V20 use the current legacy
-worker source. V21 is rejected until its modular adapter is implemented.
+workers for the selected TIA Portal versions. The first alpha bundles V17 to
+V19. V20 can still be compiled explicitly for future development but is
+deferred from this release. V21 is unsupported in this release and is rejected
+until its modular adapter is implemented.
 
 ## Prerequisites
 
@@ -21,7 +23,6 @@ worker source. V21 is rejected until its modular adapter is implemented.
 - network or package-cache access for the NuGet dependencies
 - the repository checked out to a writable location
 - the optional `mcpb` CLI when `.mcpb` files are required
-- a completed Siemens Collaboration dependency licence review before release
 
 TIA Portal licences and a running Portal process are not required for
 compilation. The exact Siemens.Engineering PublicAPI reference assemblies are
@@ -52,10 +53,10 @@ dotnet test .\tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj `
 ```
 
 The validator checks release versions, exact Read and ReadWrite tool surfaces,
-the secondary mutation policy, operation-gate registration, V21 rejection,
-release and client manifests, and third-party notice coverage. Pass a directory
-containing separately built `brokers\read` and `brokers\readwrite` outputs to
-also check their versions, dependencies and bounded V21 diagnostics:
+the secondary mutation policy, operation-gate registration, V20 and V21
+rejection, release and client manifests, and third-party notice coverage. Pass
+a full build directory to also check broker and worker versions, dependencies,
+metadata, Siemens DLL exclusion and bounded deferred-version diagnostics:
 
 ```powershell
 .\build\Validate-AlphaRelease.ps1 `
@@ -74,14 +75,15 @@ Run from the repository root:
 .\build\Build-Workers.ps1 -Version 0.1.0-alpha.1
 ```
 
-The default matrix builds Read and ReadWrite brokers plus V17, V18, V19 and V20
+The default matrix builds Read and ReadWrite brokers plus V17, V18 and V19
 workers beneath `artifacts\build`. A smaller experimental matrix can be
-requested explicitly:
+requested explicitly. V20 remains an explicit development build and is not
+part of `0.1.0-alpha.1`; the public bundle assembler rejects it:
 
 ```powershell
 .\build\Build-Workers.ps1 `
     -Version 0.1.0-alpha.1 `
-    -TiaVersions 19,20 `
+    -TiaVersions 19 `
     -OutputDirectory C:\temp\tia-mcp-build
 ```
 
@@ -98,36 +100,10 @@ hash-bound `tia-mcp-build.json` metadata beside each executable.
 ```
 
 The assembly script creates exactly two ZIP bundles, a release manifest and
-`SHA256SUMS.txt`. It excludes `Siemens.Engineering*` runtime assemblies because
-they must be resolved from the matching local TIA Portal installation.
-
-The workers also depend on `Siemens.Collaboration.Net*` resolver libraries.
-Those libraries are retained only when every detected hash is approved by a
-release-specific licence review marker. If they are present and no marker is
-supplied, the script stops and prints the required hashes.
-
-The marker is JSON with this contract:
-
-```json
-{
-  "schemaVersion": 1,
-  "status": "approved",
-  "scope": "Siemens.Collaboration.Net",
-  "releaseVersion": "0.1.0-alpha.1",
-  "reviewedBy": "name or review reference",
-  "approvedSha256": [
-    "64-character-lowercase-or-uppercase-sha256"
-  ]
-}
-```
-
-Pass it with:
-
-```powershell
-.\build\Assemble-Bundles.ps1 `
-    -Version 0.1.0-alpha.1 `
-    -LicenceReviewMarker C:\approved\tia-mcp-licence-review.json
-```
+`SHA256SUMS.txt`. It rejects every Siemens-supplied DLL. Workers resolve the
+exact signed `Siemens.Engineering*` assemblies from the user's matching local
+TIA Portal installation at runtime. The public bundle contains no Siemens
+runtime, resolver or object-code DLL.
 
 ## Create Claude Desktop MCPB files
 
@@ -138,7 +114,6 @@ npm install -g @anthropic-ai/mcpb
 
 .\build\Assemble-Bundles.ps1 `
     -Version 0.1.0-alpha.1 `
-    -LicenceReviewMarker C:\approved\tia-mcp-licence-review.json `
     -CreateMcpb
 ```
 
@@ -190,6 +165,6 @@ web developer-mode requirements.
   developer-mode workspace. It is not a direct ChatGPT Desktop integration.
 - They do not sign executables, generate an SBOM or perform licensed TIA Portal
   runtime validation.
-- V21 is intentionally blocked.
+- V20 is deferred from this alpha and V21 is unsupported in this release.
 
 See [Current Status](../docs/status.md) for the remaining release gates.

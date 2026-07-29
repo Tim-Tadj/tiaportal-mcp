@@ -20,13 +20,17 @@ An MCP server which connects to Siemens TIA Portal.
 
 ## Current Status
 
-The next target is the experimental Windows x64 prerelease
-`0.1.0-alpha.1`. It is designed to contain two public distributions,
+The non-TIA-validated candidate for the next experimental Windows x64 prerelease,
+`0.1.0-alpha.1`, contains two public distributions,
 `tia-portal-mcp-read` and `tia-portal-mcp-readwrite`, with automatic selection
-of isolated V17 to V20 workers. V19 has licensed runtime validation for both
-profiles. V17, V18 and V20 are build-only and runtime-unverified in this alpha.
-V21 is excluded. Publication remains gated on the full V20 compile, package
-licence review and final artefact assembly.
+of isolated V17, V18 and V19 workers. V17 and V18 are
+`experimental-build-only`. V19 is `experimental-prior-runtime-evidence` with
+`runtimeValidated=false`: earlier Read and ReadWrite live-project evidence
+informs confidence, but it predates the Siemens-DLL-free resolver used by the
+exact candidate. The current bits have build, strong-name preflight and
+Siemens-free validation only. V20 is planned for a later alpha and V21 is
+unsupported in this release. Publication as a GitHub prerelease is the
+remaining release action and is not gated on either deferred worker.
 
 The alpha is for evaluation and does not claim production support for any
 profile or TIA Portal version. See [Current Status](docs/status.md) and the
@@ -50,22 +54,29 @@ bundled worker and does not require a checkout-specific path or the
 The server checks Windows group membership but must not add the user to that
 group automatically.
 
-Experimental V17 to V20 profile bundles require Windows x64, .NET Framework
+Experimental V17 to V19 profile bundles require Windows x64, .NET Framework
 4.8, at least one matching TIA Portal Openness installation and membership of
-the `Siemens TIA Openness` group. When several supported TIA versions are
-installed, pass an exact value such as `--tia-version V20`.
+the `Siemens TIA Openness` group. When several bundled TIA versions are
+installed, pass an exact value such as `--tia-version V19`.
+
+The bundles contain no Siemens-supplied runtime or object-code DLLs. Each
+worker loads the matching Openness assemblies from the user's local TIA Portal
+installation.
 
 ## TIA Portal Versions
 
-- V19 Read and ReadWrite workers have been exercised against a licensed,
-  running project, but remain experimental in `0.1.0-alpha.1`.
-- V17, V18 and V20 workers are planned for build-only evaluation and are
-  explicitly runtime-unverified. V20 still requires its exact PublicAPI
-  references in the release build environment before publication.
-- V21 is not included in `0.1.0-alpha.1` and requires its own modular Openness
-  adapter.
-- Export as documents (.s7dcl/.s7res) via `ExportAsDocuments`/`ExportBlocksAsDocuments` is available only in the V20 worker for this alpha.
-- Import from documents (.s7dcl/.s7res) via `ImportFromDocuments`/`ImportBlocksFromDocuments` is also available only in the V20 worker for this alpha.
+- V19 retains prior Read and ReadWrite live-project evidence from before the
+  resolver change. The exact `0.1.0-alpha.1` candidate has not received a live
+  TIA run and is explicitly runtime-unverified.
+- V17 and V18 workers are included for build-only evaluation and are
+  explicitly runtime-unverified.
+- V20 is not included in `0.1.0-alpha.1`. Its exact-version worker and SIMATIC
+  SD document operations are planned for a later alpha. The published v0.0.18
+  release remains the legacy V20 option.
+- V21 is unsupported in `0.1.0-alpha.1` and requires its own modular Openness
+  adapter before a later release can include it.
+- SIMATIC SD document import and export are unavailable in
+  `0.1.0-alpha.1` because those operations require a V20 worker.
 
 ## Known Limitations
 
@@ -92,7 +103,7 @@ installed, pass an exact value such as `--tia-version V20`.
 - The Portal layer throws `PortalException` with a short message and `PortalErrorCode` (e.g., NotFound, ExportFailed), and attaches `softwarePath`, `blockPath`, `exportPath` in `Exception.Data` while preserving `InnerException` on export failures.
 - The MCP layer maps these to `McpException` codes. For `ExportFailed`, it includes a concise reason from the underlying error; for `NotFound`, it returns `InvalidParams` and may suggest likely full block paths if a bare name was provided.
 - Consistency required: TIA Portal never exports inconsistent blocks/types. Single export returns `InvalidParams` with a message to compile first. Bulk export skips inconsistent items and returns them in an `Inconsistent` list alongside `Items`.
-- Standardization: Exception context metadata is attached in a single catch per portal method right before rethrow, not at inline throw sites. See `docs/error-model.md`.
+- Standardisation: Exception context metadata is attached in a single catch per portal method right before rethrow, not at inline throw sites. See `docs/error-model.md`.
 - This standardised pattern currently applies to `ExportBlock` and will expand incrementally.
 
 ## Model-Facing Output Formats
@@ -140,7 +151,7 @@ manifests, and build metadata remain JSON. The complete normative rules are in
 - The current upstream VS Code extension remains available for the released
   single-worker server: [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp).
 - This branch supports a direct stdio installation from either extracted
-  profile ZIP. The broker chooses the exact bundled V17 to V20 worker.
+  profile ZIP. The broker chooses the exact bundled V17, V18 or V19 worker.
 - A VSIX is not required or included in `0.1.0-alpha.1`.
 - The packaged installer and workspace configuration instructions are in
   [`packaging/clients/vscode`](packaging/clients/vscode/README.md).
@@ -179,8 +190,9 @@ manifests, and build metadata remain JSON. The complete normative rules are in
   choose **Settings > Extensions > Advanced settings > Install Extension** in
   Claude Desktop, select the matching `.mcpb` file, then review and install it.
   See [Claude's local MCP server guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
-- The MCPB files are experimental in `0.1.0-alpha.1`. Their bundled V17, V18
-  and V20 workers are runtime-unverified.
+- The MCPB files are experimental in `0.1.0-alpha.1`. All exact candidate
+  workers are runtime-unverified. V19 retains only prior runtime evidence from
+  before the resolver change.
 - For development, add the matching broker directly to
   `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`. A
   complete example is in
