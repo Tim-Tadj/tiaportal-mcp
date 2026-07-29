@@ -1,5 +1,7 @@
 ﻿# Architecture
 
+Status date: 29 July 2026.
+
 ## Goals
 
 The target design has four primary goals:
@@ -78,7 +80,7 @@ The intended solution boundaries are:
 
 ```text
 TiaMcp.Contracts
-  Compact DTOs, filters, paging, errors and capability metadata
+  Compact DTOs, output formats, filters, paging, errors and capability metadata
 
 TiaMcp.Application
   Query services, command services, policy checks and response mapping
@@ -159,9 +161,11 @@ Attach and ownership are explicit:
   running;
 - a failed read operation does not clear a healthy connection.
 
-## Compact MCP Contract
+## Compact MCP Contract and Output Formats
 
-List operations return summaries by default:
+List operations return summaries by default. The underlying contract remains a
+typed, bounded response even when its model-facing text is rendered as CSV or
+TOON:
 
 ```json
 {
@@ -186,6 +190,7 @@ List operations return summaries by default:
 The contract follows these rules:
 
 - `detail=summary|standard|full`, with `summary` as the list default;
+- `responseFormat=Auto|Toon|Csv|Json`, with `Auto` as the default;
 - deterministic ordering and opaque cursors;
 - a default page size of 50 and a bounded maximum;
 - canonical paths and stable entity references in every summary;
@@ -197,6 +202,29 @@ The contract follows these rules:
 - bulk commands return counts and capped warnings or failures by default;
 - compilation returns severity counts, with diagnostics exposed as a paged
   result.
+
+`Auto` uses CSV for eligible compact `Summary` tables, the bounded
+`tia-toon-table/1` TOON v4.1 profile for eligible richer `Standard` tables, and
+compact JSON for `Full`, nested, heterogeneous and compatibility results. CSV
+and TOON are used only for homogeneous scalar rows with explicit stable
+columns. The TOON profile is limited to 200 rows and 32 columns.
+
+Automatic selection falls back to compact JSON whenever the preferred table
+format cannot preserve the actual result. Explicit `Csv` or `Toon` requests
+for an ineligible result return MCP `InvalidParams` with recovery guidance.
+They never discard, flatten or stringify fields to force a table shape.
+Explicit `Json` is the universal lossless override.
+
+Formatted list metadata reports the selected format, `returned`, `hasMore` and
+`nextCursor`. Full row data appears once in model-facing text content. Outer
+MCP JSON-RPC messages, tool schemas, client configuration, manifests and build
+metadata remain JSON regardless of `responseFormat`.
+
+The complete normative rules, including RFC 4180 handling and the bounded TOON
+eligibility profile, are in [Model-Facing Output Format
+Policy](output-formats.md). TOON's intended structural-accuracy benefit is a
+design goal for project evaluations, not a claim of universal superiority over
+JSON.
 
 The compact contract is an intentional breaking pre-1.0 change from the
 v0.0.18 rich, unpaged responses. The released v0.0.18 binary remains the
@@ -213,7 +241,7 @@ One metadata registry defines:
 - required state and minimum TIA Portal version;
 - read-only, mutating, destructive and idempotent annotations;
 - parameter grammar, path examples, defaults and limits;
-- compact result shape and recommended next action;
+- compact result shape, output-format eligibility and recommended next action;
 - profile and module availability.
 
 Tool schemas, server instructions, capability output, documentation and schema
@@ -226,8 +254,11 @@ Global server guidance instructs an LLM to:
 2. discover entities through bounded list or search operations;
 3. reuse returned IDs or canonical paths;
 4. request only the pages and detail needed;
-5. avoid mutation without clear user intent;
-6. report version or profile limitations rather than trying an unavailable
+5. retain `responseFormat=Auto` unless full, nested or integration-sensitive
+   data requires `Json`;
+6. follow `nextCursor` only when the next page is needed;
+7. avoid mutation without clear user intent;
+8. report version or profile limitations rather than trying an unavailable
    tool.
 
 ## Installation Adapters

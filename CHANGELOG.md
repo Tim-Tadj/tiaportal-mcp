@@ -12,11 +12,13 @@
   paging contracts.
 - [Contract][RO][RW] Add canonical paths and paged summary responses to
   project, device, block and type discovery.
+- [Contract][RO][RW] Add `responseFormat` with `Auto`, `Toon`, `Csv` and
+  `Json` choices, plus selected-format and paging metadata.
 
 ### Changed
 
-- [Build][RO][RW] Resolve framework assemblies through the installed .NET
-  Framework targeting pack instead of a fixed `C:\Program Files` path.
+- [Build][RO][RW] Resolve framework assemblies through a build-only reference
+  assemblies package instead of a fixed `C:\Program Files` path.
 - [Tests] Resolve project, session and output paths at runtime from the clone,
   temporary storage or explicit environment variables instead of fixed drive
   locations.
@@ -35,9 +37,24 @@
   unpaged contract must remain on that release while migrating.
 - [Contract][RO][RW] Mark whole-tree discovery tools as legacy and direct LLM
   clients towards bounded list operations.
+- [Contract][RO][RW] Make `Auto` render eligible `Summary` tables as RFC 4180
+  CSV, eligible `Standard` tables with bounded `tia-toon-table/1`, and `Full`,
+  nested, compatibility or ineligible results as compact JSON.
+- [Contract][RO][RW] Reject incompatible explicit `Csv` and `Toon` requests
+  with `InvalidParams` guidance instead of flattening fields or silently
+  returning another format. Outer MCP JSON-RPC messages remain JSON.
+- [Contract][RO][RW] Preserve CSV scalar types through lexical quoting and
+  report stable columns in metadata for canonical empty TOON arrays.
+- [Contract][RO][RW] Treat automatic CSV and TOON result rendering as an
+  intentional breaking pre-1.0 contract change. Integrations which require a
+  JSON tool payload must set `responseFormat=Json`.
 
 ### Fixed
 
+- [Build][RO][RW] Make clean SDK builds independent of a separately installed
+  .NET Framework 4.8 developer targeting pack and pass SDK-compatible
+  per-project intermediate-directory paths with a trailing separator. Select
+  one `dotnet` executable deterministically when PATH contains several SDKs.
 - [Broker][RO][RW] Flush proxied standard streams per chunk so interactive MCP
   requests reach the worker and responses return before the client closes the
   session.
@@ -89,8 +106,17 @@
 
 - [RO][RW] Add architecture, roadmap, status, definition-of-done and changelog
   policy documentation.
+- [Contract][RO][RW] Add the normative model-facing output-format policy,
+  including lossless fallback rules and the bounded TOON v4.1 profile.
 - Consolidate the Gemini-specific project notes into `AGENTS.md` and remove the
   redundant `gemini.md`.
+
+### Tests
+
+- [Contract][RO][RW] Add a Siemens-free response-format conformance and size
+  regression suite.
+- [V19][RO] Add a reusable MCP smoke harness for capabilities, connection and
+  negotiated CSV, TOON and JSON list responses.
 
 ## [0.0.16] - 2025-09-02
 

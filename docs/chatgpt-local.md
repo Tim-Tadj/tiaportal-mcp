@@ -1,6 +1,6 @@
 # ChatGPT Local Connection
 
-Status date: 28 July 2026.
+Status date: 29 July 2026.
 
 ## Required Deployment Boundary
 
@@ -65,6 +65,17 @@ project details unless their ChatGPT workspace policy permits that content.
 ReadWrite actions remain subject to the profile boundary and ChatGPT action
 confirmation.
 
+Compact CSV or TOON rendering can reduce syntactic overhead, but it does not
+change this data boundary. Values returned by a tool can still leave the PC as
+part of the selected result content. The adapter must preserve the server's
+`responseFormat` choice and selected-format, `returned`, `hasMore` and
+`nextCursor` metadata without reformatting or duplicating full rows.
+
+The model-facing format policy is defined in [Model-Facing Output Format
+Policy](output-formats.md). MCP JSON-RPC traffic, tool schemas, tunnel
+configuration, installer configuration and manifests remain JSON. CSV and
+TOON apply only to eligible successful tool result text inside that protocol.
+
 ## Packaging Plan
 
 The ChatGPT package is a local connection kit, not a hosted deployment. It will
@@ -96,4 +107,8 @@ The ChatGPT adapter is releasable only when:
 - captured network traffic confirms that only the tunnel connection leaves the
   machine;
 - documentation states which MCP request and response content is sent to
-  ChatGPT.
+  ChatGPT;
+- the adapter passes `responseFormat` through unchanged and preserves the
+  returned format and paging metadata;
+- JSON-RPC, configuration and manifests remain JSON even when tool result text
+  is CSV or TOON.

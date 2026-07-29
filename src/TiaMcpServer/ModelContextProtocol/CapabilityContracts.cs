@@ -11,6 +11,10 @@ namespace TiaMcpServer.ModelContextProtocol
         public int DefaultPageLimit { get; set; }
         public int MaximumPageLimit { get; set; }
         public string? DefaultDetailLevel { get; set; }
+        public string? DefaultResponseFormat { get; set; }
+        public IEnumerable<string>? SupportedResponseFormats { get; set; }
+        public string? ToonProfile { get; set; }
+        public IEnumerable<string>? ResponseFormatPolicy { get; set; }
         public bool CanModifyProject { get; set; }
         public bool CanWriteFiles { get; set; }
         public IEnumerable<string>? ToolFamilies { get; set; }

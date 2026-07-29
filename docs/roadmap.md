@@ -1,5 +1,7 @@
 ﻿# Roadmap
 
+Status date: 29 July 2026.
+
 ## Delivery Principles
 
 - Safety and exact-version correctness come before a larger tool count.
@@ -55,12 +57,20 @@ satisfy this phase's exit condition.
   read tools.
 - Ensure read failures do not disconnect a healthy Portal session.
 - Add compact bulk and compilation result contracts.
+- Add the normative `responseFormat=Auto|Toon|Csv|Json` policy. Use CSV for
+  eligible `Summary` tables, the bounded `tia-toon-table/1` TOON v4.1 profile
+  for eligible `Standard` tables, and compact JSON for `Full`, nested and
+  compatibility results.
+- Add lossless format eligibility checks, explicit override errors, stable
+  format and paging metadata, and compact JSON fallback for automatic
+  selection.
 - Publish a migration guide and retain v0.0.18 as the legacy fallback while
   consumers move to the compact pre-1.0 contract.
 
 Exit condition: synthetic large-project evaluations stay within documented
-response budgets, and schema snapshots cover both profiles and every supported
-worker.
+response budgets; format conformance and fallback tests cover flat, nested,
+empty and boundary-sized results; and schema snapshots cover both profiles and
+every supported worker.
 
 ## Phase 3: LLM Guidance and Evaluation
 
@@ -71,6 +81,12 @@ worker.
   selected export, import and compile, and compile diagnosis.
 - Add trace fixtures for discovery, ambiguous paths, pagination, profile
   refusal, version mismatch and mutation intent.
+- Compare compact JSON and bounded TOON on project trace fixtures, including
+  field association, row boundaries and paging decisions. Treat improved model
+  structural accuracy as a measured design goal, not a universal assumption.
+- Teach tool instructions to retain `Auto` for normal inspection, request
+  `Json` for full or nested data, and recover from an incompatible explicit
+  format without retrying unchanged.
 
 Exit condition: evaluation traces reliably choose the correct profile-safe
 workflow without guessing software or block paths.
@@ -123,7 +139,7 @@ select the correct worker on each advertised TIA Portal version.
 ## Upstream Pull Request Dispositions
 
 The local baseline already contains every upstream merge through v0.0.18.
-The upstream inventory was rechecked on 28 July 2026 and contains 11 pull
+The upstream inventory was rechecked on 29 July 2026 and contains 11 pull
 requests, three open and eight closed. Every pull request is listed below.
 
 | Pull request | Disposition | Roadmap action |
@@ -167,12 +183,14 @@ is listed below.
 
 ## Near-Term Integration Order
 
-1. Complete issue #29 read logging and structured partial-result handling after
+1. Extend compact output-format conformance with reference decoder fixtures,
+   then evaluate CSV, TOON and compact JSON on representative LLM workflows.
+2. Complete issue #29 read logging and structured partial-result handling after
    the integrated safe serialisation and typed read-error work.
-2. Replace assembly discovery with explicit profile registries, complete the
+3. Replace assembly discovery with explicit profile registries, complete the
    remaining issue #18 handle-level race protection and define a separate import
    source policy. The broker and central output policy are already present.
-3. Port PR #30 tag reads and PR #28 external-source operations in isolated
+4. Port PR #30 tag reads and PR #28 external-source operations in isolated
    commits.
-4. Evaluate selected PR #26 read families only after their contracts and
+5. Evaluate selected PR #26 read families only after their contracts and
    capability tests exist.

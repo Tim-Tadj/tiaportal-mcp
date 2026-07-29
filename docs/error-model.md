@@ -1,11 +1,14 @@
 ﻿# Error Model and Exception Metadata
 
-This document standardizes how errors are raised in the Siemens portal layer and mapped to MCP responses, and where exception metadata is attached for consistency and observability.
+This document standardises how errors are raised in the Siemens portal layer and mapped to MCP responses, and where exception metadata is attached for consistency and observability.
 
 ## Principles
 
 - Clear categories
   - Validation: invalid input, missing resources → `PortalErrorCode.InvalidParams` / MCP `InvalidParams`.
+  - Output validation: an explicit `Csv` or `Toon` request which cannot
+    represent the selected detail and result shape losslessly → MCP
+    `InvalidParams` with format recovery guidance.
   - Invalid state: operation cannot proceed due to project or item state (e.g., inconsistent block/type) → `PortalErrorCode.InvalidState` / MCP `InvalidParams` with guidance.
   - Operation failure: environment/IO/underlying API issues → `PortalErrorCode.ExportFailed` (or similar) / MCP `InternalError` with concise reason.
 
@@ -50,6 +53,29 @@ This keeps the decoration and logging in one place, avoids repeated code, and gu
 - Map `PortalErrorCode.InvalidParams` and `InvalidState` to MCP `InvalidParams` with user-guidance messages.
 - Map `PortalErrorCode.ExportFailed` (and similar) to MCP `InternalError`, include a concise `Reason` from the inner exception, and log full details.
 - For `NotFound`, provide suggestions when the input is ambiguous (e.g., single-name block paths).
+- Map an incompatible explicit `responseFormat=Csv` or
+  `responseFormat=Toon` request to MCP `InvalidParams`. Name the incompatible
+  detail or shape and recommend `Json`, `Auto` or a lower detail level.
+
+## Output Formatting
+
+Output rendering follows the normative [Model-Facing Output Format
+Policy](output-formats.md).
+
+- `Auto` choosing compact JSON for a result which is not CSV-eligible or
+  TOON-eligible is normal lossless fallback, not an error.
+- An explicit `Csv` or `Toon` request never falls back silently. Ineligible
+  `Full`, nested, heterogeneous or out-of-profile data returns
+  `InvalidParams`.
+- An explicit `Json` request is valid for every valid response shape.
+- A formatter must validate eligibility before writing result content. It must
+  not return a partially formatted page after a validation or encoding
+  failure.
+- Unexpected formatter failures map to MCP `InternalError`; full exception and
+  contract context belong in logs, while the caller receives a concise reason
+  and safe recovery action.
+- Error responses remain MCP JSON-RPC errors. `responseFormat` affects
+  successful model-facing tool result text, not the protocol envelope.
 
 ## Bulk Export Reporting
 

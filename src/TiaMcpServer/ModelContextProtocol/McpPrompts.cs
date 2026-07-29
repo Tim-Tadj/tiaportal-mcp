@@ -65,7 +65,7 @@ Use the Disconnect tool to remove the connection.";
         {
             return @"Call GetCapabilities before using domain tools.
 
-Use the returned exact TIA Portal version and access profile as authoritative. Then call GetState. Prefer summary detail, follow paging cursors only as needed, and reuse returned names or canonical paths. If a capability is absent, report that limitation instead of guessing or attempting a similarly named write tool.";
+Use the returned exact TIA Portal version, access profile and response-format policy as authoritative. Then call GetState. Keep responseFormat Auto unless a downstream parser requires a specific format. Auto uses CSV for the smallest flat summaries, TOON for richer eligible tables, and compact JSON when nested data cannot be represented losslessly. Follow paging cursors only as needed and reuse returned names or canonical paths. If a capability is absent, report that limitation instead of guessing or attempting a similarly named write tool.";
         }
 
         [McpServerPrompt(Name = "InspectProjectSafely"), Description("Inspect the active project with compact, read-only discovery")]
@@ -75,9 +75,11 @@ Use the returned exact TIA Portal version and access profile as authoritative. T
 
 1. Call GetState to confirm the connection and active project.
 2. Call ListProjects only when project identity or session information is needed.
-3. Call GetDevices with detailLevel Summary and the default page size.
+3. Call GetDevices with detailLevel Summary, responseFormat Auto and the default page size.
 4. Follow nextCursor only while more devices are relevant to the request.
 5. Request Full detail only for a selected device when diagnostics require raw attributes.
+
+Auto selects compact CSV for the flat Summary result. Use Standard when the model benefits from TOON's explicit fields, row count and scalar typing. Full uses compact JSON because nested raw attributes cannot be represented losslessly in the bounded table profile.
 
 Reuse exact names and paths returned by discovery tools. Do not call save, compile, import, export, close or other mutating tools unless the user clearly asks for a write workflow.";
         }

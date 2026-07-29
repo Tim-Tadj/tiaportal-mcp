@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup Condition="'$(TiaMcpIntermediateRoot)' != ''">
+    <BaseIntermediateOutputPath>$(TiaMcpIntermediateRoot)$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\obj\**;$(MSBuildProjectDirectory)\bin\**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference
+      Include="Microsoft.NETFramework.ReferenceAssemblies.net48"
+      Version="1.0.3"
+      PrivateAssets="all"
+      IncludeAssets="runtime; build; native; contentfiles; analyzers" />
+  </ItemGroup>
+</Project>

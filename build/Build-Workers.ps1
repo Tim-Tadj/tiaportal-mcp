@@ -258,7 +258,11 @@ if (-not (Test-Path -LiteralPath $brokerProjectPath -PathType Leaf))
     throw "The broker project was not found: '$brokerProjectPath'."
 }
 
-$dotNetCommand = Get-Command -Name dotnet -CommandType Application -ErrorAction SilentlyContinue
+$dotNetCommand = Get-Command `
+    -Name dotnet `
+    -CommandType Application `
+    -ErrorAction SilentlyContinue |
+    Select-Object -First 1
 if ($null -eq $dotNetCommand)
 {
     throw 'The dotnet CLI was not found on PATH. Install a compatible .NET SDK before building release workers.'
@@ -283,7 +287,9 @@ foreach ($profile in $profiles)
     foreach ($tiaVersion in $versionsToBuild)
     {
         $workerOutputDirectory = Join-Path $buildRoot "workers\$($profile.Key)\v$tiaVersion"
-        $workerIntermediateDirectory = Join-Path $buildRoot "obj\workers\$($profile.Key)\v$tiaVersion"
+        $workerIntermediateDirectory =
+            (Join-Path $buildRoot "obj\workers\$($profile.Key)\v$tiaVersion") +
+            [System.IO.Path]::DirectorySeparatorChar
         $null = New-Item -ItemType Directory -Path $workerOutputDirectory -Force
         $null = New-Item -ItemType Directory -Path $workerIntermediateDirectory -Force
 
@@ -294,12 +300,12 @@ foreach ($profile in $profiles)
             -Description "TIA Portal V$tiaVersion $($profile.Name) worker" `
             -Properties @{
                 AppendTargetFrameworkToOutputPath = 'false'
-                BaseIntermediateOutputPath = $workerIntermediateDirectory
                 BaseOutputPath = $workerOutputDirectory
                 IncludeSourceRevisionInInformationalVersion = 'false'
                 InformationalVersion = $Version
                 OutputPath = $workerOutputDirectory
                 TiaAccessProfile = $profile.Name
+                TiaMcpIntermediateRoot = $workerIntermediateDirectory
                 TiaWorkerVersion = $tiaVersion
                 Version = $Version
             }
@@ -322,7 +328,9 @@ foreach ($profile in $profiles)
     }
 
     $brokerOutputDirectory = Join-Path $buildRoot "brokers\$($profile.Key)"
-    $brokerIntermediateDirectory = Join-Path $buildRoot "obj\brokers\$($profile.Key)"
+    $brokerIntermediateDirectory =
+        (Join-Path $buildRoot "obj\brokers\$($profile.Key)") +
+        [System.IO.Path]::DirectorySeparatorChar
     $null = New-Item -ItemType Directory -Path $brokerOutputDirectory -Force
     $null = New-Item -ItemType Directory -Path $brokerIntermediateDirectory -Force
 
@@ -333,12 +341,12 @@ foreach ($profile in $profiles)
         -Description "$($profile.Name) broker" `
         -Properties @{
             AppendTargetFrameworkToOutputPath = 'false'
-            BaseIntermediateOutputPath = $brokerIntermediateDirectory
             BaseOutputPath = $brokerOutputDirectory
             IncludeSourceRevisionInInformationalVersion = 'false'
             InformationalVersion = $Version
             OutputPath = $brokerOutputDirectory
             TiaAccessProfile = $profile.Name
+            TiaMcpIntermediateRoot = $brokerIntermediateDirectory
             Version = $Version
         }
 

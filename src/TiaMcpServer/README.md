@@ -11,7 +11,7 @@ The TiaMcpServer project is a .NET 4.8 console application that enables communic
 
 ## 2. Project Structure
 
-The project is organized into the following directories:
+The project is organised into the following directories:
 
 *   **`ModelContextProtocol/`**: This directory contains the implementation of the MCP server.
     *   `McpServer.cs`: This file defines the MCP tools that can be called by the LLM.
@@ -47,13 +47,39 @@ The TiaMcpServer project provides the following functionality:
 *   **Exporting blocks as documents (V20+):** The `ExportAsDocuments` and `ExportBlocksAsDocuments` tools export blocks as SIMATIC SD documents (.s7dcl/.s7res). Requires TIA Portal V20 or newer.
 *   **Importing blocks from documents (V20+):** The `ImportFromDocuments` and `ImportBlocksFromDocuments` tools import blocks from SIMATIC SD documents into PLC software. Requires TIA Portal V20 or newer.
 
-## 5. Conclusion
+## 5. Model-Facing Output Contract
+
+Eligible bounded list tools expose
+`responseFormat=Auto|Toon|Csv|Json`. The default `Auto` mode selects:
+
+*   RFC 4180 CSV for eligible compact `Summary` tables;
+*   the bounded `tia-toon-table/1` TOON v4.1 profile for eligible richer
+    `Standard` tables;
+*   compact JSON for `Full`, nested, compatibility and otherwise ineligible
+    results.
+
+Automatic selection uses compact JSON whenever the preferred table format
+cannot preserve the complete bounded result. Explicit `Csv` and `Toon`
+overrides return MCP `InvalidParams` for incompatible shapes rather than
+flattening or discarding data. Explicit `Json` is always available.
+
+The result reports the selected format, `returned`, `hasMore` and
+`nextCursor`, while full rows appear once in model-facing text. MCP JSON-RPC,
+schemas, client configuration and manifests remain JSON. Implementations must
+use the shared response formatter and follow the normative
+[`../../docs/output-formats.md`](../../docs/output-formats.md) policy.
+
+The TOON profile is intended to improve structural validation for repeated
+records. Any answer-accuracy benefit depends on the model, client and data and
+must be evaluated locally.
+
+## 6. Conclusion
 
 The TiaMcpServer project is a powerful tool that allows LLMs to interact with the Siemens TIA Portal. The project is well-structured and easy to understand. The code is well-commented and follows best practices.
 
-## 6. Future Improvements
+## 7. Future Improvements
 
-*   **Session Path Reliability:** The `GetOpenSessions` method has been updated to return the full path of the session project. However, the TIA Portal Openness API's behavior with multiuser sessions can vary. Future testing should confirm the reliability of retrieving the `Path` for all types of local and remote sessions to ensure the information is always accurate.
+*   **Session Path Reliability:** The `GetOpenSessions` method has been updated to return the full path of the session project. However, the TIA Portal Openness API's behaviour with multiuser sessions can vary. Future testing should confirm the reliability of retrieving the `Path` for all types of local and remote sessions to ensure the information is always accurate.
 
 ## Known Issues
 
@@ -66,8 +92,13 @@ The TiaMcpServer project is a powerful tool that allows LLMs to interact with th
   - For stdio, all logs must go to stderr.
 - Streams transport: available in SDK (not wired here)
   - The SDK also exposes `WithStreamServerTransport(Stream input, Stream output)` which can be used to host over TCP or other custom streams.
-- HTTP (planned)
-  - This repo does not yet include an HTTP or SSE transport. The plan is to add a CLI flag `--transport http` and host a loopback `HttpListener` that forwards POST `/mcp` to the MCP request handler, then iterate towards MCP Streamable HTTP compliance.
+- Streamable HTTP (planned)
+  - This repo does not yet include an HTTP transport. A later local-only
+    ChatGPT connection kit may add a standards-compliant, loopback-only
+    Streamable HTTP adapter. A bespoke `HttpListener` JSON bridge is not a
+    supported MCP transport.
+  - Output negotiation affects successful model-facing tool text only.
+    JSON-RPC remains JSON on every transport.
 
 ## Error Handling Standard (ExportBlock)
 

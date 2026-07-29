@@ -78,6 +78,8 @@ Increment `MAJOR` for an incompatible public change, including:
 
 - removing or renaming a tool without a compatibility alias;
 - changing required parameters or the meaning of an existing result;
+- changing the default `Auto` output selection or removing a
+  `responseFormat` value without a compatibility path;
 - removing a supported TIA Portal version or client installer;
 - changing the read-only or read-write security promise;
 - removing the legacy contract after its deprecation period;
@@ -91,7 +93,8 @@ Increment `MINOR` for backward-compatible capability changes, including:
 - adding support for another TIA Portal version;
 - adding a new installer adapter;
 - adding a new result field which existing clients may ignore;
-- introducing an opt-in contract or transport.
+- introducing an opt-in contract, output format or transport without changing
+  `Auto`.
 
 ### Patch
 
@@ -100,6 +103,8 @@ Increment `PATCH` for backward-compatible corrections, including:
 - bug, reliability, performance or diagnostic fixes;
 - security hardening which does not remove supported behaviour;
 - packaging fixes which preserve installation inputs;
+- formatter corrections which restore the published CSV, TOON or compact JSON
+  profile without changing valid output semantics;
 - documentation corrections;
 - worker fixes limited to a particular TIA Portal version.
 
@@ -118,6 +123,10 @@ Examples include:
 - changing `GetProject` from a list result to a singular result;
 - making a previously optional parameter required;
 - returning a partial page without a cursor where the old result was complete;
+- changing an existing selected-format identifier such as `toon-v4.1`;
+- changing `Auto` so the same eligible result selects a different format;
+- making an explicit `Csv`, `Toon` or `Json` request return a different shape
+  or fallback behaviour;
 - moving output files without a migration path;
 - changing a tool from read-only to mutating;
 - dropping a worker from the supported release manifest.
@@ -129,6 +138,28 @@ migration and an appropriate version increment.
 The supported profile and TIA version matrix is published in the release
 manifest and [Current Status](status.md). Changelog entries describe changes to
 that matrix rather than repeating it in full.
+
+## Output Format Changes
+
+The normative output contract is in [Model-Facing Output Format
+Policy](output-formats.md). A changelog entry for an output-format change must
+name:
+
+- the affected `responseFormat` value;
+- the affected detail level or result family;
+- whether `Auto` selection changes;
+- any format identifier or `tia-toon-table/1` profile revision;
+- the lossless fallback or caller migration.
+
+Changing TOON bounds, supported cell types, quoting, delimiters or empty-table
+encoding requires a profile revision and compatibility review. Changing CSV
+null handling, record termination or stable columns also requires a
+compatibility review. Compact JSON changes remain result-contract changes even
+when the outer MCP JSON-RPC envelope is unchanged.
+
+JSON-RPC, tool schemas, client configuration, MCPB and release manifests, and
+build metadata remain JSON. Describing a model-facing CSV or TOON result does
+not imply a protocol or package format change.
 
 ## Entry Quality
 

@@ -52,6 +52,7 @@
 *.sass text
 *.less text
 *.js text
+*.mjs text eol=crlf
 *.lisp text
 *.clj text
 *.sql text
@@ -65,6 +66,8 @@
 *.hs text
 
 *.csproj text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
 *.vbproj text
 *.fsproj text
 *.dbproj text

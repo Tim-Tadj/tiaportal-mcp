@@ -1,6 +1,6 @@
 ﻿# Current Status
 
-Status date: 28 July 2026.
+Status date: 29 July 2026.
 
 ## Repository Baseline
 
@@ -28,6 +28,8 @@ architecture branch now contains:
 - exact Siemens package selection and experimental V17 to V20 build
   orchestration;
 - compact project discovery and paged device, block and type discovery;
+- negotiated model-facing output with `Auto`, `Toon`, `Csv` and `Json`
+  response formats;
 - bounded attribute and regular-expression handling;
 - output-root, reparse-point, staged export and default no-overwrite policies;
 - two MCPB manifest templates and bundle assembly inputs.
@@ -49,14 +51,14 @@ are not releasable.
 | TIA versions | Exact-package V17 to V20 build inputs exist. V19 Read and ReadWrite workers and brokers pass a licensed live-project smoke test; V17, V18 and V20 remain untested. | One internal worker compiled and tested against each advertised major version. |
 | V21 | No dedicated adapter. | Dedicated modular V21 adapter and worker. |
 | Tool registration | Assembly-wide discovery remains, with mutating tools removed at compilation for Read. | Explicit generated manifests per profile, version and module. |
-| Responses | Core project, device, block and type queries are compact. Device, block and type queries are paged; project discovery and legacy trees still need bounded paging, and several command results still need structured warnings. | Compact summaries, bounded detail, canonical paths and paging. |
+| Responses | Core project, device, block and type queries are compact. Device, block and type queries are paged. `Auto` selects CSV for eligible `Summary` tables, bounded TOON v4.1 for eligible `Standard` tables and compact JSON for `Full`, nested and compatibility results. Project discovery and legacy trees still need bounded paging, and several command results still need structured warnings. | Compact summaries, bounded detail, canonical paths, paging and lossless negotiated output under the normative format policy. |
 | LLM guidance | Core descriptions now include selection, state, safety and paging guidance, and capability and inspection workflows exist. A shared metadata registry and evaluation fixtures remain open. | Shared metadata registry and a small set of workflow prompts. |
 | File safety | Export paths are contained beneath a locked root, child reparse points are rejected, overwrite defaults to false and existing files are replaced only after a staged export succeeds. Document-pair failures roll back unchanged targets and preserve recovery files when safe rollback is impossible. Import roots, handle-level race protection, atomic two-file replacement and complete batch failure reasons remain open. | Allowed output root, path containment and explicit overwrite policy. |
 | Portal lifecycle | The worker attaches when exactly one process exists and refuses ambiguous multiple-process attachment. Explicit process choice and ownership tracking remain missing. | Deterministic selection, ownership tracking and safe attach semantics. |
 | Concurrency | No dedicated serial Openness scheduler. | One scheduler per worker connection context. |
 | Packaging | Broker, worker build scripts, bundle assembly, two MCPB templates and direct Claude/VS Code configurations exist. Both V19 fixed-profile broker paths pass live standard-stream proxy tests. Signing, SBOM, a VSIX and the local-only ChatGPT tunnel kit do not. | Signed bundles, local-only installer adapters, release manifest, SBOM and checksums. |
 | ChatGPT | No adapter exists. The accepted design keeps the adapter, broker and worker on the user's PC and uses an outbound Secure MCP Tunnel without a public inbound endpoint. | A cleanly installable local connection kit with loopback-only transport, lifecycle controls and documented data boundaries. |
-| Validation | Static source and packaging checks are possible. A portable .NET 8 SDK built both V19 profiles and brokers, and live read-only smoke calls passed through each broker. The existing integration suite still requires prepared project/session assets and includes mutating tests, so it was not run against the user's open project. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
+| Validation | The Siemens-free output contract suite passes 40 tests. A portable .NET 8 SDK built both V19 profiles and brokers. A live Read broker registered 16 tools and returned an open project plus a bounded device page in negotiated CSV, TOON and JSON. The existing integration suite still requires prepared project/session assets and includes mutating tests, so it was not run against the user's open project. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
 
 The v0.0.18 baseline is compiled against V20 only. This branch selects an exact
 package for each V17 to V20 worker build, but those workers must not be
@@ -70,12 +72,16 @@ single-binary approach, and issue #25 records the separate V21 API problem.
    repeat V19 in the release matrix, and fix exact-package API differences.
 2. Replace assembly-wide discovery with explicit profile manifests and a
    serial Openness operation scheduler.
-3. Add Siemens-free broker, policy, cursor, serialisation and schema tests.
-4. Return typed capped batch failures instead of retaining reasons only in
+3. Expand Siemens-free broker, policy, cursor and schema coverage, including
+   semantic-equivalence decoder fixtures for every negotiated format.
+4. Evaluate TOON and compact JSON on representative traces. Treat improved
+   model structural accuracy as a project design goal rather than a universal
+   assumption.
+5. Return typed capped batch failures instead of retaining reasons only in
    logs.
-5. Implement the V21 modular adapter.
-6. Add tags and external sources as the first expanded read surfaces.
-7. Build the VS Code adapter and local-only ChatGPT Secure MCP Tunnel connection
+6. Implement the V21 modular adapter.
+7. Add tags and external sources as the first expanded read surfaces.
+8. Build the VS Code adapter and local-only ChatGPT Secure MCP Tunnel connection
    kit, then add signing, checksums, provenance and an SBOM.
 
 Detailed sequencing and upstream dispositions are recorded in
@@ -121,6 +127,15 @@ are met.
 - List and search operations are deterministically paged and bounded.
 - Summaries include canonical paths or stable entity references.
 - Attribute values are JSON-safe and bounded.
+- `responseFormat` accepts only `Auto`, `Toon`, `Csv` and `Json`, with `Auto`
+  as the default.
+- Eligible `Summary` and `Standard` tables use CSV and `tia-toon-table/1`
+  respectively under `Auto`; `Full`, nested, compatibility and ineligible
+  results use compact JSON without data loss.
+- Explicit incompatible `Csv` and `Toon` requests return `InvalidParams`
+  guidance rather than flattening data or silently changing format.
+- Format metadata reports the selected format, `returned`, `hasMore` and
+  `nextCursor`, and full row data occurs once in model-facing text.
 - Errors use stable codes, retain diagnostic context in logs and do not
   disconnect a healthy session after a recoverable read failure.
 - Legacy contract behaviour and its deprecation period are documented.
@@ -131,7 +146,7 @@ are met.
   capabilities and reference documentation.
 - Profile and version availability are accurate.
 - Workflow evaluations cover discovery, ambiguity, pagination, version
-  mismatch, read-only refusal and mutation intent.
+  mismatch, read-only refusal, mutation intent and output-format recovery.
 - No advertised tool is an implementation stub which always fails.
 
 ### Validation

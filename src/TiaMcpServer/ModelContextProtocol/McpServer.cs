@@ -123,7 +123,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region state
 
-        [McpServerTool(Name = "GetCapabilities"), Description("Call first to learn the exact TIA version, access profile, response defaults and safe discovery sequence for this worker.")]
+        [McpServerTool(Name = "GetCapabilities"), Description("Call first to learn the exact TIA version, access profile, response formats, defaults and safe discovery sequence for this worker.")]
         public static ResponseCapabilities GetCapabilities()
         {
             var worker = WorkerBuild.Current;
@@ -154,10 +154,27 @@ namespace TiaMcpServer.ModelContextProtocol
                 TiaMajorVersion = worker.TiaMajorVersion,
                 AccessProfile = worker.AccessProfile.ToString(),
                 SupportStatus = "Experimental",
-                Contract = "v1-with-compact-query-preview",
+                Contract = "v1-with-toon-csv-preview",
                 DefaultPageLimit = PageRequest.DefaultLimit,
                 MaximumPageLimit = PageRequest.MaximumLimit,
                 DefaultDetailLevel = ResponseDetailLevel.Summary.ToString(),
+                DefaultResponseFormat = "Auto",
+                SupportedResponseFormats = new[]
+                {
+                    "Auto",
+                    "Toon",
+                    "Csv",
+                    "Json"
+                },
+                ToonProfile = "tia-toon-table/1 (TOON v4.1, scalar cells, maximum 200 rows and 32 columns)",
+                ResponseFormatPolicy = new[]
+                {
+                    "Auto uses CSV for compact flat Summary lists.",
+                    "Auto uses TOON for eligible Standard lists to preserve explicit fields, row counts and scalar types for the model.",
+                    "Auto uses compact JSON for Full or nested results which cannot be represented losslessly as a bounded table.",
+                    "CSV quotes string cells to preserve scalar types. Empty TOON arrays report their stable columns in result metadata.",
+                    "Explicit Toon or Csv is rejected when it would lose result data. Explicit Json is always available."
+                },
                 CanModifyProject = worker.AccessProfile == AccessProfile.ReadWrite,
                 CanWriteFiles = worker.AccessProfile == AccessProfile.ReadWrite,
                 ToolFamilies = toolFamilies,
@@ -165,6 +182,7 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     "Call GetState before project discovery.",
                     "Use summary detail and follow cursors only as far as needed.",
+                    "Keep responseFormat Auto unless a specific downstream parser requires Toon, Csv or Json.",
                     "Reuse exact names and paths returned by discovery tools.",
                     worker.AccessProfile == AccessProfile.Read
                         ? "This worker cannot save, compile, import, export or close projects."
@@ -219,7 +237,6 @@ namespace TiaMcpServer.ModelContextProtocol
             return ListProjects(detailLevel);
         }
 
-        [McpServerTool(Name = "ListProjects"), Description("List open projects and sessions with canonical paths. Use this before selecting project-scoped tools.")]
         public static ResponseGetProjects ListProjects(
             [Description("detailLevel: Summary returns canonical identity; Full also includes bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary)
         {
@@ -596,7 +613,6 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetDevices"), Description("List project devices using compact, deterministic and paged results. Start with Summary and request Full only for selected troubleshooting.")]
         public static ResponseDevices GetDevices(
             [Description("detailLevel: Summary returns names only, Standard is reserved for typed device fields, and Full includes raw attributes and diagnostic descriptions")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Summary,
             [Description("limit: maximum devices to return. Defaults to 50 and is capped at 200")] int limit = PageRequest.DefaultLimit,
@@ -879,7 +895,6 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetBlocks"), Description("List PLC blocks with canonical paths, compact detail and opaque paging. Use returned paths with block-specific tools.")]
         public static ResponseBlocks GetBlocks(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("regexName: optional regular expression applied to block names; maximum 256 characters and one-second match timeout")] string regexName = "",
@@ -1515,7 +1530,6 @@ namespace TiaMcpServer.ModelContextProtocol
             }
         }
 
-        [McpServerTool(Name = "GetTypes"), Description("List PLC data types with canonical paths, compact detail and opaque paging. Use returned paths with type-specific tools.")]
         public static ResponseTypes GetTypes(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("regexName: optional regular expression applied to type names; maximum 256 characters and one-second match timeout")] string regexName = "",

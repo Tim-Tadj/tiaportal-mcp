@@ -25,7 +25,8 @@ version-specific download. See `docs/architecture.md` for the design and
 - `src/TiaMcpBroker/`: profile-locked version detection, worker selection and
   stdio forwarding. It must not reference Siemens assemblies.
 - `src/TiaMcpServer/ModelContextProtocol/`: MCP tools, workflow prompts,
-  compact response contracts and capability metadata.
+  compact response contracts, negotiated output rendering and capability
+  metadata.
 - `src/TiaMcpServer/Siemens/`: the high-level TIA Portal wrapper and Openness
   initialisation.
 - `src/TiaMcpServer/Runtime/`: worker command-line parsing and runtime version
@@ -36,7 +37,8 @@ version-specific download. See `docs/architecture.md` for the design and
   licence and project assets.
 - `build/` and `packaging/`: exact-worker builds and the two public bundle
   definitions.
-- `docs/`: architecture, roadmap, current status and changelog policy.
+- `docs/`: architecture, normative output-format policy, roadmap, current
+  status and changelog policy.
 
 Keep protocol concerns in `ModelContextProtocol` and Siemens API concerns in
 `Siemens`. Stdio standard output is reserved for MCP traffic. Diagnostics belong
@@ -54,6 +56,28 @@ When changing session discovery, verify that `GetOpenSessions` returns reliable
 full project paths for both local and remote multiuser sessions. The Openness
 API can vary between these session types, so this requires licensed runtime
 coverage before it is described as supported.
+
+## Model-Facing Output Contract
+
+Follow the normative
+[`docs/output-formats.md`](docs/output-formats.md) policy for all formatted
+tool results.
+
+- Expose `responseFormat=Auto|Toon|Csv|Json` only through the shared response
+  contract and formatter. Do not add tool-local format flags or ad hoc
+  serialisation.
+- Under `Auto`, use CSV only for eligible compact `Summary` tables, bounded
+  `tia-toon-table/1` only for eligible richer `Standard` tables, and compact
+  JSON for `Full`, nested, compatibility or ineligible results.
+- Never flatten, drop or stringify structured fields to force CSV or TOON.
+  Automatic selection falls back losslessly to compact JSON. An incompatible
+  explicit `Csv` or `Toon` request returns MCP `InvalidParams` guidance.
+- Keep selected-format, `returned`, `hasMore` and `nextCursor` metadata stable,
+  and include full row data once in model-facing text.
+- Treat TOON's potential structural-accuracy benefit as a design goal which
+  requires local evaluation. Do not claim universal accuracy improvements.
+- MCP JSON-RPC, tool schemas, client configuration and package, release or
+  build manifests remain JSON.
 
 ## Test Execution Policy
 

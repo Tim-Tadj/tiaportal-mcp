@@ -11,7 +11,10 @@ worker source. V21 is rejected until its modular adapter is implemented.
 
 ## Prerequisites
 
-- Windows with a .NET SDK capable of building .NET Framework 4.8 projects
+- Windows with a .NET SDK capable of building SDK-style projects. The
+  build-only `Microsoft.NETFramework.ReferenceAssemblies.net48` package supplies
+  the .NET Framework 4.8 reference assemblies, so a separately installed
+  developer targeting pack is not required.
 - network or package-cache access for the NuGet dependencies
 - the repository checked out to a writable location
 - the optional `mcpb` CLI when `.mcpb` files are required

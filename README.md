@@ -12,6 +12,8 @@ An MCP server which connects to Siemens TIA Portal.
 
 - See [Project Documentation](docs/README.md) for the architecture, roadmap,
   current status, definition of done and changelog policy.
+- See [Model-Facing Output Format Policy](docs/output-formats.md) for the
+  normative compact CSV, bounded TOON and JSON result contract.
 
 ## Current Status
 
@@ -56,9 +58,14 @@ installed, pass an exact value such as `--tia-version V20`.
 
 ## Testing
 
-- See `tests/TiaMcpServer.Test/README.md` for environment prerequisites and test asset setup.
-- Standard command: `dotnet test` (run from the repo root).
-- Test execution policy: offer to run tests, but only execute after explicit user confirmation. Details in `AGENTS.md`.
+- Run the Siemens-free output contract suite with
+  `dotnet test tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj`.
+- See `tests/McpSmoke/README.md` for the reusable read-only broker smoke test.
+- See `tests/TiaMcpServer.Test/README.md` for licensed integration
+  prerequisites and project asset setup.
+- Run solution-wide `dotnet test` only when those integration prerequisites
+  are available and the user has explicitly confirmed the run.
+- The complete test execution policy is in `AGENTS.md`.
 
 ## Contributing
 
@@ -70,7 +77,32 @@ installed, pass an exact value such as `--tia-version V20`.
 - The MCP layer maps these to `McpException` codes. For `ExportFailed`, it includes a concise reason from the underlying error; for `NotFound`, it returns `InvalidParams` and may suggest likely full block paths if a bare name was provided.
 - Consistency required: TIA Portal never exports inconsistent blocks/types. Single export returns `InvalidParams` with a message to compile first. Bulk export skips inconsistent items and returns them in an `Inconsistent` list alongside `Items`.
 - Standardization: Exception context metadata is attached in a single catch per portal method right before rethrow, not at inline throw sites. See `docs/error-model.md`.
-- This standardized pattern currently applies to `ExportBlock` and will expand incrementally.
+- This standardised pattern currently applies to `ExportBlock` and will expand incrementally.
+
+## Model-Facing Output Formats
+
+Eligible bounded list tools expose
+`responseFormat=Auto|Toon|Csv|Json`. `Auto` is the default:
+
+- compact flat `Summary` tables use RFC 4180 CSV;
+- richer eligible `Standard` tables use the bounded
+  `tia-toon-table/1` profile based on TOON v4.1;
+- `Full`, nested, compatibility and otherwise ineligible results use compact
+  JSON.
+
+Automatic selection falls back to compact JSON whenever a table format would
+lose structure. An incompatible explicit `Csv` or `Toon` request returns MCP
+`InvalidParams` guidance instead of flattening fields or silently changing
+format. Explicit `Json` works for every valid response shape.
+
+Formatted list metadata reports the selected format, `returned`, `hasMore` and
+`nextCursor`. Full row data appears once in model-facing text. The TOON profile
+is intended to make repeated record structure conspicuous to models, but any
+accuracy benefit is model and data dependent and must be evaluated locally.
+
+MCP JSON-RPC, tool schemas, VS Code and Claude configuration, MCPB and release
+manifests, and build metadata remain JSON. The complete normative rules are in
+[Model-Facing Output Format Policy](docs/output-formats.md).
 
 ## Transports
 
@@ -120,6 +152,9 @@ installed, pass an exact value such as `--tia-version V20`.
   [`samples/vscode/mcp.json`](samples/vscode/mcp.json). Select only one
   profile for a TIA Portal process.
 
+  `responseFormat` is a per-tool argument. Do not add it to `mcp.json`; the
+  VS Code server configuration remains JSON.
+
 ## Claude Desktop
 
 - Two MCPB manifests and an optional packing step are defined for the Read and
@@ -150,6 +185,9 @@ installed, pass an exact value such as `--tia-version V20`.
     }
   }
   ```
+
+  `responseFormat` is a per-tool argument. Claude configuration and the MCPB
+  manifest remain JSON even when eligible tool result text is CSV or TOON.
 
 ## ChatGPT
 

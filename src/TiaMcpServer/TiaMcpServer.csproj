@@ -30,6 +30,9 @@
     <Reference Include="System.Management" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TiaMcp.Contracts\TiaMcp.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Remove="tests\**" />
     <None Include="tests\**" />
   </ItemGroup>
