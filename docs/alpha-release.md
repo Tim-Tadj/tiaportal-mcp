@@ -1,23 +1,25 @@
 # 0.1.0-alpha.1 Release Gate
 
-Status date: 29 July 2026.
+Status date: 30 July 2026.
 
 ## Purpose
 
 `0.1.0-alpha.1` is an experimental Windows x64 prerelease for early evaluation.
-It is not a supported release and must be published as a GitHub prerelease.
+It is not a supported release. It was
+[published as a GitHub prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1)
+on 30 July 2026.
 
 The alpha proves the two-profile package design, version broker, compact MCP
-contract and local client installation paths. It does not claim that any exact
-candidate worker passed a live-project runtime test.
+contract and local client installation paths. It does not claim that any
+published worker passed a live-project runtime test.
 
 ## Package and TIA Portal Matrix
 
 Both public packages contain exact-version workers selected by the broker.
 Users choose an access profile, not a version-specific download.
 
-This is the target publication matrix. The release must not be published until
-every listed bundled worker has compiled in the prepared release environment.
+This is the published package matrix. Publication required every listed
+bundled worker to compile in the prepared release environment.
 
 | TIA Portal version | Read | ReadWrite | Alpha classification |
 | --- | --- | --- | --- |
@@ -30,15 +32,15 @@ every listed bundled worker has compiled in the prepared release environment.
 Earlier V19 Read and ReadWrite builds completed MCP initialisation, profile
 capability reporting, connection to an open project and bounded read queries
 through fixed-profile brokers. That evidence predates the Siemens-DLL-free
-resolver used by the exact candidate and informs confidence only. The current
-V19 candidate has build, strong-name preflight and Siemens-free validation, but
-has not been run against a live TIA Portal project.
+resolver used by the published bits and informs confidence only. The exact V19
+release bits have build, strong-name preflight and Siemens-free validation, but
+have not been run against a live TIA Portal project.
 
 The broker must reject V20, V21 and missing or incompatible installations
 before a Portal operation when no matching worker is bundled, with a concise
 recovery message. Release notes, manifests and client installers must use the
 classifications above without describing V17 or V18 as tested or supported, or
-the exact V19 candidate as runtime-validated.
+the published V19 bits as runtime-validated.
 
 No Siemens-supplied runtime or object-code DLL is included in either package.
 The selected worker loads its exact Openness assemblies from the user's
@@ -62,7 +64,7 @@ results pass through OpenAI when the custom app is used. See
 
 ## Required Publication Gate
 
-The alpha may be published when all of the following non-TIA checks pass:
+The alpha publication gate required all of the following non-TIA checks:
 
 - [x] product, informational, bundle, MCPB and release-manifest versions are
   `0.1.0-alpha.1`, while numeric Windows assembly and file versions are
@@ -85,11 +87,12 @@ The alpha may be published when all of the following non-TIA checks pass:
   and bundled workers correctly;
 - [x] missing TIA Portal, not-bundled V20, unsupported V21 and profile
   mismatches return bounded actionable diagnostics;
-- [x] the release candidate contains its manifest, SHA-256 checksums,
+- [x] the published release contains its manifest, SHA-256 checksums,
   prerequisites and third-party notices, and package inspection confirms no
   Siemens-supplied runtime or object-code DLL is present;
-- [ ] the GitHub release is marked as a prerelease and prominently links this
-  support matrix.
+- [x] the
+  [GitHub release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1)
+  is marked as a prerelease and prominently links this support matrix.
 
 The blocking client check for this alpha is static and package-level. It
 validates each archive, renders the relocatable VS Code and ChatGPT helper
@@ -112,9 +115,9 @@ Siemens Openness.
 
 ## Runtime Testing Position
 
-No additional TIA-dependent test is required to publish this alpha. The
-release records the earlier V19 evidence without treating it as validation of
-the exact candidate. V17 and V18 remain `experimental-build-only`; V19 is
+No additional TIA-dependent test was required before this alpha was published.
+The release records the earlier V19 evidence without treating it as validation
+of the published bits. V17 and V18 remain `experimental-build-only`; V19 is
 `experimental-prior-runtime-evidence` with `runtimeValidated=false`. Any
 failure report for a bundled worker is an alpha compatibility finding, not a
 regression against a runtime support promise. V20 is not part of this release
@@ -153,7 +156,7 @@ The following work does not block `0.1.0-alpha.1`:
 
 ## Artefact Names
 
-Release automation should produce unambiguous profile-specific names:
+The published GitHub prerelease contains exactly these six assets:
 
 ```text
 tia-portal-mcp-0.1.0-alpha.1-read-win-x64.zip
@@ -164,6 +167,6 @@ SHA256SUMS.txt
 release-manifest.json
 ```
 
-The VS Code and ChatGPT helpers may be shipped as scripts or configuration
-files alongside these artefacts. They must select one immutable profile and
-must not modify package contents after checksum verification.
+The VS Code and ChatGPT helpers are contained within each profile package. They
+select one immutable profile and do not modify package contents after checksum
+verification.

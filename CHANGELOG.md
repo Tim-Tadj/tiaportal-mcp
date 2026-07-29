@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-Target prerelease: `0.1.0-alpha.1`.
+No changes yet.
+
+## [0.1.0-alpha.1] - 2026-07-30
 
 ### Added
 
@@ -127,9 +129,9 @@ Target prerelease: `0.1.0-alpha.1`.
 ### Compatibility
 
 - [RO][RW][V17][V18] Include experimental build-only workers in the
-  `0.1.0-alpha.1` candidate without claiming runtime validation or support.
+  `0.1.0-alpha.1` release without claiming runtime validation or support.
 - [RO][RW][V19] Retain prior licensed live-project evidence for both profiles,
-  while classifying the exact Siemens-DLL-free resolver candidate as
+  while classifying the published Siemens-DLL-free resolver bits as
   `experimental-prior-runtime-evidence` with `runtimeValidated=false`.
 - [RO][RW][V20] Defer the exact-version worker to a later alpha. The published
   v0.0.18 release remains the legacy V20 option.

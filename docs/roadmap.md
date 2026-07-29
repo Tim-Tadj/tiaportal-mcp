@@ -1,6 +1,6 @@
 ﻿# Roadmap
 
-Status date: 29 July 2026.
+Status date: 30 July 2026.
 
 ## Delivery Principles
 
@@ -13,26 +13,27 @@ Status date: 29 July 2026.
   worker passes the definition of done in [Current Status](status.md).
   Prerelease-only workers must carry their experimental validation label.
 
-## Alpha Cut: 0.1.0-alpha.1
+## Alpha Cut: 0.1.0-alpha.1 (Published)
 
-The first prerelease is a deliberately narrower evaluation milestone:
+The first prerelease was published on 30 July 2026 as a deliberately narrower
+evaluation milestone:
 
-- publish separate Read and ReadWrite Windows x64 bundles;
-- bundle V17, V18 and V19 workers through the broker;
-- label V17 and V18 `experimental-build-only`, and label V19
+- published separate Read and ReadWrite Windows x64 bundles;
+- bundled V17, V18 and V19 workers through the broker;
+- labelled V17 and V18 `experimental-build-only`, and labelled V19
   `experimental-prior-runtime-evidence` with `runtimeValidated=false` because
-  its live-project evidence predates the candidate resolver;
-- defer V20 to a later alpha with clear not-bundled diagnostics, retain v0.0.18
-  as the legacy V20 release and reject unsupported V21 explicitly;
-- publish two Claude Desktop MCPBs and direct VS Code stdio helpers;
-- publish ChatGPT Secure MCP Tunnel profiles which launch the local broker
+  its live-project evidence predates the published resolver;
+- deferred V20 to a later alpha with clear not-bundled diagnostics, retained
+  v0.0.18 as the legacy V20 release and rejected unsupported V21 explicitly;
+- published two Claude Desktop MCPBs and direct VS Code stdio helpers;
+- published ChatGPT Secure MCP Tunnel profiles which launch the local broker
   through `--mcp-command`;
-- complete the Siemens-free build, schema, profile-boundary, packaging and
+- completed the Siemens-free build, schema, profile-boundary, packaging and
   installation checks in [Alpha Release Gate](alpha-release.md).
 
-No further TIA-dependent test blocks this alpha. V20, signing, a formal SBOM,
-provenance, V21, a VSIX, further runtime matrices and broader tool coverage
-move to later prereleases or the supported-release gate.
+No further TIA-dependent test was required for this alpha. V20, signing, a
+formal SBOM, provenance, V21, a VSIX, further runtime matrices and broader tool
+coverage remain scheduled for later prereleases or the supported-release gate.
 
 ## Phase 0: Baseline and Decisions
 

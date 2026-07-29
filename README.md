@@ -13,31 +13,32 @@ An MCP server which connects to Siemens TIA Portal.
 
 - See [Project Documentation](docs/README.md) for the architecture, roadmap,
   current status, definition of done and changelog policy.
-- See [0.1.0-alpha.1 Release Gate](docs/alpha-release.md) for the experimental
-  support matrix, publication checklist and deferred work.
+- See [0.1.0-alpha.1 Alpha Release](docs/alpha-release.md) for the experimental
+  support matrix, completed publication checklist and deferred work.
 - See [Model-Facing Output Format Policy](docs/output-formats.md) for the
   normative compact CSV, bounded TOON and JSON result contract.
 
 ## Current Status
 
-The non-TIA-validated candidate for the next experimental Windows x64 prerelease,
-`0.1.0-alpha.1`, contains two public distributions,
+The experimental Windows x64 prerelease
+[`0.1.0-alpha.1`](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1)
+contains two public distributions,
 `tia-portal-mcp-read` and `tia-portal-mcp-readwrite`, with automatic selection
 of isolated V17, V18 and V19 workers. V17 and V18 are
 `experimental-build-only`. V19 is `experimental-prior-runtime-evidence` with
 `runtimeValidated=false`: earlier Read and ReadWrite live-project evidence
 informs confidence, but it predates the Siemens-DLL-free resolver used by the
-exact candidate. The current bits have build, strong-name preflight and
+published bits. The release bits have build, strong-name preflight and
 Siemens-free validation only. V20 is planned for a later alpha and V21 is
-unsupported in this release. Publication as a GitHub prerelease is the
-remaining release action and is not gated on either deferred worker.
+unsupported in this release. It was published as a GitHub prerelease on
+30 July 2026.
 
 The alpha is for evaluation and does not claim production support for any
 profile or TIA Portal version. See [Current Status](docs/status.md) and the
 [Alpha Release Gate](docs/alpha-release.md) before installing it.
 
-The currently published v0.0.18 release remains the legacy single read-write
-server compiled against TIA Portal V20.
+The stable legacy v0.0.18 release remains the single read-write server compiled
+against TIA Portal V20.
 
 ## Released v0.0.18 Requirements
 
@@ -66,8 +67,8 @@ installation.
 ## TIA Portal Versions
 
 - V19 retains prior Read and ReadWrite live-project evidence from before the
-  resolver change. The exact `0.1.0-alpha.1` candidate has not received a live
-  TIA run and is explicitly runtime-unverified.
+  resolver change. The exact `0.1.0-alpha.1` release bits have not received a
+  live TIA run and are explicitly runtime-unverified.
 - V17 and V18 workers are included for build-only evaluation and are
   explicitly runtime-unverified.
 - V20 is not included in `0.1.0-alpha.1`. Its exact-version worker and SIMATIC
@@ -150,8 +151,8 @@ manifests, and build metadata remain JSON. The complete normative rules are in
 
 - The current upstream VS Code extension remains available for the released
   single-worker server: [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp).
-- This branch supports a direct stdio installation from either extracted
-  profile ZIP. The broker chooses the exact bundled V17, V18 or V19 worker.
+- The published `0.1.0-alpha.1` profile ZIPs support direct stdio installation.
+  The broker chooses the exact bundled V17, V18 or V19 worker.
 - A VSIX is not required or included in `0.1.0-alpha.1`.
 - The packaged installer and workspace configuration instructions are in
   [`packaging/clients/vscode`](packaging/clients/vscode/README.md).
@@ -185,12 +186,13 @@ manifests, and build metadata remain JSON. The complete normative rules are in
 
 ## Claude Desktop
 
-- Two MCPB manifests and an optional packing step are defined for the Read and
-  ReadWrite bundles. After a release build is assembled with `-CreateMcpb`,
-  choose **Settings > Extensions > Advanced settings > Install Extension** in
-  Claude Desktop, select the matching `.mcpb` file, then review and install it.
+- Download the matching Read or ReadWrite `.mcpb` from the
+  [`0.1.0-alpha.1` prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1),
+  verify it against `SHA256SUMS.txt`, then choose
+  **Settings > Extensions > Advanced settings > Install Extension** in Claude
+  Desktop and select the file.
   See [Claude's local MCP server guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
-- The MCPB files are experimental in `0.1.0-alpha.1`. All exact candidate
+- The MCPB files are experimental in `0.1.0-alpha.1`. All published alpha
   workers are runtime-unverified. V19 retains only prior runtime evidence from
   before the resolver change.
 - For development, add the matching broker directly to

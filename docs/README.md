@@ -12,7 +12,7 @@ separates planned architecture from currently shipped behaviour.
   profiles, compact JSON fallback and paging metadata.
 - [ChatGPT Local Connection](chatgpt-local.md): the local process, outbound
   tunnel and data boundary for ChatGPT.
-- [Alpha Release Gate](alpha-release.md): the exact scope, evidence,
+- [Alpha Release](alpha-release.md): the exact scope, evidence, completed
   publication checklist and deferred work for `0.1.0-alpha.1`.
 - [Roadmap](roadmap.md): phased delivery plan and the disposition of upstream
   pull requests and issues.
