@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using TiaMcp.Contracts;
+using McpException = ModelContextProtocol.McpProtocolException;
 
 namespace TiaMcpServer.ModelContextProtocol
 {
@@ -136,6 +137,10 @@ namespace TiaMcpServer.ModelContextProtocol
                 structuredContent["columns"] = columnNames;
             }
 
+            var structuredContentElement = JsonSerializer.SerializeToElement(
+                structuredContent,
+                McpJsonUtilities.DefaultOptions);
+
             return new CallToolResult
             {
                 Content = new List<ContentBlock>
@@ -150,7 +155,7 @@ namespace TiaMcpServer.ModelContextProtocol
                         Text = payload
                     }
                 },
-                StructuredContent = structuredContent
+                StructuredContent = structuredContentElement
             };
         }
 

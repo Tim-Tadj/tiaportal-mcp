@@ -17,11 +17,12 @@ using System.Xml.Linq;
 using TiaMcpServer.Runtime;
 using TiaMcpServer.Security;
 using TiaMcpServer.Siemens;
+using McpException = ModelContextProtocol.McpProtocolException;
 
 namespace TiaMcpServer.ModelContextProtocol
 {
     [McpServerToolType]
-    public static class McpServer
+    public sealed class McpServer
     {
         private static IServiceProvider? _services;
         private static Portal? _portal;
@@ -864,7 +865,7 @@ namespace TiaMcpServer.ModelContextProtocol
                         Path = Portal.GetBlockPath(block),
                         Name = block.Name,
                         TypeName = block.GetType().Name,
-                        Namespace = includeStandard ? block.Namespace : null,
+                        Namespace = includeStandard ? Helper.GetNamespace(block) : null,
                         ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage),block.ProgrammingLanguage),
                         MemoryLayout = includeStandard
                             ? Enum.GetName(typeof(MemoryLayout), block.MemoryLayout)
@@ -955,7 +956,7 @@ namespace TiaMcpServer.ModelContextProtocol
                         Path = entry.Path,
                         Name = block.Name,
                         TypeName = block.GetType().Name,
-                        Namespace = includeStandard ? block.Namespace : null,
+                        Namespace = includeStandard ? Helper.GetNamespace(block) : null,
                         ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
                         MemoryLayout = includeStandard
                             ? Enum.GetName(typeof(MemoryLayout), block.MemoryLayout)
@@ -1252,7 +1253,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         [McpServerTool(Name = "ExportBlocks"), Description("Export matching PLC blocks as XML beneath the configured output root. Use a bounded filter and inspect the compact partial-result counts.")]
         public static async Task<ResponseExportBlocks> ExportBlocks(
-            IMcpServer server,
+            global::ModelContextProtocol.Server.McpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
@@ -1504,7 +1505,7 @@ namespace TiaMcpServer.ModelContextProtocol
                         Path = Portal.GetTypePath(type),
                         Name = type.Name,
                         TypeName = type.GetType().Name,
-                        Namespace = includeStandard ? type.Namespace : null,
+                        Namespace = includeStandard ? Helper.GetNamespace(type) : null,
                         IsConsistent = type.IsConsistent,
                         ModifiedDate = includeStandard ? type.ModifiedDate : null,
                         IsKnowHowProtected = includeStandard ? type.IsKnowHowProtected : null,
@@ -1590,7 +1591,7 @@ namespace TiaMcpServer.ModelContextProtocol
                         Path = entry.Path,
                         Name = type.Name,
                         TypeName = type.GetType().Name,
-                        Namespace = includeStandard ? type.Namespace : null,
+                        Namespace = includeStandard ? Helper.GetNamespace(type) : null,
                         IsConsistent = type.IsConsistent,
                         ModifiedDate = includeStandard ? type.ModifiedDate : null,
                         IsKnowHowProtected = includeStandard ? type.IsKnowHowProtected : null,
@@ -1740,7 +1741,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         [McpServerTool(Name = "ExportTypes"), Description("Export matching PLC data types as XML beneath the configured output root. Use a bounded filter and inspect the compact partial-result counts.")]
         public static async Task<ResponseExportTypes> ExportTypes(
-            IMcpServer server,
+            global::ModelContextProtocol.Server.McpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
@@ -1978,7 +1979,7 @@ namespace TiaMcpServer.ModelContextProtocol
                 var resolvedExportPath = ResolveOutputDirectory(exportPath);
                 if (Engineering.TiaMajorVersion < 20)
                 {
-                    throw new McpException("ExportAsDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
+                    throw new McpException("ExportAsDocuments is available only in the TIA Portal V20 worker for this alpha", McpErrorCode.InvalidParams);
                 }
                 if (Portal.ExportAsDocuments(
                     softwarePath,
@@ -2042,7 +2043,7 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
                 if (Engineering.TiaMajorVersion < 20)
                 {
-                    throw new McpException("ExportBlocksAsDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
+                    throw new McpException("ExportBlocksAsDocuments is available only in the TIA Portal V20 worker for this alpha", McpErrorCode.InvalidParams);
                 }
                 // First, get the list of blocks to determine total count
                 Logger?.LogInformation($"Starting export of blocks as documents from '{softwarePath}' to '{resolvedExportPath}'");
@@ -2225,7 +2226,7 @@ namespace TiaMcpServer.ModelContextProtocol
             {
                 if (Engineering.TiaMajorVersion < 20)
                 {
-                    throw new McpException("ImportFromDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
+                    throw new McpException("ImportFromDocuments is available only in the TIA Portal V20 worker for this alpha", McpErrorCode.InvalidParams);
                 }
 
                 var option = ParseImportDocumentOption(importOption);
@@ -2301,7 +2302,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
                 if (Engineering.TiaMajorVersion < 20)
                 {
-                    throw new McpException("ImportBlocksFromDocuments requires TIA Portal V20 or newer", McpErrorCode.InvalidParams);
+                    throw new McpException("ImportBlocksFromDocuments is available only in the TIA Portal V20 worker for this alpha", McpErrorCode.InvalidParams);
                 }
 
                 // Determine total by scanning .s7dcl files matching regex

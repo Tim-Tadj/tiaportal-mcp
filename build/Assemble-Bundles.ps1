@@ -410,6 +410,14 @@ function Copy-DirectoryContents
 
     foreach ($file in Get-ChildItem -LiteralPath $sourceRoot -Recurse -File)
     {
+        if ($file.Extension.Equals(
+            '.pdb',
+            [System.StringComparison]::OrdinalIgnoreCase))
+        {
+            Write-Verbose "Excluding debug symbols '$($file.FullName)' from the public bundle."
+            continue
+        }
+
         $dllPolicyCategory = Get-DllPolicyCategory -File $file
         if ($dllPolicyCategory -eq 'ProprietaryTiaRuntime')
         {
@@ -495,6 +503,23 @@ function Update-RenderedMetadata
     $releaseManifestText = Get-Content -LiteralPath $releaseManifestPath -Raw
     $releaseManifest = $releaseManifestText.Replace($RenderedVersionToken, $ReleaseVersion) | ConvertFrom-Json
     $releaseManifest.bundledTiaVersions = @($Versions)
+    $releaseManifest.plannedTiaVersions = @(
+        @(17, 18, 19, 20) |
+            Where-Object { $Versions -notcontains $_ }
+    ) + @(21)
+    foreach ($tiaVersion in @(17, 18, 19, 20))
+    {
+        $validationEntry =
+            $releaseManifest.tiaVersionValidation.PSObject.Properties[
+                $tiaVersion.ToString()].Value
+        $isBundled = $Versions -contains $tiaVersion
+        $validationEntry.bundled = $isBundled
+        if (-not $isBundled)
+        {
+            $validationEntry.runtimeValidated = $false
+            $validationEntry.classification = 'not-bundled-in-this-package'
+        }
+    }
     Write-JsonFile -Value $releaseManifest -Path $releaseManifestPath
 
     $versionList = Format-TiaVersionList -Versions $Versions
@@ -745,16 +770,226 @@ function Invoke-McpbPack
     }
 
     Write-Host "Packing MCPB artefact '$OutputPath'."
-    $LASTEXITCODE = 0
     & $commandPath pack $BundleDirectory $OutputPath
-    if ($LASTEXITCODE -ne 0)
+    $packExitCode = $LASTEXITCODE
+    if ($packExitCode -ne 0)
     {
-        throw "mcpb pack failed for '$BundleDirectory' with exit code $LASTEXITCODE."
+        throw "mcpb pack failed for '$BundleDirectory' with exit code $packExitCode."
     }
 
     if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf))
     {
         throw "mcpb reported success but did not produce '$OutputPath'."
+    }
+}
+
+function Assert-McpbManifest
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Profile,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedVersion
+    )
+
+    try
+    {
+        $manifest = Get-Content -LiteralPath $ManifestPath -Raw |
+            ConvertFrom-Json
+    }
+    catch
+    {
+        throw "The MCPB manifest is not valid JSON: '$ManifestPath'. $($_.Exception.Message)"
+    }
+
+    $expectedName = "tia-portal-mcp-$($Profile.Key)"
+    if ($manifest.manifest_version -ne '0.3' -or
+        $manifest.name -ne $expectedName -or
+        $manifest.version -cne $ExpectedVersion -or
+        $manifest.server.type -ne 'binary' -or
+        $manifest.server.entry_point -ne 'server/TiaPortalMcp.exe' -or
+        $manifest.tools_generated -ne $true -or
+        $manifest.prompts_generated -ne $true)
+    {
+        throw "The MCPB manifest does not identify the expected $($Profile.Name) binary package: '$ManifestPath'."
+    }
+
+    $mcpCommand = [string]$manifest.server.mcp_config.command
+    if ($mcpCommand -ne '${__dirname}/server/TiaPortalMcp.exe')
+    {
+        throw "The MCPB command must resolve the bundled broker relative to the package: '$ManifestPath'."
+    }
+
+    $arguments = @($manifest.server.mcp_config.args)
+    $profileArgumentIndex = [System.Array]::IndexOf(
+        [object[]]$arguments,
+        '--access-profile')
+    if ($profileArgumentIndex -lt 0 -or
+        $profileArgumentIndex + 1 -ge $arguments.Count -or
+        $arguments[$profileArgumentIndex + 1] -cne $Profile.Key)
+    {
+        throw "The MCPB manifest does not lock the expected $($Profile.Name) profile: '$ManifestPath'."
+    }
+
+    if (@($manifest.compatibility.platforms) -notcontains 'win32')
+    {
+        throw "The MCPB manifest does not declare Windows compatibility: '$ManifestPath'."
+    }
+}
+
+function Assert-ClientBundleAssets
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BundleDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Profile,
+
+        [Parameter(Mandatory = $true)]
+        [int[]]$Versions
+    )
+
+    $requiredRelativePaths = @(
+        'LICENSE.txt',
+        'THIRD-PARTY-NOTICES.md',
+        'clients\claude\README.md',
+        'clients\vscode\Install-VsCodeMcp.ps1',
+        'clients\vscode\README.md',
+        'clients\vscode\mcp.json',
+        'clients\chatgpt\Configure-ChatGptTunnel.ps1',
+        'clients\chatgpt\Start-ChatGptTunnel.ps1',
+        'clients\chatgpt\README.md'
+    )
+
+    foreach ($relativePath in $requiredRelativePaths)
+    {
+        $assetPath = Join-Path $BundleDirectory $relativePath
+        if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf))
+        {
+            throw "A required client asset is missing from the $($Profile.Name) bundle: '$assetPath'."
+        }
+    }
+
+    $requiredThirdPartyLicenceFiles = @(
+        'Apache-2.0.txt',
+        'Microsoft-MIT.txt',
+        'Microsoft-THIRD-PARTY-NOTICES.txt',
+        'Siemens-Collaboration-Net-LICENSE.md',
+        'Siemens-Collaboration-Net-ReadMe-OSS.html'
+    )
+    foreach ($tiaVersion in $Versions)
+    {
+        $licenceDirectory = Join-Path `
+            $BundleDirectory `
+            "server\workers\v$tiaVersion\third-party-licenses"
+        foreach ($licenceFile in $requiredThirdPartyLicenceFiles)
+        {
+            $licencePath = Join-Path $licenceDirectory $licenceFile
+            if (-not (Test-Path -LiteralPath $licencePath -PathType Leaf))
+            {
+                throw "The V$tiaVersion worker is missing required third-party licence material: '$licencePath'."
+            }
+        }
+    }
+
+    $powerShellScripts = @(
+        Get-ChildItem `
+            -LiteralPath (Join-Path $BundleDirectory 'clients') `
+            -Recurse `
+            -File `
+            -Filter '*.ps1'
+    )
+    foreach ($script in $powerShellScripts)
+    {
+        $tokens = $null
+        $parseErrors = $null
+        $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            $script.FullName,
+            [ref]$tokens,
+            [ref]$parseErrors)
+        if ($null -ne $parseErrors -and $parseErrors.Count -gt 0)
+        {
+            $parseMessages = @($parseErrors | ForEach-Object { $_.Message })
+            throw "Client script '$($script.FullName)' has PowerShell parse errors: $($parseMessages -join '; ')"
+        }
+    }
+
+    $vscodeConfigurationPath = Join-Path $BundleDirectory 'clients\vscode\mcp.json'
+    try
+    {
+        $vscodeConfiguration = Get-Content `
+            -LiteralPath $vscodeConfigurationPath `
+            -Raw |
+            ConvertFrom-Json
+    }
+    catch
+    {
+        throw "The VS Code MCP configuration is not valid JSON: '$vscodeConfigurationPath'. $($_.Exception.Message)"
+    }
+
+    $expectedServerName = "tia-portal-mcp-$($Profile.Key)"
+    $serverProperty = $vscodeConfiguration.servers.PSObject.Properties[$expectedServerName]
+    if ($null -eq $serverProperty)
+    {
+        throw "The VS Code MCP configuration does not contain '$expectedServerName': '$vscodeConfigurationPath'."
+    }
+
+    $server = $serverProperty.Value
+    if ($server.type -ne 'stdio' -or
+        $server.command -notlike '${input:*}\server\TiaPortalMcp.exe')
+    {
+        throw "The VS Code MCP configuration must use the local bundled stdio broker: '$vscodeConfigurationPath'."
+    }
+
+    $arguments = @($server.args)
+    $profileArgumentIndex = [System.Array]::IndexOf(
+        [object[]]$arguments,
+        '--access-profile')
+    if ($profileArgumentIndex -lt 0 -or
+        $profileArgumentIndex + 1 -ge $arguments.Count -or
+        $arguments[$profileArgumentIndex + 1] -cne $Profile.Name)
+    {
+        throw "The VS Code MCP configuration does not lock the expected $($Profile.Name) profile: '$vscodeConfigurationPath'."
+    }
+}
+
+function Assert-McpbArchive
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArchivePath
+    )
+
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+    try
+    {
+        $entryNames = @($archive.Entries | ForEach-Object {
+            $_.FullName.Replace('\', '/')
+        })
+        foreach ($requiredEntry in @(
+            'manifest.json',
+            'LICENSE.txt',
+            'THIRD-PARTY-NOTICES.md',
+            'server/TiaPortalMcp.exe',
+            'clients/claude/README.md',
+            'clients/vscode/Install-VsCodeMcp.ps1',
+            'clients/chatgpt/Configure-ChatGptTunnel.ps1'
+        ))
+        {
+            if ($entryNames -notcontains $requiredEntry)
+            {
+                throw "The MCPB archive is missing '$requiredEntry': '$ArchivePath'."
+            }
+        }
+    }
+    finally
+    {
+        $archive.Dispose()
     }
 }
 
@@ -815,6 +1050,11 @@ if (-not (Test-Path -LiteralPath $renderPackagingScript -PathType Leaf))
 {
     throw "The packaging renderer was not found: '$renderPackagingScript'."
 }
+$clientSourceRoot = Join-Path $repositoryRoot 'packaging\clients'
+if (-not (Test-Path -LiteralPath $clientSourceRoot -PathType Container))
+{
+    throw "The client packaging source directory was not found: '$clientSourceRoot'."
+}
 
 Assert-BuildInputs `
     -BuildRoot $buildRoot `
@@ -846,7 +1086,7 @@ if ($CreateMcpb)
     $mcpbCommand = Get-McpbCommand
     if ($null -eq $mcpbCommand)
     {
-        Write-Warning 'The mcpb CLI was not found on PATH. ZIP artefacts and checksums will still be created; no MCPB files will be produced.'
+        throw 'The mcpb CLI was not found on PATH. Install @anthropic-ai/mcpb before requesting -CreateMcpb.'
     }
 }
 
@@ -894,6 +1134,16 @@ try
 
         $renderedProfileManifest = Join-Path $metadataRoot "$($profile.Key)\manifest.json"
         Copy-Item -LiteralPath $renderedProfileManifest -Destination (Join-Path $profileStage 'manifest.json')
+        Copy-Item `
+            -LiteralPath (Join-Path $repositoryRoot 'LICENSE.txt') `
+            -Destination (Join-Path $profileStage 'LICENSE.txt')
+        Copy-Item `
+            -LiteralPath (Join-Path $repositoryRoot 'THIRD-PARTY-NOTICES.md') `
+            -Destination (Join-Path $profileStage 'THIRD-PARTY-NOTICES.md')
+        Assert-McpbManifest `
+            -ManifestPath (Join-Path $profileStage 'manifest.json') `
+            -Profile $profile `
+            -ExpectedVersion $Version
         if (-not [string]::IsNullOrWhiteSpace($licenceReviewMarkerPath))
         {
             Copy-Item `
@@ -910,6 +1160,29 @@ try
             $workerStage = Join-Path $workersStage "v$tiaVersion"
             Copy-DirectoryContents -SourceDirectory $workerInput -DestinationDirectory $workerStage
         }
+
+        $clientsStage = Join-Path $profileStage 'clients'
+        Copy-DirectoryContents `
+            -SourceDirectory $clientSourceRoot `
+            -DestinationDirectory $clientsStage
+        $profileVsCodeConfiguration = Join-Path $clientsStage "vscode\$($profile.Key).mcp.json"
+        Copy-Item `
+            -LiteralPath $profileVsCodeConfiguration `
+            -Destination (Join-Path $clientsStage 'vscode\mcp.json')
+        foreach ($configurationTemplateName in @(
+            'read.mcp.json',
+            'readwrite.mcp.json'
+        ))
+        {
+            $configurationTemplatePath = Join-Path `
+                $clientsStage `
+                "vscode\$configurationTemplateName"
+            Remove-Item -LiteralPath $configurationTemplatePath
+        }
+        Assert-ClientBundleAssets `
+            -BundleDirectory $profileStage `
+            -Profile $profile `
+            -Versions $versionsToBundle
 
         Assert-BundledDllPolicy `
             -BundleDirectory $profileStage `
@@ -934,6 +1207,7 @@ try
             $mcpbName = "tia-portal-mcp-$Version-$($profile.Key)-win-x64.mcpb"
             $mcpbPath = Join-Path $releaseRoot $mcpbName
             Invoke-McpbPack -Command $mcpbCommand -BundleDirectory $profileStage -OutputPath $mcpbPath
+            Assert-McpbArchive -ArchivePath $mcpbPath
             $createdArtefacts.Add($mcpbPath)
         }
     }

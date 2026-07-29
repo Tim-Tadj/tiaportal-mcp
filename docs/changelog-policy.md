@@ -72,6 +72,13 @@ Use Semantic Versioning for the public application version:
 
 `MAJOR.MINOR.PATCH`
 
+Prereleases append a SemVer identifier, for example
+`0.1.0-alpha.1`. Every public product, informational, bundle and manifest
+version in one prerelease shares that exact value. Numeric-only Windows
+assembly and file versions use the matching four-part base, such as `0.1.0.0`.
+A prerelease is not a support claim: its changelog and release notes must
+identify experimental versions, validation evidence and known exclusions.
+
 ### Major
 
 Increment `MAJOR` for an incompatible public change, including:
@@ -190,10 +197,11 @@ Avoid:
 1. Review `Unreleased` entries against merged user-visible changes.
 2. Verify scope tags and compatibility impact.
 3. Confirm that every newly supported worker and profile meets the definition
-   of done.
-4. Choose the Semantic Versioning increment.
-5. Add the release date and migration notes.
-6. Publish the signed artefacts and release manifest.
+   of done, or that a prerelease labels every exception as experimental.
+4. Choose the Semantic Versioning increment and optional prerelease identifier.
+5. Add the release date, validation matrix and migration notes.
+6. Publish the required artefacts and release manifest. A prerelease may defer
+   signing only when its release gate and notes say so explicitly.
 7. Add or update comparison links if the changelog uses them.
 8. Start a new empty `Unreleased` section.
 

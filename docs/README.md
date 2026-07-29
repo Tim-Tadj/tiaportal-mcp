@@ -10,8 +10,10 @@ separates planned architecture from currently shipped behaviour.
 - [Model-Facing Output Format Policy](output-formats.md): the normative
   `responseFormat` contract, automatic selection, CSV and bounded TOON
   profiles, compact JSON fallback and paging metadata.
-- [ChatGPT Local Connection](chatgpt-local.md): the local-only process,
-  transport and data boundary for ChatGPT.
+- [ChatGPT Local Connection](chatgpt-local.md): the local process, outbound
+  tunnel and data boundary for ChatGPT.
+- [Alpha Release Gate](alpha-release.md): the exact scope, evidence,
+  publication checklist and deferred work for `0.1.0-alpha.1`.
 - [Roadmap](roadmap.md): phased delivery plan and the disposition of upstream
   pull requests and issues.
 - [Current Status](status.md): the current repository baseline, known gaps and
@@ -32,3 +34,7 @@ testing or consuming tool result rendering.
 The architecture and roadmap are design commitments. A capability is not
 considered supported until it meets the definition of done in
 [Current Status](status.md) and appears in a published release manifest.
+The narrower `0.1.0-alpha.1` prerelease contract is defined separately in
+[Alpha Release Gate](alpha-release.md). Alpha inclusion means that a component
+is available for evaluation, not that it meets the supported-release
+definition of done.

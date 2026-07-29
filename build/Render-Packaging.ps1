@@ -24,6 +24,7 @@ $templates = @{
     'readwrite\manifest.json' = Join-Path $packagingRoot 'mcpb\readwrite\manifest.template.json'
     'release-manifest.json' = Join-Path $packagingRoot 'release-manifest.template.json'
 }
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 
 foreach ($template in $templates.GetEnumerator())
 {
@@ -38,7 +39,7 @@ foreach ($template in $templates.GetEnumerator())
 
     $rendered = (Get-Content -Raw -LiteralPath $template.Value).Replace('__VERSION__', $Version)
     $null = $rendered | ConvertFrom-Json
-    Set-Content -LiteralPath $destination -Value $rendered -Encoding UTF8
+    [System.IO.File]::WriteAllText($destination, $rendered, $utf8WithoutBom)
 }
 
 Write-Output "Rendered packaging metadata in '$resolvedOutputDirectory'."

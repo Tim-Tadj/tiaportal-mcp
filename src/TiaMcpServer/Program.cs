@@ -134,11 +134,28 @@ namespace TiaMcpServer
                 builder.Services
                     .AddMcpServer()
                     .WithStdioServerTransport()
-                    .WithToolsFromAssembly()
-                    .WithPromptsFromAssembly();
+                    .WithTools<McpServer>()
+                    .WithTools<McpListTools>()
+                    .WithPrompts<McpPrompts>()
+                    .WithRequestFilters(filters =>
+                    {
+                        filters.AddCallToolFilter(next => async (context, cancellationToken) =>
+                        {
+                            var operationGate =
+                                context.Services?.GetRequiredService<TiaOperationGate>() ??
+                                throw new InvalidOperationException(
+                                    "The TIA Portal operation gate is unavailable.");
+
+                            return await operationGate.RunAsync(
+                                async () => await next(context, cancellationToken)
+                                    .ConfigureAwait(false),
+                                cancellationToken).ConfigureAwait(false);
+                        });
+                    });
 
                 // Register the Portal service for dependency injection
                 builder.Services.AddSingleton<Portal>();
+                builder.Services.AddSingleton<TiaOperationGate>();
 
                 var host = builder.Build();
 

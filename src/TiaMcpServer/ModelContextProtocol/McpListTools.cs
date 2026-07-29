@@ -7,7 +7,7 @@ using TiaMcp.Contracts;
 namespace TiaMcpServer.ModelContextProtocol
 {
     [McpServerToolType]
-    public static class McpListTools
+    public sealed class McpListTools
     {
         private static readonly IReadOnlyList<TabularColumn<ResponseProjectInfo>>
             ProjectColumns = new[]

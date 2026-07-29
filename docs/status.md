@@ -4,10 +4,11 @@ Status date: 29 July 2026.
 
 ## Repository Baseline
 
-The current implementation is v0.0.18 at commit `c2429b1`. The fork and
-upstream `main` branches are aligned at this commit.
+The currently published release is v0.0.18. The current branch targets the
+experimental Windows x64 prerelease `0.1.0-alpha.1`, with separate Read and
+ReadWrite packages and internal V17 to V20 workers.
 
-The repository currently has:
+The v0.0.18 baseline has:
 
 - one .NET Framework 4.8 MCP server executable;
 - one automatically discovered tool surface containing 30 tools;
@@ -39,58 +40,75 @@ fixed-profile brokers have now been built and exercised against a licensed,
 running TIA Portal V19 project. Both profiles completed MCP initialisation,
 reported the expected capability boundary, connected to the open project and
 paged all 18 devices. A bounded Full-detail read also serialised 182 attributes
-without the previous internal error. V17, V18 and V20 still require their
-licensed runtime matrix, the V21 adapter does not exist, and the client adapters
-are not releasable.
+without the previous internal error. V17 and V18 now compile in both profiles
+and remain runtime-unverified. V20 is still blocked in the current release
+environment because its exact PublicAPI references are absent, so the alpha
+artefacts cannot yet be described as complete or published. The target
+manifest classifies V17, V18 and V20 as build-only and runtime-unverified, and
+excludes V21. These classifications are alpha evaluation labels, not
+production support claims.
+
+The exact alpha publication checklist and deferred work are in
+[0.1.0-alpha.1 Release Gate](alpha-release.md). No further TIA-dependent test
+is required for that prerelease if the existing V19 evidence is frozen and
+every other bundled version remains clearly marked runtime-unverified.
 
 ## Current Capability Gaps
 
 | Area | Current state | Target state |
 | --- | --- | --- |
-| Public profiles | Read and ReadWrite compile-time profiles and a second mutation policy exist, but explicit dependency-injection registries and releasable bundles do not. | Two public bundles with structurally separate read-only and read-write registries. |
-| TIA versions | Exact-package V17 to V20 build inputs exist. V19 Read and ReadWrite workers and brokers pass a licensed live-project smoke test; V17, V18 and V20 remain untested. | One internal worker compiled and tested against each advertised major version. |
-| V21 | No dedicated adapter. | Dedicated modular V21 adapter and worker. |
-| Tool registration | Assembly-wide discovery remains, with mutating tools removed at compilation for Read. | Explicit generated manifests per profile, version and module. |
+| Public profiles | Read and ReadWrite compile-time profiles, explicit MCP host registrations and a second mutation policy exist. Both profiles are included in the alpha scope. A generated capability registry remains a supported-release improvement. | Two supported public bundles with structurally separate read-only and read-write registries. |
+| TIA versions | Exact-package V17 to V20 build inputs exist. V17, V18 and V19 compile in both profiles. V19 workers and brokers pass a licensed live-project smoke test. V17 and V18 are runtime-unverified, while V20 awaits its exact PublicAPI references before alpha publication. | One internal worker compiled and tested against each supported major version. |
+| V21 | Excluded from `0.1.0-alpha.1`; no dedicated adapter exists. | Dedicated modular V21 adapter and worker in a later release. |
+| Tool registration | The host explicitly registers `McpServer`, `McpListTools` and `McpPrompts`; mutating tools are also removed at compilation for Read. | Generated manifests per profile, version and module from the shared metadata registry. |
 | Responses | Core project, device, block and type queries are compact. Device, block and type queries are paged. `Auto` selects CSV for eligible `Summary` tables, bounded TOON v4.1 for eligible `Standard` tables and compact JSON for `Full`, nested and compatibility results. Project discovery and legacy trees still need bounded paging, and several command results still need structured warnings. | Compact summaries, bounded detail, canonical paths, paging and lossless negotiated output under the normative format policy. |
 | LLM guidance | Core descriptions now include selection, state, safety and paging guidance, and capability and inspection workflows exist. A shared metadata registry and evaluation fixtures remain open. | Shared metadata registry and a small set of workflow prompts. |
 | File safety | Export paths are contained beneath a locked root, child reparse points are rejected, overwrite defaults to false and existing files are replaced only after a staged export succeeds. Document-pair failures roll back unchanged targets and preserve recovery files when safe rollback is impossible. Import roots, handle-level race protection, atomic two-file replacement and complete batch failure reasons remain open. | Allowed output root, path containment and explicit overwrite policy. |
 | Portal lifecycle | The worker attaches when exactly one process exists and refuses ambiguous multiple-process attachment. Explicit process choice and ownership tracking remain missing. | Deterministic selection, ownership tracking and safe attach semantics. |
-| Concurrency | No dedicated serial Openness scheduler. | One scheduler per worker connection context. |
-| Packaging | Broker, worker build scripts, bundle assembly, two MCPB templates and direct Claude/VS Code configurations exist. Both V19 fixed-profile broker paths pass live standard-stream proxy tests. Signing, SBOM, a VSIX and the local-only ChatGPT tunnel kit do not. | Signed bundles, local-only installer adapters, release manifest, SBOM and checksums. |
-| ChatGPT | No adapter exists. The accepted design keeps the adapter, broker and worker on the user's PC and uses an outbound Secure MCP Tunnel without a public inbound endpoint. | A cleanly installable local connection kit with loopback-only transport, lifecycle controls and documented data boundaries. |
-| Validation | The Siemens-free output contract suite passes 40 tests. A portable .NET 8 SDK built both V19 profiles and brokers. A live Read broker registered 16 tools and returned an open project plus a bounded device page in negotiated CSV, TOON and JSON. The existing integration suite still requires prepared project/session assets and includes mutating tests, so it was not run against the user's open project. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
+| Concurrency | A process-wide operation gate serialises MCP tool calls before they reach the Portal object graph. Siemens-free tests cover concurrent entry, operation failure and cancelled waiters; full concurrent-client stress remains deferred. | One proven scheduler per worker connection context. |
+| Packaging | Broker and worker build scripts, bundle assembly, two MCPB templates, direct Claude configurations, VS Code helpers and ChatGPT tunnel helpers exist. Both V19 fixed-profile broker paths pass live standard-stream proxy tests. Final alpha artefact validation, the V20 compile and the Siemens resolver redistribution decision remain; signing, an SBOM and a VSIX are deferred. | Signed bundles, locally executed client adapters, release manifest, SBOM and checksums for a supported release. |
+| ChatGPT | Profile-specific configure and start helpers use OpenAI Secure MCP Tunnel to launch the local stdio broker through `--mcp-command`; no HTTP adapter is required. An authenticated end-to-end tunnel check remains. | A cleanly installable local connection kit with lifecycle controls and documented data boundaries. |
+| Validation | The Siemens-free output contract and operation-gate suite passes 43 tests. The alpha validator passes source, profile, version, V21, client-manifest and notice checks, and validates both dependency-free broker profiles without starting a worker. A Windows workflow defines the same Siemens-free checks but has not yet been observed on GitHub. A repository-local .NET SDK built both profiles for V17, V18 and V19 plus both brokers. A live Read broker registered 16 tools and returned an open project plus a bounded device page in negotiated CSV, TOON and JSON. The existing integration suite still requires prepared project/session assets and includes mutating tests, so it was not run against the user's open project. | Siemens-free contract and policy tests plus exact-version runtime smoke tests. |
 
 The v0.0.18 baseline is compiled against V20 only. This branch selects an exact
-package for each V17 to V20 worker build, but those workers must not be
-advertised until the clean build and licensed runtime matrix passes. Upstream
-issue #24 records the V18 `ReflectionTypeLoadException` caused by the old
-single-binary approach, and issue #25 records the separate V21 API problem.
+package for each V17 to V20 worker build. The alpha may expose unverified
+workers only with the explicit experimental classifications in
+[Alpha Release Gate](alpha-release.md); they must not be advertised as
+supported until the licensed runtime matrix passes. Upstream issue #24 records
+the V18 `ReflectionTypeLoadException` caused by the old single-binary approach,
+and issue #25 records the separate V21 API problem.
 
 ## Immediate Priorities
 
-1. Build V17, V18 and V20 Read and ReadWrite workers in clean environments,
-   repeat V19 in the release matrix, and fix exact-package API differences.
-2. Replace assembly-wide discovery with explicit profile manifests and a
-   serial Openness operation scheduler.
-3. Expand Siemens-free broker, policy, cursor and schema coverage, including
+1. Complete the non-TIA `0.1.0-alpha.1` publication gate: clean builds,
+   profile schema checks, package validation, client configuration checks,
+   checksums and release notes.
+2. Prove the explicit Read tool boundary and operation gate through Siemens-free
+   `tools/list` and concurrent request checks.
+3. Assemble and validate both ZIPs, both MCPBs, the VS Code helpers and the
+   ChatGPT `--mcp-command` tunnel profiles.
+4. After the alpha, generate profile manifests from the shared metadata
+   registry.
+5. Expand Siemens-free broker, policy, cursor and schema coverage, including
    semantic-equivalence decoder fixtures for every negotiated format.
-4. Evaluate TOON and compact JSON on representative traces. Treat improved
+6. Evaluate TOON and compact JSON on representative traces. Treat improved
    model structural accuracy as a project design goal rather than a universal
    assumption.
-5. Return typed capped batch failures instead of retaining reasons only in
+7. Return typed capped batch failures instead of retaining reasons only in
    logs.
-6. Implement the V21 modular adapter.
-7. Add tags and external sources as the first expanded read surfaces.
-8. Build the VS Code adapter and local-only ChatGPT Secure MCP Tunnel connection
-   kit, then add signing, checksums, provenance and an SBOM.
+8. Implement the V21 modular adapter and run the deferred licensed runtime
+   matrix.
+9. Add tags and external sources as the first expanded read surfaces.
+10. Add signing, provenance and an SBOM for a supported release.
 
 Detailed sequencing and upstream dispositions are recorded in
 [Roadmap](roadmap.md).
 
-## Definition of Done
+## Supported-Release Definition of Done
 
-The two-profile release is complete only when all of the following conditions
-are met.
+The two-profile release is supported only when all of the following conditions
+are met. The deliberately narrower alpha gate is defined in
+[0.1.0-alpha.1 Release Gate](alpha-release.md).
 
 ### Architecture and Versioning
 
@@ -164,9 +182,9 @@ are met.
 
 - Both public bundles install from a clean Windows account without a source
   checkout.
-- The local-only ChatGPT connection kit, Claude Desktop MCPB and VS Code adapter
+- The ChatGPT tunnel connection kit, Claude Desktop MCPB and VS Code adapter
   use the same signed profile bundles.
-- The ChatGPT adapter, broker and worker execute on the user's PC, and no
+- The ChatGPT tunnel client, broker and worker execute on the user's PC, and no
   project component requires hosted infrastructure or a public inbound port.
 - Executables and packages are signed and checksums verify.
 - An SBOM, third-party notices, prerequisites and support matrix are published.

@@ -35,7 +35,7 @@ namespace TiaMcpBroker
     internal sealed class TiaInstallationDetector
     {
         private const int MinimumMajorVersion = 17;
-        private const int MaximumMajorVersion = 21;
+        private const int MaximumMajorVersion = 20;
 
         public TiaInstallationScan Scan()
         {

@@ -9,14 +9,16 @@ The target design has four primary goals:
 - provide a compact, predictable MCP surface for LLM clients;
 - enforce a genuine read-only boundary;
 - support each advertised TIA Portal version through an exact-version worker;
-- offer straightforward installation for ChatGPT through a local-only
+- offer straightforward installation for ChatGPT through a locally executed
   connection kit, Claude Desktop and VS Code without asking users to choose an
   internal binary.
 
-The initial target worker set is TIA Portal V17, V18, V19, V20 and V21 on
-Windows x64. A version is advertised only after its worker has passed the
-release definition of done. Earlier versions remain best-effort or
-community-supported until suitable build and runtime environments exist.
+The supported-release target worker set is TIA Portal V17, V18, V19, V20 and
+V21 on Windows x64. The narrower `0.1.0-alpha.1` package includes V17 to V20:
+V19 is runtime-validated, V17, V18 and V20 are build-only and
+runtime-unverified, and V21 is excluded. An experimental worker may be
+advertised for alpha evaluation with that label, but support requires the full
+release definition of done.
 
 ## Two Public Packages
 
@@ -104,8 +106,10 @@ TiaMcp.Worker
   Profile and version-specific MCP host
 ```
 
-Assembly-wide tool discovery is not used for the public profiles. Each profile
-has an explicit tool manifest generated from a single metadata registry.
+Assembly-wide tool discovery is not used for the public profiles. The alpha
+host explicitly registers its tool and prompt types, with mutation tools
+removed from the Read compilation. The supported-release target generates an
+explicit profile manifest from a single metadata registry.
 
 ## Access Profiles
 
@@ -146,10 +150,11 @@ to no overwrite, and return the final path in the result.
 
 ## Connection and Concurrency
 
-TIA Portal Openness is stateful. A worker owns one connection context and
-serialises Openness operations through a dedicated scheduler. Concurrent MCP
-requests may wait independently, but they must not call the same Portal object
-graph concurrently from arbitrary thread-pool threads.
+TIA Portal Openness is stateful. The alpha worker serialises MCP tool calls
+through a process-wide operation gate before they reach the Portal object
+graph. The supported-release target owns one scheduler per connection context.
+Concurrent MCP requests may wait independently, but they must not call the same
+Portal object graph concurrently from arbitrary thread-pool threads.
 
 Attach and ownership are explicit:
 
@@ -266,27 +271,27 @@ Global server guidance instructs an LLM to:
 The same two public profiles are exposed through client-specific installation
 adapters:
 
-- ChatGPT: a loopback-only Streamable HTTP adapter and Secure MCP Tunnel
-  connection kit which runs the chosen profile bundle on the user's PC;
+- ChatGPT: an OpenAI Secure MCP Tunnel connection kit whose local
+  `tunnel-client` launches the chosen stdio broker through `--mcp-command`;
 - Claude Desktop: an MCPB package with a bundled Windows binary;
-- VS Code: one extension which detects installed TIA versions, asks for the
-  access profile, and launches the matching bundle.
+- VS Code: direct stdio configuration and installation helpers for the selected
+  bundle. A later extension may automate selection and upgrades.
 
 The adapters use the same capability manifests and worker artefacts. They do
 not maintain separate implementations.
 
-Stdio remains the local transport baseline. ChatGPT does not currently install
-a local stdio MCP server directly, so its adapter is a connection kit rather
-than an MCPB-style installer. The broker, worker, tunnel client and any
-Streamable HTTP adapter run on the user's PC. The adapter binds to loopback
-only, and no project component is hosted remotely or exposed through a public
-inbound port.
+Stdio remains the local transport baseline. ChatGPT does not install the local
+stdio MCP server directly, so its delivery remains a connection kit rather
+than an MCPB-style installer. The local tunnel client can launch the broker
+directly; `0.1.0-alpha.1` does not require a Streamable HTTP adapter or local
+listener. The broker, worker and tunnel client run on the user's PC, and no
+project component is hosted remotely or exposed through a public inbound port.
 
 OpenAI Secure MCP Tunnel provides the outbound connection to ChatGPT. The
-adapter must use a compliant transport with protocol version negotiation,
-session handling, request limits and origin controls. A bespoke pipe bridge is
-not part of the core architecture. The full boundary and release checks are in
-[ChatGPT Local Connection](chatgpt-local.md).
+tunnel client forwards MCP JSON-RPC between the local stdio command and OpenAI
+over outbound HTTPS. A bespoke HTTP or pipe bridge is not part of the core
+architecture. The full boundary and release checks are in [ChatGPT Local
+Connection](chatgpt-local.md).
 
 Client packaging decisions are based on the current
 [MCPB manifest specification](https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md)
@@ -294,7 +299,7 @@ and [OpenAI guidance for custom MCP apps](https://help.openai.com/en/articles/12
 Those client capabilities are release inputs and should be rechecked before
 publishing because they can change independently of this repository.
 
-## Release Integrity
+## Supported-Release Integrity
 
 Every public package includes:
 
@@ -307,3 +312,9 @@ Every public package includes:
 
 Siemens assemblies are located from an installed TIA Portal environment and are
 not redistributed without an explicit licence review.
+
+The experimental `0.1.0-alpha.1` gate is intentionally narrower. It permits
+unsigned artefacts and defers the formal SBOM, provenance and complete licensed
+runtime matrix, while still requiring checksums, dependency notices, an
+explicit Siemens redistribution decision and accurate experimental version
+labels. See [Alpha Release Gate](alpha-release.md).

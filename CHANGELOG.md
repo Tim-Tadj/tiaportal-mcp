@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
+Target prerelease: `0.1.0-alpha.1`.
+
 ### Added
 
+- [RO][RW] Define the experimental `0.1.0-alpha.1` Windows x64 release gate,
+  support matrix and explicitly deferred production work.
 - [Broker][RO][RW] Add experimental automatic TIA Portal installation
   discovery and exact worker identity validation.
 - [Broker][RO][RW] Add a dependency-free .NET Framework broker which launches
@@ -14,17 +18,28 @@
   project, device, block and type discovery.
 - [Contract][RO][RW] Add `responseFormat` with `Auto`, `Toon`, `Csv` and
   `Json` choices, plus selected-format and paging metadata.
+- [Claude][VS Code][ChatGPT][RO][RW] Add relocatable local client helpers,
+  profile-specific MCPB manifests and an OpenAI Secure MCP Tunnel connection
+  kit.
+- [Build][Tests] Add a Siemens-free alpha validator and Windows CI workflow
+  for profile, packaging, broker-boundary and operation-gate checks.
 
 ### Changed
 
+- [Contract][RO][RW] Replace assembly-wide MCP discovery with explicit tool and
+  prompt type registration.
+- [Build][RO][RW] Pin stable `ModelContextProtocol` 1.4.1 and
+  `Microsoft.Extensions.Hosting` 10.0.10 packages.
+- [RO][RW] Serialise MCP tool calls through a worker operation gate before they
+  reach TIA Portal services.
 - [Build][RO][RW] Resolve framework assemblies through a build-only reference
   assemblies package instead of a fixed `C:\Program Files` path.
 - [Tests] Resolve project, session and output paths at runtime from the clone,
   temporary storage or explicit environment variables instead of fixed drive
   locations.
-- [ChatGPT][RO][RW] Require the ChatGPT adapter, broker and worker to run on the
-  user's PC behind an outbound Secure MCP Tunnel, with no hosted project
-  component or public inbound endpoint.
+- [ChatGPT][RO][RW] Use the local OpenAI tunnel client to launch the selected
+  stdio broker through `--mcp-command`. The broker and worker remain on the
+  user's PC, with no hosted project component or public inbound endpoint.
 - [Contract][RO][RW] Make summary detail the default for `GetDevices`,
   `GetBlocks`, `GetTypes` and `ListProjects`. Use `Full` explicitly for the
   legacy rich fields.
@@ -60,6 +75,8 @@
   session.
 - [Build][RO][RW] Initialise failed TIA version parses on every code path so
   exact-version workers compile cleanly.
+- [Build][V17] Avoid unavailable block and type namespace members so both
+  profiles compile against the exact V17 PublicAPI references.
 - [Contract][RO][RW] Report missing device, software, block and type paths as
   invalid parameters, and preserve block/type traversal failures instead of
   returning misleading empty results.
@@ -101,6 +118,19 @@
   assembly orchestration. V21 remains blocked on its modular adapter.
 - [Claude][VS Code][RO][RW] Replace version-specific development samples with
   fixed-profile broker configurations.
+- [RO][RW] Add complete third-party licence payloads, a hash-bound Siemens
+  redistribution review gate and public bundles without debug symbols.
+
+### Compatibility
+
+- [RO][RW][V17][V18][V20] Include experimental build-only workers in the
+  `0.1.0-alpha.1` candidate without claiming runtime validation or support.
+- [RO][RW][V19] Record the licensed live-project validation evidence for both
+  profiles while retaining the prerelease classification.
+- [RO][RW][V21] Exclude V21 from `0.1.0-alpha.1`; the broker must return a
+  clear unsupported-version diagnostic.
+- [ChatGPT] Deliver a Secure MCP Tunnel configuration kit for a ChatGPT custom
+  app, not a direct ChatGPT Desktop stdio installer.
 
 ### Documentation
 
@@ -115,6 +145,8 @@
 
 - [Contract][RO][RW] Add a Siemens-free response-format conformance and size
   regression suite.
+- [RO][RW] Add Siemens-free behavioural checks for concurrent entry, failure
+  release and cancelled operation-gate waiters.
 - [V19][RO] Add a reusable MCP smoke harness for capabilities, connection and
   negotiated CSV, TOON and JSON list responses.
 
@@ -190,5 +222,5 @@
 
 ## [0.0.3] - 2025-06-23
 
-- Release on Visual Studio Code Narketplace
+- Release on Visual Studio Code Marketplace
 

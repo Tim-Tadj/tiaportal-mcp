@@ -15,20 +15,63 @@ worker source. V21 is rejected until its modular adapter is implemented.
   build-only `Microsoft.NETFramework.ReferenceAssemblies.net48` package supplies
   the .NET Framework 4.8 reference assemblies, so a separately installed
   developer targeting pack is not required.
+- exact Siemens.Engineering PublicAPI reference directories for every worker
+  version being compiled. These may come from matching local TIA Portal
+  installations or an authorised release-build reference source.
 - network or package-cache access for the NuGet dependencies
 - the repository checked out to a writable location
 - the optional `mcpb` CLI when `.mcpb` files are required
 - a completed Siemens Collaboration dependency licence review before release
 
-TIA Portal installations and licences are required for runtime validation, but
-not for compilation.
+TIA Portal licences and a running Portal process are not required for
+compilation. The exact Siemens.Engineering PublicAPI reference assemblies are
+still required at build time and are not contained in the Siemens
+`Packages.Openness` NuGet package.
+
+## Validate client packaging without TIA Portal
+
+The client manifests, portable paths and PowerShell syntax can be checked
+without an installed or running TIA Portal:
+
+```powershell
+.\build\Validate-Client-Packaging.ps1 -Version 0.1.0-alpha.1
+```
+
+This renders metadata into a temporary directory, validates the Read and
+ReadWrite MCPB contracts, checks the VS Code profile lock and confirms the
+ChatGPT Secure MCP Tunnel disclosure. It does not start a broker or worker.
+
+## Validate the alpha release contracts without TIA Portal
+
+Run the complete Siemens-free release gate from the repository root:
+
+```powershell
+.\build\Validate-AlphaRelease.ps1
+dotnet test .\tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj `
+    --configuration Release
+```
+
+The validator checks release versions, exact Read and ReadWrite tool surfaces,
+the secondary mutation policy, operation-gate registration, V21 rejection,
+release and client manifests, and third-party notice coverage. Pass a directory
+containing separately built `brokers\read` and `brokers\readwrite` outputs to
+also check their versions, dependencies and bounded V21 diagnostics:
+
+```powershell
+.\build\Validate-AlphaRelease.ps1 `
+    -BuildDirectory .\artifacts\ci-brokers
+```
+
+The Windows workflow in `.github\workflows\alpha-siemens-free.yml` runs these
+checks and builds only the dependency-free brokers. It deliberately does not
+build or start an exact-version worker on a hosted runner.
 
 ## Build the broker and workers
 
 Run from the repository root:
 
 ```powershell
-.\build\Build-Workers.ps1 -Version 0.1.0-dev
+.\build\Build-Workers.ps1 -Version 0.1.0-alpha.1
 ```
 
 The default matrix builds Read and ReadWrite brokers plus V17, V18, V19 and V20
@@ -37,7 +80,7 @@ requested explicitly:
 
 ```powershell
 .\build\Build-Workers.ps1 `
-    -Version 0.1.0-dev `
+    -Version 0.1.0-alpha.1 `
     -TiaVersions 19,20 `
     -OutputDirectory C:\temp\tia-mcp-build
 ```
@@ -50,7 +93,7 @@ hash-bound `tia-mcp-build.json` metadata beside each executable.
 
 ```powershell
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.1.0-dev `
+    -Version 0.1.0-alpha.1 `
     -BuildDirectory .\artifacts\build
 ```
 
@@ -70,7 +113,7 @@ The marker is JSON with this contract:
   "schemaVersion": 1,
   "status": "approved",
   "scope": "Siemens.Collaboration.Net",
-  "releaseVersion": "0.1.0-dev",
+  "releaseVersion": "0.1.0-alpha.1",
   "reviewedBy": "name or review reference",
   "approvedSha256": [
     "64-character-lowercase-or-uppercase-sha256"
@@ -82,7 +125,7 @@ Pass it with:
 
 ```powershell
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.1.0-dev `
+    -Version 0.1.0-alpha.1 `
     -LicenceReviewMarker C:\approved\tia-mcp-licence-review.json
 ```
 
@@ -94,20 +137,57 @@ Install the current MCPB CLI separately, then request packing:
 npm install -g @anthropic-ai/mcpb
 
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.1.0-dev `
+    -Version 0.1.0-alpha.1 `
     -LicenceReviewMarker C:\approved\tia-mcp-licence-review.json `
     -CreateMcpb
 ```
 
-The script still creates the ZIPs when `-CreateMcpb` is specified but the CLI
-is unavailable. The release manifest adds an `mcpb` entry only for an MCPB file
-which was actually produced.
+`-CreateMcpb` is strict. If the MCPB CLI is unavailable, the script stops
+without producing ZIP or MCPB artefacts. Run the script without
+`-CreateMcpb` when only ZIP bundles are required. The release manifest adds an
+`mcpb` entry only for an MCPB file which was actually produced. Before packing,
+the script validates the MCPB identity, entry point, profile lock and Windows
+compatibility. It then inspects the resulting archive for the manifest, broker
+and client assets.
+
+## Install in VS Code
+
+Every extracted ZIP contains a profile-aware local installer:
+
+```powershell
+.\clients\vscode\Install-VsCodeMcp.ps1 -TiaVersion V19
+```
+
+It resolves `TiaPortalMcp.exe` relative to the bundle and invokes
+`code --add-mcp`. Use `-PrintConfiguration` to inspect the generated server
+object without modifying VS Code. A portable `clients\vscode\mcp.json` is also
+included for workspace configuration.
+
+## Connect ChatGPT through Secure MCP Tunnel
+
+ChatGPT cannot connect directly to a local MCP process. Every extracted ZIP
+therefore includes scripts which configure the official OpenAI Secure MCP
+Tunnel with the local profile-fixed broker:
+
+```powershell
+.\clients\chatgpt\Configure-ChatGptTunnel.ps1 `
+    -TunnelId tunnel_0123456789abcdef0123456789abcdef `
+    -TiaVersion V19
+
+.\clients\chatgpt\Start-ChatGptTunnel.ps1
+```
+
+`CONTROL_PLANE_API_KEY` must be supplied to the PowerShell process through the
+user's secret-management process. The scripts neither save nor print it. See
+the README inside `clients\chatgpt` for current ChatGPT plan, permission and
+web developer-mode requirements.
 
 ## Current limits
 
-- The scripts do not create a VS Code VSIX.
-- The scripts do not create the local-only ChatGPT Streamable HTTP adapter or
-  Secure MCP Tunnel kit.
+- The scripts do not create a VS Code VSIX because VS Code can install the
+  local stdio server directly.
+- ChatGPT requires OpenAI's Secure MCP Tunnel and an eligible web
+  developer-mode workspace. It is not a direct ChatGPT Desktop integration.
 - They do not sign executables, generate an SBOM or perform licensed TIA Portal
   runtime validation.
 - V21 is intentionally blocked.

@@ -1515,7 +1515,7 @@ namespace TiaMcpServer.Siemens
 
                 if (Engineering.TiaMajorVersion < 20)
                 {
-                    throw new PortalException(PortalErrorCode.InvalidState, "ExportAsDocuments requires TIA Portal V20 or newer");
+                    throw new PortalException(PortalErrorCode.InvalidState, "ExportAsDocuments is available only in the TIA Portal V20 worker for this alpha");
                 }
 
                 
@@ -1615,7 +1615,7 @@ namespace TiaMcpServer.Siemens
 
             if (Engineering.TiaMajorVersion < 20)
             {
-                _logger?.LogWarning("ExportBlocksAsDocuments is only supported on TIA Portal V20 or newer");
+                _logger?.LogWarning("ExportBlocksAsDocuments is available only in the TIA Portal V20 worker for this alpha");
                 return null;
             }
 
@@ -1745,7 +1745,7 @@ namespace TiaMcpServer.Siemens
 
             if (Engineering.TiaMajorVersion < 20)
             {
-                _logger?.LogWarning("ImportFromDocuments is only supported on TIA Portal V20 or newer");
+                _logger?.LogWarning("ImportFromDocuments is available only in the TIA Portal V20 worker for this alpha");
                 return false;
             }
 
@@ -1800,7 +1800,7 @@ namespace TiaMcpServer.Siemens
 
             if (Engineering.TiaMajorVersion < 20)
             {
-                _logger?.LogWarning("ImportBlocksFromDocuments is only supported on TIA Portal V20 or newer");
+                _logger?.LogWarning("ImportBlocksFromDocuments is available only in the TIA Portal V20 worker for this alpha");
                 return null;
             }
 

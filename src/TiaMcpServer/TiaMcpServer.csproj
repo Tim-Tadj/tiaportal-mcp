@@ -4,7 +4,6 @@
     <Nullable>enable</Nullable>
     <LangVersion>Latest</LangVersion>
     <OutputType>Exe</OutputType>
-    <AssemblyVersion>0.0.18</AssemblyVersion>
     <BaseOutputPath>.\bin</BaseOutputPath>
     <PlatformTarget>x64</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
@@ -20,11 +19,28 @@
     <DefineConstants Condition="'$(TiaAccessProfile)' == 'ReadWrite'">$(DefineConstants);TIA_MCP_READ_WRITE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0-preview.4.25258.110" />
-    <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.4" />
-    <PackageReference Include="Siemens.Collaboration.Net.OperatingSystem.Windows" Version="3.0.1725521661" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" GeneratePathProperty="true" />
+    <PackageReference Include="ModelContextProtocol" Version="1.4.1" />
+    <PackageReference Include="Siemens.Collaboration.Net.OperatingSystem.Windows" Version="3.0.1725521661" GeneratePathProperty="true" />
     <PackageReference Include="Siemens.Collaboration.Net.TiaPortal.Openness.Resolver" Version="1.1.1725480302" />
     <PackageReference Include="Siemens.Collaboration.Net.TiaPortal.Packages.Openness" Version="$(TiaOpennessPackageVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\THIRD-PARTY-LICENSES\Apache-2.0.txt"
+          Link="third-party-licenses\Apache-2.0.txt"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-LICENSES\Microsoft-MIT.txt"
+          Link="third-party-licenses\Microsoft-MIT.txt"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_Extensions_Hosting)\THIRD-PARTY-NOTICES.TXT"
+          Link="third-party-licenses\Microsoft-THIRD-PARTY-NOTICES.txt"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(PkgSiemens_Collaboration_Net_OperatingSystem_Windows)\LICENSE_NuGet.org.md"
+          Link="third-party-licenses\Siemens-Collaboration-Net-LICENSE.md"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(PkgSiemens_Collaboration_Net_OperatingSystem_Windows)\Multilingual_ReadMe_OSS.html"
+          Link="third-party-licenses\Siemens-Collaboration-Net-ReadMe-OSS.html"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Management" />

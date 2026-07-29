@@ -6,28 +6,41 @@ An MCP server which connects to Siemens TIA Portal.
 
 - Connect to a TIA Portal instance
 - Browse and interact with TIA Portal projects
-- Perform basic project operations from within VS Code
+- Choose a structurally separated Read or ReadWrite access profile
+- Use the same local version broker from Claude Desktop, VS Code or ChatGPT
 
 ## Documentation
 
 - See [Project Documentation](docs/README.md) for the architecture, roadmap,
   current status, definition of done and changelog policy.
+- See [0.1.0-alpha.1 Release Gate](docs/alpha-release.md) for the experimental
+  support matrix, publication checklist and deferred work.
 - See [Model-Facing Output Format Policy](docs/output-formats.md) for the
   normative compact CSV, bounded TOON and JSON result contract.
 
 ## Current Status
 
-The released v0.0.18 implementation is a single read-write server compiled
-against TIA Portal V20. Work is in progress on two public distributions,
+The next target is the experimental Windows x64 prerelease
+`0.1.0-alpha.1`. It is designed to contain two public distributions,
 `tia-portal-mcp-read` and `tia-portal-mcp-readwrite`, with automatic selection
-of isolated V17 to V20 workers. V21 remains planned behind a dedicated modular
-adapter.
+of isolated V17 to V20 workers. V19 has licensed runtime validation for both
+profiles. V17, V18 and V20 are build-only and runtime-unverified in this alpha.
+V21 is excluded. Publication remains gated on the full V20 compile, package
+licence review and final artefact assembly.
 
-See [Current Status](docs/status.md) before relying on an earlier TIA Portal
-version. Accepting `--tia-major-version` does not make the current V20 binary
-compatible with that version.
+The alpha is for evaluation and does not claim production support for any
+profile or TIA Portal version. See [Current Status](docs/status.md) and the
+[Alpha Release Gate](docs/alpha-release.md) before installing it.
+
+The currently published v0.0.18 release remains the legacy single read-write
+server compiled against TIA Portal V20.
 
 ## Released v0.0.18 Requirements
+
+These requirements apply to the legacy v0.0.18 release. The
+`0.1.0-alpha.1` broker discovers installed TIA Portal versions, selects a
+bundled worker and does not require a checkout-specific path or the
+`TiaPortalLocation` variable.
 
 - __.net Framework 4.8__ installed
 - __Siemens TIA Portal V20__ installed and running on your machine
@@ -44,12 +57,15 @@ installed, pass an exact value such as `--tia-version V20`.
 
 ## TIA Portal Versions
 
-- __V20__ is the currently compiled and supported baseline.
-- V17, V18 and V19 exact-version worker builds are being added but remain
-  experimental until they pass the release matrix.
-- V21 requires its own modular Openness adapter.
-- Export as documents (.s7dcl/.s7res) via `ExportAsDocuments`/`ExportBlocksAsDocuments` requires TIA Portal V20 or newer.
-- Import from documents (.s7dcl/.s7res) via `ImportFromDocuments`/`ImportBlocksFromDocuments` also requires TIA Portal V20 or newer.
+- V19 Read and ReadWrite workers have been exercised against a licensed,
+  running project, but remain experimental in `0.1.0-alpha.1`.
+- V17, V18 and V20 workers are planned for build-only evaluation and are
+  explicitly runtime-unverified. V20 still requires its exact PublicAPI
+  references in the release build environment before publication.
+- V21 is not included in `0.1.0-alpha.1` and requires its own modular Openness
+  adapter.
+- Export as documents (.s7dcl/.s7res) via `ExportAsDocuments`/`ExportBlocksAsDocuments` is available only in the V20 worker for this alpha.
+- Import from documents (.s7dcl/.s7res) via `ImportFromDocuments`/`ImportBlocksFromDocuments` is also available only in the V20 worker for this alpha.
 
 ## Known Limitations
 
@@ -113,10 +129,10 @@ manifests, and build metadata remain JSON. The complete normative rules are in
   - The SDK exposes `WithStreamServerTransport(Stream input, Stream output)` which can be used to host over TCP sockets or other streams.
   - Not wired in this repo yet.
 - Streamable HTTP: not implemented yet
-  - A later ChatGPT connection kit will use a standards-compliant,
-    loopback-only local adapter and OpenAI Secure MCP Tunnel.
-  - No TIA MCP component will be hosted remotely or exposed through a public
-    inbound port.
+  - It is not required for the ChatGPT alpha. OpenAI Secure MCP Tunnel can
+    launch the local stdio broker directly through `--mcp-command`.
+  - No TIA MCP component is hosted remotely or exposed through a public
+    inbound port. The tunnel client sends MCP work over outbound HTTPS.
   - A bespoke `HttpListener` JSON bridge is not considered a supported MCP transport.
 
 ## VS Code
@@ -125,8 +141,9 @@ manifests, and build metadata remain JSON. The complete normative rules are in
   single-worker server: [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp).
 - This branch supports a direct stdio installation from either extracted
   profile ZIP. The broker chooses the exact bundled V17 to V20 worker.
-- The planned fork extension will automate profile selection, extraction and
-  upgrades. It is not built yet.
+- A VSIX is not required or included in `0.1.0-alpha.1`.
+- The packaged installer and workspace configuration instructions are in
+  [`packaging/clients/vscode`](packaging/clients/vscode/README.md).
 
   Add the selected broker to your user or workspace `mcp.json`:
 
@@ -162,8 +179,8 @@ manifests, and build metadata remain JSON. The complete normative rules are in
   choose **Settings > Extensions > Advanced settings > Install Extension** in
   Claude Desktop, select the matching `.mcpb` file, then review and install it.
   See [Claude's local MCP server guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
-- The MCPB files remain experimental until the exact worker matrix and clean
-  account installation checks pass.
+- The MCPB files are experimental in `0.1.0-alpha.1`. Their bundled V17, V18
+  and V20 workers are runtime-unverified.
 - For development, add the matching broker directly to
   `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`. A
   complete example is in
@@ -191,19 +208,23 @@ manifests, and build metadata remain JSON. The complete normative rules are in
 
 ## ChatGPT
 
-The TIA MCP broker, worker and any transport adapter will run only on the user's
-PC. This project will not host them in a cloud service or expose them through a
-public inbound port.
+The TIA MCP broker and worker run only on the user's PC. This project does not
+host them in a cloud service or expose them through a public inbound port.
 
-ChatGPT cannot currently launch a local stdio MCP server directly. The planned
-connection kit will use an outbound
-[OpenAI Secure MCP Tunnel](https://help.openai.com/en/articles/12584461) from a
-local tunnel client to the selected local profile. If a Streamable HTTP adapter
-is required, it will bind to loopback only. The connection kit is not yet
-implemented on this branch. Current official full MCP availability is on
-ChatGPT web; this project will not claim direct ChatGPT Desktop installation
-until OpenAI documents it.
+ChatGPT does not connect to the local stdio process directly. The
+`0.1.0-alpha.1` connection kit uses
+[OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+and configures the local `tunnel-client` to launch the selected profile broker
+through `--mcp-command`. No Streamable HTTP adapter is required. The tunnel
+uses outbound HTTPS, so selected MCP requests and results pass through OpenAI.
+The packaged configure, doctor and start workflow is documented in
+[`packaging/clients/chatgpt`](packaging/clients/chatgpt/README.md).
+
+Current official full MCP availability is on ChatGPT web. This project
+therefore describes the artefact as a custom-app connection kit, not a direct
+ChatGPT Desktop stdio installer. See
+[OpenAI's developer-mode availability](https://help.openai.com/en/articles/12584461)
+before relying on a particular ChatGPT plan or workspace role.
 
 See [ChatGPT Local Connection](docs/chatgpt-local.md) for the process and data
-boundary. Selected MCP requests and results still pass to ChatGPT when tools are
-used; the TIA-facing processes and project files remain local.
+boundary. The TIA-facing processes and project files remain local.

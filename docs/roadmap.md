@@ -9,8 +9,28 @@ Status date: 29 July 2026.
 - New surfaces use the compact contract and shared metadata registry.
 - Upstream work is adapted in small reviewable commits rather than merged as a
   large feature bundle.
-- A planned capability is not advertised until its exact-version worker passes
-  the definition of done in [Current Status](status.md).
+- A planned capability is not advertised as supported until its exact-version
+  worker passes the definition of done in [Current Status](status.md).
+  Prerelease-only workers must carry their experimental validation label.
+
+## Alpha Cut: 0.1.0-alpha.1
+
+The first prerelease is a deliberately narrower evaluation milestone:
+
+- publish separate Read and ReadWrite Windows x64 bundles;
+- bundle V17 to V20 workers through the broker;
+- label V19 runtime-validated and V17, V18 and V20 build-only and
+  runtime-unverified;
+- exclude V21 with a clear unsupported-version diagnostic;
+- publish two Claude Desktop MCPBs and direct VS Code stdio helpers;
+- publish ChatGPT Secure MCP Tunnel profiles which launch the local broker
+  through `--mcp-command`;
+- complete the Siemens-free build, schema, profile-boundary, packaging and
+  installation checks in [Alpha Release Gate](alpha-release.md).
+
+No further TIA-dependent test blocks this alpha. Signing, a formal SBOM,
+provenance, V21, a VSIX, further runtime matrices and broader tool coverage move
+to later prereleases or the supported-release gate.
 
 ## Phase 0: Baseline and Decisions
 
@@ -27,10 +47,11 @@ releases, and every existing tool has an owner and access classification.
 ## Phase 1: Version and Safety Foundation
 
 - Create a broker with no Siemens API reference.
-- Create exact-version workers for the initial V17 to V21 target.
+- Create exact-version workers for V17 to V20, then add V21 through its
+  dedicated adapter after the alpha.
 - Use a dedicated V21 adapter while sharing legacy source where practical.
-- Replace assembly-wide discovery with explicit read-only and read-write
-  registries.
+- Generate read-only and read-write manifests from the explicit registered tool
+  types and shared metadata registry.
 - Add a second policy gate for mutation.
 - Add deterministic Portal process selection and ownership tracking.
 - Serialise Openness calls through a worker operation scheduler.
@@ -126,12 +147,15 @@ audit logging, version-specific runtime coverage and recovery guidance.
 
 - Produce the two signed public bundles with internal exact-version workers.
 - Add the release manifest, checksums, SBOM, provenance and licence notices.
-- Publish a local-only ChatGPT Secure MCP Tunnel connection kit, Claude Desktop
-  MCPB and VS Code installation adapter without forking the implementation.
-- Keep the ChatGPT adapter, broker and worker on the user's PC, bind local HTTP
-  to loopback only and prohibit hosted or publicly exposed project components.
+- Publish a locally executed ChatGPT Secure MCP Tunnel connection kit, Claude
+  Desktop MCPB and VS Code installation adapter without forking the
+  implementation.
+- Keep the ChatGPT tunnel client, broker and worker on the user's PC. Launch
+  the stdio broker through `--mcp-command` and prohibit hosted or publicly
+  exposed project components.
 - Validate installation from a clean Windows account with no source checkout.
-- Add compliant Streamable HTTP only after the local stdio packages are stable.
+- Add compliant Streamable HTTP only if a future client requires it after the
+  local stdio packages are stable.
 
 Exit condition: both profiles install cleanly in every supported client and
 select the correct worker on each advertised TIA Portal version.
@@ -174,10 +198,10 @@ is listed below.
 | [#4](https://github.com/heilingbrunner/tiaportal-mcp/issues/4) | Baseline integrated | Keep Unicode text trees as an optional bounded format, not the default response. |
 | [#5](https://github.com/heilingbrunner/tiaportal-mcp/issues/5) | Already integrated | Preserve open-project detection and canonical project paths. |
 | [#7](https://github.com/heilingbrunner/tiaportal-mcp/issues/7) | Adapt | Address path ambiguity and duplicate prompts through the metadata registry and workflow prompts. |
-| [#18](https://github.com/heilingbrunner/tiaportal-mcp/issues/18) | Partially integrated with an adapted contract | The central output root, reparse checks and default no-overwrite policy now exist. The architecture deliberately permits relative or root-contained absolute paths instead of adopting the proposed filename-only contract. Complete handle-level race protection before distributing the read-write package; import source policy is tracked separately. |
+| [#18](https://github.com/heilingbrunner/tiaportal-mcp/issues/18) | Partially integrated with an adapted contract | The central output root, reparse checks and default no-overwrite policy now exist. The architecture deliberately permits relative or root-contained absolute paths instead of adopting the proposed filename-only contract. Handle-level race protection and a separate import-source policy are explicitly deferred for the experimental alpha and remain required before a supported ReadWrite release. |
 | [#22](https://github.com/heilingbrunner/tiaportal-mcp/issues/22) | Adapt | Add external-source import, generate and export as separate version-aware operations. |
-| [#24](https://github.com/heilingbrunner/tiaportal-mcp/issues/24) | Unresolved and release-critical | Compile each worker against its exact Siemens package and provide clear mismatch diagnostics. |
-| [#25](https://github.com/heilingbrunner/tiaportal-mcp/issues/25) | Unresolved and release-critical | Implement and validate the dedicated V21 adapter. |
+| [#24](https://github.com/heilingbrunner/tiaportal-mcp/issues/24) | In progress and alpha-gated | Exact-package workers and clear mismatch diagnostics exist. V17 to V19 compile in the current environment; V20 still needs its exact PublicAPI references in the prepared release environment before the alpha can be published. |
+| [#25](https://github.com/heilingbrunner/tiaportal-mcp/issues/25) | Deferred from the alpha; supported-release critical | V21 is rejected explicitly in `0.1.0-alpha.1`. Implement and validate its dedicated adapter before advertising V21 or completing the supported-release gate. |
 | [#27](https://github.com/heilingbrunner/tiaportal-mcp/issues/27) | Defer | Evaluate `TiaFileFormat` only as an optional, separately licensed offline read adapter. Its published scope and commercial terms require separate review. |
 | [#29](https://github.com/heilingbrunner/tiaportal-mcp/issues/29) | Partially integrated | Bounded JSON-safe attribute normalisation and typed guards now cover the main device, block and type reads. Complete read-tool logging and structured partial-result handling before expanding the surface. |
 
@@ -187,9 +211,10 @@ is listed below.
    then evaluate CSV, TOON and compact JSON on representative LLM workflows.
 2. Complete issue #29 read logging and structured partial-result handling after
    the integrated safe serialisation and typed read-error work.
-3. Replace assembly discovery with explicit profile registries, complete the
-   remaining issue #18 handle-level race protection and define a separate import
-   source policy. The broker and central output policy are already present.
+3. Generate explicit profile manifests from the registered tool types. After
+   the alpha, complete the remaining issue #18 handle-level race protection
+   and define a separate import source policy. The broker and central output
+   policy are already present.
 4. Port PR #30 tag reads and PR #28 external-source operations in isolated
    commits.
 5. Evaluate selected PR #26 read families only after their contracts and

@@ -4,7 +4,7 @@ using System.ComponentModel;
 namespace TiaMcpServer.ModelContextProtocol
 {
     [McpServerPromptType]
-    public static class McpPrompts
+    public sealed class McpPrompts
     {
         #region Basic Connection Templates
 
@@ -165,7 +165,7 @@ Use the ExportTypes tool with these parameters:
         public static string ExportBlocksAsDocuments(string softwarePath, string exportPath, string regexName, bool preservePath)
         {
             return $@"Export blocks as SIMATIC SD documents (.s7dcl/.s7res format) from PLC software.
-Requires TIA Portal V20 or newer.
+Available only in the TIA Portal V20 worker for this alpha.
 
 Common parameter values:
 - softwarePath: normally something like 'PLC_1' for hardware PLC, 'PC-System_1/Software PLC_1' for PC based PLC
@@ -229,10 +229,10 @@ Use the ExportBlocksAsDocuments tool with these parameters:
 #if TIA_MCP_V20
         #region Import From Documents Templates
 
-        [McpServerPrompt(Name = "ImportFromDocuments"), Description("Import a single block from SIMATIC SD documents (.s7dcl/.s7res) (V20+)")]
+        [McpServerPrompt(Name = "ImportFromDocuments"), Description("Import a single block from SIMATIC SD documents (.s7dcl/.s7res) in the V20 worker")]
         public static string ImportFromDocuments(string softwarePath, string groupPath, string importPath, string fileNameWithoutExtension, string importOption)
         {
-            return $@"Import a single program block from SIMATIC SD documents into PLC software (requires TIA Portal V20 or newer).
+            return $@"Import a single program block from SIMATIC SD documents into PLC software (available only in the TIA Portal V20 worker for this alpha).
 
 Common parameter values:
 - softwarePath: e.g. 'PLC_1' for hardware PLC
@@ -251,10 +251,10 @@ Use the ImportFromDocuments tool with these parameters:
 - importOption: {importOption}";
         }
 
-        [McpServerPrompt(Name = "ImportBlocksFromDocuments"), Description("Import blocks from SIMATIC SD documents (.s7dcl/.s7res) (V20+)")]
+        [McpServerPrompt(Name = "ImportBlocksFromDocuments"), Description("Import blocks from SIMATIC SD documents (.s7dcl/.s7res) in the V20 worker")]
         public static string ImportBlocksFromDocuments(string softwarePath, string groupPath, string importPath, string regexName, string importOption)
         {
-            return $@"Import multiple program blocks from SIMATIC SD documents into PLC software (requires TIA Portal V20 or newer).
+            return $@"Import multiple program blocks from SIMATIC SD documents into PLC software (available only in the TIA Portal V20 worker for this alpha).
 
 Common parameter values:
 - softwarePath: e.g. 'PLC_1' for hardware PLC

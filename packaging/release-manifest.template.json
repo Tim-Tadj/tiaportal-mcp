@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "productVersion": "__VERSION__",
+  "platform": "win-x64",
   "bundledTiaVersions": [
     17,
     18,
@@ -10,13 +11,63 @@
   "plannedTiaVersions": [
     21
   ],
+  "tiaVersionValidation": {
+    "17": {
+      "bundled": true,
+      "runtimeValidated": false,
+      "classification": "experimental-build-only"
+    },
+    "18": {
+      "bundled": true,
+      "runtimeValidated": false,
+      "classification": "experimental-build-only"
+    },
+    "19": {
+      "bundled": true,
+      "runtimeValidated": true,
+      "classification": "experimental-runtime-validated"
+    },
+    "20": {
+      "bundled": true,
+      "runtimeValidated": false,
+      "classification": "experimental-build-only"
+    },
+    "21": {
+      "bundled": false,
+      "runtimeValidated": false,
+      "classification": "unsupported-in-this-release"
+    }
+  },
   "supportStatus": "experimental",
+  "clients": {
+    "claudeDesktop": {
+      "distribution": "mcpb",
+      "transport": "stdio",
+      "execution": "local"
+    },
+    "vscode": {
+      "distribution": "bundled-installer",
+      "transport": "stdio",
+      "execution": "local"
+    },
+    "chatgpt": {
+      "distribution": "bundled-secure-tunnel-kit",
+      "transport": "stdio-via-secure-mcp-tunnel",
+      "serverExecution": "local",
+      "connection": "outbound-https-to-openai",
+      "directLocalConnection": false
+    }
+  },
   "profiles": {
     "read": {
-      "package": "tia-portal-mcp-__VERSION__-read-win-x64.zip"
+      "package": "tia-portal-mcp-__VERSION__-read-win-x64.zip",
+      "vscodeInstaller": "clients/vscode/Install-VsCodeMcp.ps1",
+      "chatgptTunnelSetup": "clients/chatgpt/Configure-ChatGptTunnel.ps1"
     },
     "readwrite": {
-      "package": "tia-portal-mcp-__VERSION__-readwrite-win-x64.zip"
+      "package": "tia-portal-mcp-__VERSION__-readwrite-win-x64.zip",
+      "vscodeInstaller": "clients/vscode/Install-VsCodeMcp.ps1",
+      "chatgptTunnelSetup": "clients/chatgpt/Configure-ChatGptTunnel.ps1"
     }
   }
 }

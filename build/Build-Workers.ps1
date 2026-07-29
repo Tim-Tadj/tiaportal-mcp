@@ -116,11 +116,83 @@ function Assert-SafeEmptyOutputDirectory
     return $fullPath
 }
 
-function Invoke-DotNetBuild
+function Get-BuildEngine
+{
+    $dotNetCommand = Get-Command `
+        -Name dotnet `
+        -CommandType Application `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -ne $dotNetCommand)
+    {
+        $installedSdks = @(& $dotNetCommand.Path --list-sdks 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $installedSdks.Count -gt 0)
+        {
+            return [pscustomobject]@{
+                Kind = 'dotnet'
+                Path = $dotNetCommand.Path
+            }
+        }
+    }
+
+    $msBuildCommand = Get-Command `
+        -Name msbuild `
+        -CommandType Application `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -eq $msBuildCommand)
+    {
+        $programFilesX86 = [System.Environment]::GetFolderPath(
+            [System.Environment+SpecialFolder]::ProgramFilesX86)
+        $vsWherePath = Join-Path `
+            $programFilesX86 `
+            'Microsoft Visual Studio\Installer\vswhere.exe'
+
+        if (Test-Path -LiteralPath $vsWherePath -PathType Leaf)
+        {
+            $msBuildPaths = @(
+                & $vsWherePath `
+                    -latest `
+                    -products '*' `
+                    -requires Microsoft.Component.MSBuild `
+                    -find 'MSBuild\**\Bin\MSBuild.exe'
+            )
+            if ($LASTEXITCODE -eq 0 -and $msBuildPaths.Count -gt 0)
+            {
+                $msBuildCommand = [pscustomobject]@{
+                    Path = $msBuildPaths[0]
+                }
+            }
+        }
+    }
+
+    if ($null -ne $msBuildCommand)
+    {
+        $msBuildRoot = Split-Path `
+            -Parent `
+            (Split-Path `
+                -Parent `
+                (Split-Path -Parent $msBuildCommand.Path))
+        $sdkDirectory = Join-Path $msBuildRoot 'Sdks\Microsoft.NET.Sdk\Sdk'
+        if (Test-Path -LiteralPath $sdkDirectory -PathType Container)
+        {
+            return [pscustomobject]@{
+                Kind = 'msbuild'
+                Path = $msBuildCommand.Path
+            }
+        }
+    }
+
+    throw 'No compatible build engine was found. Install a .NET SDK or Visual Studio Build Tools with MSBuild.'
+}
+
+function Invoke-ProjectBuild
 {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$DotNetPath,
+        [object]$BuildEngine,
 
         [Parameter(Mandatory = $true)]
         [string]$ProjectPath,
@@ -135,24 +207,36 @@ function Invoke-DotNetBuild
         [string]$Description
     )
 
-    $arguments = @(
-        'build',
-        $ProjectPath,
-        '--configuration',
-        $BuildConfiguration
-    )
+    if ($BuildEngine.Kind -eq 'dotnet')
+    {
+        $arguments = @(
+            'build',
+            $ProjectPath,
+            '--configuration',
+            $BuildConfiguration
+        )
+    }
+    else
+    {
+        $arguments = @(
+            $ProjectPath,
+            '-restore',
+            '-target:Build',
+            "-property:Configuration=$BuildConfiguration"
+        )
+    }
 
     foreach ($propertyName in @($Properties.Keys | Sort-Object))
     {
-        $arguments += "-p:$propertyName=$($Properties[$propertyName])"
+        $arguments += "-property:$propertyName=$($Properties[$propertyName])"
     }
 
     Write-Host "Building $Description."
-    $LASTEXITCODE = 0
-    & $DotNetPath @arguments
-    if ($LASTEXITCODE -ne 0)
+    & $BuildEngine.Path @arguments
+    $buildExitCode = $LASTEXITCODE
+    if ($buildExitCode -ne 0)
     {
-        throw "dotnet build failed for $Description with exit code $LASTEXITCODE."
+        throw "$($BuildEngine.Kind) build failed for $Description with exit code $buildExitCode."
     }
 }
 
@@ -258,17 +342,8 @@ if (-not (Test-Path -LiteralPath $brokerProjectPath -PathType Leaf))
     throw "The broker project was not found: '$brokerProjectPath'."
 }
 
-$dotNetCommand = Get-Command `
-    -Name dotnet `
-    -CommandType Application `
-    -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if ($null -eq $dotNetCommand)
-{
-    throw 'The dotnet CLI was not found on PATH. Install a compatible .NET SDK before building release workers.'
-}
-
-$dotNetPath = $dotNetCommand.Path
+$buildEngine = Get-BuildEngine
+Write-Host "Using $($buildEngine.Kind) build engine: $($buildEngine.Path)"
 
 $buildRoot = Assert-SafeEmptyOutputDirectory -Path $OutputDirectory -RepositoryRoot $repositoryRoot
 $profiles = @(
@@ -293,8 +368,8 @@ foreach ($profile in $profiles)
         $null = New-Item -ItemType Directory -Path $workerOutputDirectory -Force
         $null = New-Item -ItemType Directory -Path $workerIntermediateDirectory -Force
 
-        Invoke-DotNetBuild `
-            -DotNetPath $dotNetPath `
+        Invoke-ProjectBuild `
+            -BuildEngine $buildEngine `
             -ProjectPath $workerProjectPath `
             -BuildConfiguration $Configuration `
             -Description "TIA Portal V$tiaVersion $($profile.Name) worker" `
@@ -334,8 +409,8 @@ foreach ($profile in $profiles)
     $null = New-Item -ItemType Directory -Path $brokerOutputDirectory -Force
     $null = New-Item -ItemType Directory -Path $brokerIntermediateDirectory -Force
 
-    Invoke-DotNetBuild `
-        -DotNetPath $dotNetPath `
+    Invoke-ProjectBuild `
+        -BuildEngine $buildEngine `
         -ProjectPath $brokerProjectPath `
         -BuildConfiguration $Configuration `
         -Description "$($profile.Name) broker" `

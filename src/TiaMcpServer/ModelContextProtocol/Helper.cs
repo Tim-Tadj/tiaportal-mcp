@@ -1,5 +1,6 @@
 ﻿using Siemens.Engineering;
 using Siemens.Engineering.SW.Blocks;
+using Siemens.Engineering.SW.Types;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,6 +12,24 @@ namespace TiaMcpServer.ModelContextProtocol
     {
         private const int MaximumAttributeStringLength = 1024;
         private const string TruncationSuffix = " [truncated]";
+
+        public static string? GetNamespace(PlcBlock block)
+        {
+#if TIA_MCP_V17
+            return null;
+#else
+            return block.Namespace;
+#endif
+        }
+
+        public static string? GetNamespace(PlcType type)
+        {
+#if TIA_MCP_V17
+            return null;
+#else
+            return type.Namespace;
+#endif
+        }
 
         public static List<Attribute> GetAttributeList(IEngineeringObject obj)
         {
@@ -199,7 +218,7 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     Name = block.Name,
                     TypeName = block.GetType().Name,
-                    Namespace = includeStandard ? block.Namespace : null,
+                    Namespace = includeStandard ? GetNamespace(block) : null,
                     ProgrammingLanguage = Enum.GetName(typeof(ProgrammingLanguage), block.ProgrammingLanguage),
                     MemoryLayout = includeStandard
                         ? Enum.GetName(typeof(MemoryLayout), block.MemoryLayout)

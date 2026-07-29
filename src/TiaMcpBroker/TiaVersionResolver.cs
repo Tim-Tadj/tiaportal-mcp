@@ -14,6 +14,14 @@ namespace TiaMcpBroker
 
         public int Resolve(TiaVersionRequest request)
         {
+            if (request == TiaVersionRequest.V21)
+            {
+                throw new BrokerException(
+                    BrokerExitCode.InstallationResolutionFailed,
+                    "TIA Portal V21 is recognised but is not included in this bundle. " +
+                    "Install or select TIA Portal V17, V18, V19 or V20.");
+            }
+
             var scan = installationDetector.Scan();
 
             if (request == TiaVersionRequest.Auto)
@@ -30,7 +38,7 @@ namespace TiaMcpBroker
             {
                 throw new BrokerException(
                     BrokerExitCode.InstallationResolutionFailed,
-                    "No valid TIA Portal Openness installation was found for V17 to V21." +
+                    "No valid TIA Portal Openness installation was found for V17 to V20." +
                     FormatInvalidEntries(scan.InvalidEntries));
             }
 

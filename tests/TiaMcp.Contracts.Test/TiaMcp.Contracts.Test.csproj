@@ -15,6 +15,10 @@
     <ProjectReference Include="..\..\src\TiaMcp.Contracts\TiaMcp.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\TiaMcpServer\Runtime\TiaOperationGate.cs"
+             Link="Runtime\TiaOperationGate.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 </Project>
