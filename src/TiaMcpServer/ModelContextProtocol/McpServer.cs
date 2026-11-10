@@ -19,7 +19,7 @@ using TiaMcpServer.Siemens;
 namespace TiaMcpServer.ModelContextProtocol
 {
     [McpServerToolType]
-    public static class McpServer
+    public static partial class McpServer
     {
         private static IServiceProvider? _services;
         private static Portal? _portal;
@@ -57,13 +57,15 @@ namespace TiaMcpServer.ModelContextProtocol
         #region portal
 
         [McpServerTool(Name = "Connect"), Description("Connect to TIA-Portal")]
-        public static ResponseConnect Connect()
+        public static ResponseConnect Connect(
+            [Description("Existing TIA Portal process ID; required if more than one is running.")] int? processId = null,
+            [Description("Explicitly allow starting TIA when no instance is running. Defaults to false.")] bool startIfMissing = false)
         {
             Logger?.LogInformation("Connecting to TIA Portal...");
 
             try
             {
-                if (Portal.ConnectPortal())
+                if (Portal.ConnectPortal(processId, startIfMissing))
                 {
                     return new ResponseConnect
                     {
@@ -1530,6 +1532,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region documents
 
+#if TIA_V20_OR_LATER
         [McpServerTool(Name = "ExportAsDocuments"), Description("Export as documents (.s7dcl/.s7res) from a block in the plc software to path")]
         public static ResponseExportAsDocuments ExportAsDocuments(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
@@ -1565,7 +1568,9 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error exporting documents from '{blockPath}' to '{exportPath}': {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
+#if TIA_V20_OR_LATER
         [McpServerTool(Name = "ExportBlocksAsDocuments"), Description("Export as documents (.s7dcl/.s7res) from blocks in the plc software to path")]
         public static async Task<ResponseExportBlocksAsDocuments> ExportBlocksAsDocuments(
             IMcpServer server,
@@ -1735,7 +1740,9 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error exporting documents to '{exportPath}': {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
+#if TIA_V20_OR_LATER
         [McpServerTool(Name = "ImportFromDocuments"), Description("Import program block from SIMATIC SD documents (.s7dcl/.s7res) into PLC software (V20+)")]
         public static ResponseImportFromDocuments ImportFromDocuments(
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
@@ -1797,7 +1804,9 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error importing from documents: {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
+#if TIA_V20_OR_LATER
         [McpServerTool(Name = "ImportBlocksFromDocuments"), Description("Import program blocks from SIMATIC SD documents (.s7dcl/.s7res) into PLC software (V20+)")]
         public static async Task<ResponseImportBlocksFromDocuments> ImportBlocksFromDocuments(
             IMcpServer server,
@@ -1945,7 +1954,9 @@ namespace TiaMcpServer.ModelContextProtocol
                 throw new McpException($"Unexpected error importing documents from '{importPath}': {ex.Message}", ex, McpErrorCode.InternalError);
             }
         }
+#endif
 
+#if TIA_V20_OR_LATER
         private static ImportDocumentOptions ParseImportDocumentOption(string option)
         {
             if (string.IsNullOrWhiteSpace(option)) return ImportDocumentOptions.Override;
@@ -1977,6 +1988,7 @@ namespace TiaMcpServer.ModelContextProtocol
                     throw new McpException($"Invalid importOption '{option}'. Allowed: None, Override, SkipInactiveCultures, ActivateInactiveCultures", McpErrorCode.InvalidParams);
             }
         }
+#endif
 
         private static List<string> GetResMissingEnUsIds(string directory, string baseName)
         {

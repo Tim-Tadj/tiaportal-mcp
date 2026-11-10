@@ -100,7 +100,7 @@ namespace TiaMcpServer.Test
 
             var result = _portal.GetBlock(softwarePath, blockPath);
 
-            if (result != null && blockPath.Contains(result.Name, StringComparison.OrdinalIgnoreCase))
+            if (result != null && blockPath.IndexOf(result.Name, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 Console.WriteLine($"Block found: '{blockPath}");
             }
@@ -128,7 +128,7 @@ namespace TiaMcpServer.Test
 
             var result = _portal.GetType(softwarePath, typePath);
 
-            if (result != null && typePath.Contains(result.Name, StringComparison.OrdinalIgnoreCase))
+            if (result != null && typePath.IndexOf(result.Name, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 Console.WriteLine($"Type found: '{typePath}");
             }
@@ -392,6 +392,7 @@ namespace TiaMcpServer.Test
             Assert.IsTrue(success, "Failed to export types");
         }
 
+#if TIA_V20_OR_LATER
         [TestMethod]
         [DataRow(Settings.Project1ProjectPath, Settings.Project1PlcSoftwarePath0, Settings.Project1ExportPath0, "0_OBs/Main_1", true)]
         [DataRow(Settings.Project1ProjectPath, Settings.Project1PlcSoftwarePath0, Settings.Project1ExportPath0, "0_OBs/Main_1", false)]
@@ -412,7 +413,9 @@ namespace TiaMcpServer.Test
 
             Assert.IsTrue(result, "Failed to export blocks as documents (s7dcl/s7res)");
         }
+#endif
 
+#if TIA_V20_OR_LATER
         [TestMethod]
         [DataRow(Settings.Project1ProjectPath, Settings.Project1PlcSoftwarePath0, Settings.Project1ExportPath0, "", true)]
         [DataRow(Settings.Project1ProjectPath, Settings.Project1PlcSoftwarePath0, Settings.Project1ExportPath0, "M.*", true)]
@@ -455,5 +458,6 @@ namespace TiaMcpServer.Test
 
             Assert.IsTrue(success, "Failed to export blocks as documents");
         }
+#endif
     }
 }

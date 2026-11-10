@@ -1,5 +1,17 @@
 # Change Log
 
+## [0.0.19] - 2026-11-10
+
+- Add native device online-state, connection-interface, go-online and go-offline tools.
+- Reuse the existing TIA connection by default; require complete options for an explicit connection change.
+- Report connection state separately from runtime health and expose service availability at the time of the read.
+- Attach to a selected existing TIA process without silently starting extra instances.
+- Add separate V19/V20/V21 build targets, API-version guards and V21 .NET Framework assembly resolution.
+- Compile V19 without V20 document APIs or a mandatory WinCC Unified reference.
+- Preserve scalar attribute values while avoiding cyclic engineering-object serialisation.
+- Add focused online-tool tests and API-independent version/resolver tests.
+
+
 ## [0.0.16] - 2025-09-02
 
 - New: ImportFromDocuments and ImportBlocksFromDocuments (V20+)

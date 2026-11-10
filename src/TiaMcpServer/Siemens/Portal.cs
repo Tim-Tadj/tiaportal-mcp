@@ -2,7 +2,6 @@
 using Siemens.Engineering;
 using Siemens.Engineering.Compiler;
 using Siemens.Engineering.Hmi;
-using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
 using Siemens.Engineering.Multiuser;
@@ -21,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace TiaMcpServer.Siemens
 {
-    public class Portal
+    public partial class Portal
     {
         // closing parantheses for regex characters ommitted, because they are not relevant for regex detection
         private readonly char[] _regexChars = ['.', '^', '$', '*', '+', '?', '(', '[', '{', '\\', '|'];
@@ -126,21 +125,29 @@ namespace TiaMcpServer.Siemens
 
         #region portal
 
-        public bool ConnectPortal()
+        public bool ConnectPortal(int? processId = null, bool startIfMissing = false)
         {
             _logger?.LogInformation("Connecting to TIA Portal...");
 
             try
             {
-                _project = null;
-                _session = null;
-                _portal = null;
-
-                // connect to running TIA Portal
-                var processes = TiaPortal.GetProcesses();
-                if (processes.Any())
+                if (_portal != null)
                 {
-                    _portal = processes.First().Attach();
+                    if (processId.HasValue && _portal.GetCurrentProcess().Id != processId.Value)
+                    {
+                        throw new PortalException(PortalErrorCode.InvalidState, "Disconnect before attaching to another TIA Portal process.");
+                    }
+                    return true;
+                }
+
+                var processes = TiaPortal.GetProcesses().Where(p => !processId.HasValue || p.Id == processId.Value).ToList();
+                if (processes.Count > 1)
+                {
+                    throw new PortalException(PortalErrorCode.InvalidState, "Multiple TIA Portal processes are running. Specify processId: " + string.Join(", ", processes.Select(p => p.Id)));
+                }
+                if (processes.Count == 1)
+                {
+                    _portal = processes[0].Attach();
 
                     // check for existing local sessions
                     if (_portal.LocalSessions.Any())
@@ -157,14 +164,21 @@ namespace TiaMcpServer.Siemens
                     return true;
                 }
 
-                // start new TIA Portal
+                if (!startIfMissing || processId.HasValue)
+                {
+                    throw new PortalException(PortalErrorCode.InvalidState, "No matching TIA Portal process is running. Open TIA first, or explicitly set startIfMissing=true without processId.");
+                }
                 _portal = new TiaPortal(TiaPortalMode.WithUserInterface);
 
                 return true;
             }
-            catch (Exception)
+            catch (PortalException)
             {
-                return false;
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new PortalException(PortalErrorCode.InvalidState, "Failed to attach to TIA Portal: " + ex.Message, inner: ex);
             }
         }
 
@@ -1324,6 +1338,7 @@ namespace TiaMcpServer.Siemens
         }
         
 
+#if TIA_V20_OR_LATER
         public bool ExportAsDocuments(string softwarePath, string blockPath, string exportPath, bool preservePath = false)
         {
             _logger?.LogInformation($"Exporting block as documents by path: {blockPath}");
@@ -1422,8 +1437,10 @@ namespace TiaMcpServer.Siemens
             }
             return success;
         }
+#endif
 
         // TIA portal crashes when exporting blocks as documents, :-(
+#if TIA_V20_OR_LATER
         public IEnumerable<PlcBlock>? ExportBlocksAsDocuments(string softwarePath, string exportPath, string regexName = "", bool preservePath = false)
         {
             _logger?.LogInformation("Exporting blocks as documents...");
@@ -1573,7 +1590,9 @@ namespace TiaMcpServer.Siemens
 
             return exportList;
         }
+#endif
 
+#if TIA_V20_OR_LATER
         public bool ImportFromDocuments(string softwarePath, string groupPath, string importPath, string fileNameWithoutExtension, ImportDocumentOptions option)
         {
             _logger?.LogInformation($"Importing block from documents: {fileNameWithoutExtension} in {importPath}");
@@ -1626,7 +1645,9 @@ namespace TiaMcpServer.Siemens
             }
             return false;
         }
+#endif
 
+#if TIA_V20_OR_LATER
         public IEnumerable<PlcBlock>? ImportBlocksFromDocuments(string softwarePath, string groupPath, string importPath, string regexName, ImportDocumentOptions option, bool preservePath = false)
         {
             _logger?.LogInformation($"Importing blocks from documents in {importPath} with regex '{regexName}'");
@@ -1706,6 +1727,7 @@ namespace TiaMcpServer.Siemens
 
             return imported;
         }
+#endif
 
         #endregion
 
@@ -1940,11 +1962,13 @@ namespace TiaMcpServer.Siemens
 
         private bool TryGetUnifiedSoftware(StringBuilder sb, DeviceItem deviceItem, List<bool> ancestorStates, SoftwareContainer? softwareContainer, bool hasSoftware)
         {
-            if (softwareContainer?.Software is HmiSoftware hmiSoftware)
+            var hmiSoftware = softwareContainer?.Software;
+            var unifiedType = hmiSoftware?.GetType().Assembly.GetType("Siemens.Engineering.HmiUnified.HmiSoftware");
+            if (hmiSoftware != null && unifiedType != null && unifiedType.IsInstanceOfType(hmiSoftware))
             {
                 var hasOtherItems = (deviceItem.Items != null && deviceItem.Items.Count > 0) ||
                                     (deviceItem.DeviceItems != null && deviceItem.DeviceItems.Count > 0);
-                sb.AppendLine($"{GetTreePrefix(ancestorStates, !hasOtherItems && !hasSoftware)}HmiSoftware: {hmiSoftware.Name} [HMI Program]");
+                sb.AppendLine($"{GetTreePrefix(ancestorStates, !hasOtherItems && !hasSoftware)}HmiSoftware: {hmiSoftware.GetAttribute("Name")} [HMI Program]");
                 hasSoftware = true;
             }
 

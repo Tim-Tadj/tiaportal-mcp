@@ -7,20 +7,27 @@ A MCP server which connects to Siemens TIA Portal.
 - Connect to a TIA Portal instance
 - Browse and interact with TIA Portal projects
 - Perform basic project operations from within VS Code
+- Read device online state and available connection interfaces
+- Connect and disconnect supported devices through native Openness services
 
 ## Requirements
 
 - __.net Framework 4.8__ installed
-- __Siemens TIA Portal V20__ installed and running on your machine
+- __Siemens TIA Portal V19, V20 or V21__ installed, with a matching server build
 - Check if under `Environment Variables/User variable for user <name>` the variable `TiaPortalLocation` is set to `C:\Program Files\Siemens\Automation\Portal V20`
 - User must be in Windows User Group `Siemens TIA Openness`
 
 ## TIA-Portal Versions
 
-- __V20__ is the default version.
-- Previous versions are also supported, but must use the `--tia-major-version` argument to specify the version.
+- Build separately for V19, V20 and V21. V20 remains the default build target.
+- Each executable defaults to its compiled TIA version. `--tia-major-version` must match that build; it cannot turn a V19 executable into a V20/V21 client.
+- V21 resolution selects its `PublicAPI\V21\net48` assemblies, including `Siemens.Engineering.Base.dll`.
+- `Connect` attaches to an existing instance by default. Supply `processId` when more than one instance is running. Starting TIA requires `startIfMissing=true`.
 - Export as documents (.s7dcl/.s7res) via `ExportAsDocuments`/`ExportBlocksAsDocuments` requires TIA Portal V20 or newer.
 - Import from documents (.s7dcl/.s7res) via `ImportFromDocuments`/`ImportBlocksFromDocuments` also requires TIA Portal V20 or newer.
+
+See [online tools and version builds](docs/online-tools.md) for build commands,
+connection examples, verification results and diagnostic limits.
 
 ## Known Limitations
 

@@ -1,3 +1,6 @@
 .vs/
 .gemini
 .claude
+**/bin/
+**/obj/
+TestResults/

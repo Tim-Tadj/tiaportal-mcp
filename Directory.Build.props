@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <TiaMajorVersion Condition="'$(TiaMajorVersion)' == ''">20</TiaMajorVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaMajorVersion)' == '19'">19.0.1725520202</TiaOpennessPackageVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaMajorVersion)' == '20'">20.0.1744190253</TiaOpennessPackageVersion>
+    <TiaOpennessPackageVersion Condition="'$(TiaMajorVersion)' == '21'">21.0.1765349347</TiaOpennessPackageVersion>
+    <DefineConstants>$(DefineConstants);TIA_V$(TiaMajorVersion)</DefineConstants>
+    <DefineConstants Condition="'$(TiaMajorVersion)' == '20' Or '$(TiaMajorVersion)' == '21'">$(DefineConstants);TIA_V20_OR_LATER</DefineConstants>
+    <BaseIntermediateOutputPath>obj\V$(TiaMajorVersion)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin\V$(TiaMajorVersion)\</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

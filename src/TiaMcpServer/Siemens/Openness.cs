@@ -1,4 +1,5 @@
-﻿using Siemens.Collaboration.Net;
+﻿using System;
+using System.Security.Principal;
 using System.Threading.Tasks;
 
 namespace TiaMcpServer.Siemens
@@ -7,31 +8,20 @@ namespace TiaMcpServer.Siemens
     {
         public static int TiaMajorVersion { get; private set; }
 
-        public static void Initialize(int? tiaMajorVersion = 20)
+        public static void Initialize(int? tiaMajorVersion = null)
         {
-            // with nuget packages:
-            // 2.1 nuget package: Siemens.Collaboration.Net.TiaPortal.Openness.Resolver
-            //     & User Environment Variable: TiaPortalLocation=C:\Program Files\Siemens\Automation\Portal V20
-            // 2.2 nuget package: Siemens.Collaboration.Net.TiaPortal.Packages.Openness
-            // 2.3 Api.Global.Openness().Initialize(tiaMajorVersion: 20); // fixed version 20
-
-            TiaMajorVersion = tiaMajorVersion ?? 20; // Default to TIA Portal V20 if not specified
-
-            // Initialize the Openness API with the specified TIA Portal major version
-            Api.Global.Openness().Initialize(tiaMajorVersion: tiaMajorVersion);
+            var version = tiaMajorVersion ?? BuildVersion.TiaMajorVersion;
+            BuildVersion.Validate(version);
+            TiaMajorVersion = version;
+            Engineering.TiaMajorVersion = version;
+            AppDomain.CurrentDomain.AssemblyResolve -= Engineering.Resolver;
+            AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
         }
 
-        public static async Task<bool> IsUserInGroup()
+        public static Task<bool> IsUserInGroup()
         {
-            if (Api.Global.Openness().IsUserInGroup())
-            {
-                // user is in group
-                return true;
-            }
-            else
-            {
-                return await Api.Global.Openness().AddUserToGroupAsync();
-            }
+            var principal = new WindowsPrincipal(WindowsIdentity.GetCurrent());
+            return Task.FromResult(principal.IsInRole("Siemens TIA Openness"));
         }
     }
 }

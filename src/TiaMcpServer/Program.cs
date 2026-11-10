@@ -16,15 +16,15 @@ namespace TiaMcpServer
         {
             var options = CliOptions.ParseArgs(args);
 
-            Engineering.TiaMajorVersion = options.TiaMajorVersion ?? 20;
-
-            if (Engineering.TiaMajorVersion < 20)
+            try
             {
-                AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
+                Openness.Initialize(options.TiaMajorVersion);
             }
-            else
+            catch (ArgumentException ex)
             {
-                Openness.Initialize(Engineering.TiaMajorVersion);
+                Console.Error.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
+                return;
             }
 
             // Ensure user is in user group 'Siemens TIA Openness'
@@ -34,7 +34,8 @@ namespace TiaMcpServer
             }
             else
             {
-                Console.WriteLine("User is not in the required group. Exiting...");
+                Console.Error.WriteLine("User is not in the Siemens TIA Openness group. Add the user with Siemens setup, then sign in again.");
+                Environment.ExitCode = 1;
             }
         }
 

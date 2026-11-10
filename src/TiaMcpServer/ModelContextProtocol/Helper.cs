@@ -19,13 +19,21 @@ namespace TiaMcpServer.ModelContextProtocol
                     attributes.Add(new Attribute
                     {
                         Name = attr.Name,
-                        Value = value,
+                        Value = GetAttributeValue(value),
                         AccessMode = Enum.GetName(typeof(EngineeringAttributeAccessMode), attr.AccessMode)
                     });
                 }
             }
 
             return attributes;
+        }
+
+        internal static object? GetAttributeValue(object? value)
+        {
+            // Engineering proxies and file-system objects can contain cyclic graphs.
+            return value == null || Type.GetTypeCode(value.GetType()) != TypeCode.Object
+                ? value
+                : value.ToString();
         }
 
         public static BlockGroupInfo BuildBlockHierarchy(PlcBlockGroup group)
