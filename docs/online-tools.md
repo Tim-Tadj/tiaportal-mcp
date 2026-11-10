@@ -38,6 +38,7 @@ dialogue, including after an executable changes.
 
 | Tool | Behaviour |
 | --- | --- |
+| `ReadPlcValues(targetIpAddress, addresses, ...)` | Read absolute scalar PLC I/Q/M/DB values over S7 TCP, independently of an engineering session. |
 | `Connect(processId?, startIfMissing=false)` | Attach to an existing TIA instance. Multiple instances require an explicit process ID. Starting a new instance is opt-in. |
 | `GetDeviceOnlineState(deviceItemPath)` | Read native connection state, current service availability and declared service metadata. |
 | `GetOnlineConnectionOptions(deviceItemPath)` | Enumerate connection modes and PC interface names/numbers without changing settings. |
@@ -85,6 +86,30 @@ engineering-session operation. The native Siemens call is synchronous and
 cannot be cancelled by the polling timeout. A pending transition is reported
 as pending, with `RequestedStateReached=false`; read the state before deciding
 whether another action is appropriate.
+
+## Live PLC values
+
+`ReadPlcValues` requires an explicit PLC IPv4 address and reads up to 16
+uppercase scalar addresses. Supported forms include `I358.4`, `Q76.5`,
+`IB358`, `MW100`, `DB1000.DBX358.4` and `DB1002.DBB76`. B/W/D values
+are unsigned. The default CPU is S7300, rack 0, slot 2. S7-1200/1500
+require permitted S7 access and non-optimised accessible memory.
+
+```json
+{"name":"ReadPlcValues","arguments":{"targetIpAddress":"10.72.72.69","addresses":["I358.4","Q76.5"],"sampleCount":40,"intervalMilliseconds":250,"timeoutMilliseconds":20000}}
+```
+
+Samples are time-stamped, but not atomic with a PLC scan. I/Q values are
+process images; Q does not prove physical output or contactor state. The
+reader issues no PLC writes or motor commands. Timeout includes waiting for
+the single-reader gate; an uninterruptible pending TCP connection may finish
+cleaning up after the caller receives a timeout. No partial result is returned.
+S7netplus 0.20.0 is used under its included MIT licence.
+
+On 10 November 2026, 40 samples from the bench S7-315 at 10.72.72.69
+showed transitions on I358.4 and Q76.5 and their DB mirrors. DB171.DBW0
+and DB171.DBW2 were zero in all samples. These observations are not a
+physical output or complete equipment health test.
 
 ## Diagnostic limits
 

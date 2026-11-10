@@ -7,6 +7,7 @@ A MCP server which connects to Siemens TIA Portal.
 - Connect to a TIA Portal instance
 - Browse and interact with TIA Portal projects
 - Perform basic project operations from within VS Code
+- Read live PLC I/Q/M/DB scalar values with bounded sampling
 - Read device online state and available connection interfaces
 - Connect and disconnect supported devices through native Openness services
 

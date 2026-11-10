@@ -1,5 +1,10 @@
 # Change Log
 
+## [0.0.20] - 2026-11-10
+
+- Add read-only direct S7 TCP PLC scalar reads and bounded sampling.
+- Include S7netplus licence notice.
+
 ## [0.0.19] - 2026-11-10
 
 - Add native device online-state, connection-interface, go-online and go-offline tools.
