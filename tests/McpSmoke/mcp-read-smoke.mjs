@@ -139,7 +139,7 @@ async function runSmokeTest() {
     };
   }
 
-  const connectResult = await callTool("Connect", {});
+  const connectResult = await callTool("Connect", options.processId ? {processId: Number(options.processId)} : {});
   assertToolSucceeded("Connect", connectResult);
 
   const projectsCsv = await callTool("ListProjects", {
@@ -251,25 +251,21 @@ function verifyNegotiatedListTools(tools) {
 function verifyFormattedResult(result, expectedFormat, verifyPayload) {
   assertToolSucceeded("formatted tool", result);
   assert(
-    Array.isArray(result.content) && result.content.length === 2,
-    "Expected metadata and payload text blocks.");
+    Array.isArray(result.content) && result.content.length === 1,
+    "Expected one complete metadata and payload text block.");
   assert(
     result.content.every(item => item.type === "text"),
     "Expected only text content blocks.");
 
-  const metadataText = JSON.parse(result.content[0].text);
-  const metadata = result.structuredContent;
+  const text = result.content[0].text;
+  const separator = text.indexOf("\n");
+  assert(separator > 0, "Missing metadata/payload separator.");
+  const metadata = JSON.parse(text.slice(0, separator));
+  assert(!result.structuredContent, "Metadata-only structuredContent can hide the rows.");
   assert(
     metadata?.format === expectedFormat,
     `Expected ${expectedFormat}, got ${JSON.stringify(metadata)}.`);
-  assert(
-    metadataText.format === metadata.format &&
-    metadataText.returned === metadata.returned &&
-    metadataText.hasMore === metadata.hasMore &&
-    metadataText.nextCursor === metadata.nextCursor,
-    "Metadata text does not match structuredContent.");
-
-  verifyPayload(result.content[1].text, metadata);
+  verifyPayload(text.slice(separator + 1), metadata);
   return metadata;
 }
 
@@ -368,7 +364,7 @@ function parseArguments(args) {
       continue;
     }
 
-    if (argument === "--broker" || argument === "--tia-version") {
+    if (argument === "--broker" || argument === "--tia-version" || argument === "--process-id") {
       const value = args[++index];
       if (!value) {
         throw new Error(`${argument} requires a value.`);
@@ -383,7 +379,7 @@ function parseArguments(args) {
   if (!parsed.broker || !parsed.tiaVersion) {
     throw new Error(
       "Usage: node mcp-read-smoke.mjs --broker <path> " +
-      "--tia-version <V17|V18|V19|V20> [--offline-only]");
+      "--tia-version <V17|V18|V19|V20> [--process-id <pid>] [--offline-only]");
   }
 
   return parsed;

@@ -7,7 +7,7 @@ Use the profile-locked broker and exact-version workers described in
 PublicAPI is required to compile a worker; the broker has no Siemens dependency.
 
 ```powershell
-./build/Build-Workers.ps1 -Version 0.1.0-alpha.1 -TiaVersions 19
+./build/Build-Workers.ps1 -Version 0.1.0-alpha.2 -TiaVersions 19
 ```
 
 For a development build of one worker:

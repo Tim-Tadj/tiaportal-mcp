@@ -137,25 +137,18 @@ namespace TiaMcpServer.ModelContextProtocol
                 structuredContent["columns"] = columnNames;
             }
 
-            var structuredContentElement = JsonSerializer.SerializeToElement(
-                structuredContent,
-                McpJsonUtilities.DefaultOptions);
-
+            // Keep rows in the first text block. Some clients consume only that block.
+            // Metadata-only structuredContent causes other clients to hide the rows entirely.
             return new CallToolResult
             {
                 Content = new List<ContentBlock>
                 {
                     new TextContentBlock
                     {
-                        Text = structuredContent.ToJsonString(
-                            McpJsonUtilities.DefaultOptions)
-                    },
-                    new TextContentBlock
-                    {
-                        Text = payload
+                        Text = structuredContent.ToJsonString(McpJsonUtilities.DefaultOptions)
+                            + "\n" + payload
                     }
-                },
-                StructuredContent = structuredContentElement
+                }
             };
         }
 

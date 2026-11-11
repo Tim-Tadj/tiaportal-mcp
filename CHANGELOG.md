@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+Target prerelease: `0.1.0-alpha.2`.
+
+### Fixed
+
+- [RO][RW] Address issue #1: keep the selected open project across calls and
+  refresh projects closed or opened in TIA. GetState reports workerProcessId
+  so clients can distinguish a restarted worker from a lost TIA connection.
+- [Contract][RO][RW] Return format metadata and all rows in one text block.
+  Omit metadata-only structuredContent, which some clients displayed instead
+  of rows. Split the first text block at its first LF to parse the metadata
+  and payload. This replaces the alpha.1 two-block preview contract.
+- [RW] Return compile errors, warnings and native diagnostic paths and
+  descriptions instead of a generic compile failure. GetCompileDiagnostics
+  pages the last compile without recompiling; no invented line/network data.
+- [RO][RW] Accept root-prefixed canonical block/type paths returned by discovery.
+- [RW] Explain inconsistent single-block exports and return per-block batch
+  failure reasons with explicit truncation counts.
+- [RO][RW] Serialise project paths as strings in GetProjectInfo.
+
+### Added
+
+- [RO][RW] Add paged GetPlcTagTables and GetPlcTags, including user constants.
+- [RO][RW][V18][V19] Add FindReferences using Siemens CrossReferenceService,
+  including native access, addresses and locations. V17 reports unsupported.
+  Native reference data does not prove absence of indirect accesses.
+- [RW] Add ImportBlockFromSource for .scl, .awl and .db files through Siemens
+  source generation. Replacement must be acknowledged explicitly. Generation
+  errors do not guarantee restoration of previously replaced blocks.
+- [RO][RW] Add paging and tag tables to GetSoftwareTree. Calls now default to
+  50 lines, capped at 200, with query/snapshot-bound cursors.
+- [RO][RW] Add module type, order number, firmware and classification metadata
+  to Standard GetDeviceInfo. Read still omits mutation tools.
+
+### Changed
+
+- [RO][RW] Guard older PublicAPI gaps: ChangeType and native cross-references
+  require V18; accessible-device discovery requires V19.
 - [RO][RW] Combine the two-profile version broker with native online-state,
   live PLC value and rack hardware inspection tools already on main.
 - [RW] Add offline BaseUnit potential-group configuration with an expected

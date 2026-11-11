@@ -27,6 +27,9 @@ Run the focused tests from the repository root with matching Siemens assemblies:
 dotnet test tests/TiaMcpServer.Test/TiaMcpServer.Test.csproj -p:TiaWorkerVersion=19 -p:TiaAccessProfile=ReadWrite -p:SiemensEngineeringCopyLocal=true --filter FullyQualifiedName~TestHardwareTools
 ```
 
+`GetAccessibleDevices` requires V19 or later. `ChangeHardwareType` requires
+V18 or later. Older workers return an explicit unsupported response.
+
 Network discovery depends on the selected adapter and network visibility.
 Compilation verifies the engineering configuration; device runtime status
 and individual I/O operation require separate physical checks.

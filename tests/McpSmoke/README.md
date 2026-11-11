@@ -23,6 +23,8 @@ node .\tests\McpSmoke\mcp-read-smoke.mjs `
     --tia-version V19
 ```
 
+Add `--process-id <pid>` when more than one matching TIA instance is open.
+
 The command prints one JSON summary containing counts and selected formats. It
 does not print project names, paths or device data.
 

@@ -43,6 +43,12 @@ namespace TiaMcpServer.ModelContextProtocol
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Description { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public object[]? Modules { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? ModulesTruncated { get; set; }
     }
 
     public class ResponseDeviceItemInfo : ResponseAttributes
@@ -143,6 +149,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
     public class ResponseState : ResponseMessage
     {
+        public int WorkerProcessId { get; set; }
         public bool? IsConnected { get; set; }
         public string? Project { get; set; }
         public string? Session { get; set; }
@@ -182,6 +189,7 @@ namespace TiaMcpServer.ModelContextProtocol
     public class ResponseSoftwareTree : ResponseMessage
     {
         public string? Tree { get; set; }
+        public PageInfo? Page { get; set; }
     }
 
     public class ResponseDevices : ResponseMessage
@@ -192,6 +200,12 @@ namespace TiaMcpServer.ModelContextProtocol
     
     public class ResponseCompileSoftware : ResponseMessage
     {
+        public string? CompileId { get; set; }
+        public string? State { get; set; }
+        public int ErrorCount { get; set; }
+        public int WarningCount { get; set; }
+        public IEnumerable<TiaMcpServer.Siemens.CompileDiagnostic>? Diagnostics { get; set; }
+        public PageInfo? Page { get; set; }
     }
     
     public class ResponseBlocks : ResponseMessage
@@ -210,6 +224,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
     public class ResponseExportBlocks : ResponseMessage
     {
+        public IEnumerable<TiaMcpServer.Siemens.BlockExportFailure>? Failures { get; set; }
         public IEnumerable<ResponseBlockInfo>? Items { get; set; }
         public IEnumerable<ResponseBlockInfo>? Inconsistent { get; set; }
     }

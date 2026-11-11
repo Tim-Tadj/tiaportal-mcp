@@ -44,6 +44,10 @@ namespace TiaMcpServer.ModelContextProtocol
             {
                 return action();
             }
+            catch (NotSupportedException ex)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);
+            }
             catch (PortalException ex)
             {
                 throw new McpException(ex.Message, ex, McpErrorCode.InvalidParams);

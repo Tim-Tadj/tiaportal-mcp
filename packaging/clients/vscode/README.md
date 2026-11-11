@@ -3,7 +3,7 @@
 This bundle runs TIA Portal MCP locally over standard input and output. No
 extension or VSIX is required.
 
-The `0.1.0-alpha.1` bundles contain workers for TIA Portal V17, V18 and V19
+The `0.1.0-alpha.2` bundles contain workers for TIA Portal V17, V18 and V19
 only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
 release. V21 is unsupported in this release.
 
@@ -15,7 +15,7 @@ the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.1-read-win-x64.zip
+    .\tia-portal-mcp-0.1.0-alpha.2-read-win-x64.zip
 ```
 
 If Windows then blocks the verified script because it carries

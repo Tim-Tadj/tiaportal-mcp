@@ -2,7 +2,7 @@
 
 Status: Normative.
 
-Last updated: 29 July 2026.
+Last updated: 11 November 2026.
 
 ## Scope
 
@@ -170,6 +170,13 @@ The selected format reflects what was actually returned, not merely what was
 requested. The identifiers are `csv`, `toon-v4.1` and `json`.
 An empty `toon-v4.1` result also reports `columns` in stable contract order
 because its canonical `items: []` payload cannot carry a TOON field list.
+
+From `0.1.0-alpha.2`, formatted results have exactly one text content block:
+compact metadata JSON on the first line, one LF, then the complete payload.
+Metadata-only `structuredContent` is omitted because clients can otherwise
+prefer it and discard the rows. Consumers of the previous two-block preview
+must migrate to splitting the first text block at its first LF. Even with
+`responseFormat=Json`, parse the metadata line and JSON payload separately.
 
 Full row data appears once in model-facing text content. It MUST NOT be
 duplicated in a second structured copy merely to carry format or paging

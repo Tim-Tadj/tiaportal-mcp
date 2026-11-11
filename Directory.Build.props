@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TiaMcpReleaseVersion>0.1.0-alpha.1</TiaMcpReleaseVersion>
+    <TiaMcpReleaseVersion>0.1.0-alpha.2</TiaMcpReleaseVersion>
     <Version Condition="'$(Version)' == ''">$(TiaMcpReleaseVersion)</Version>
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(TiaMcpReleaseVersion)</InformationalVersion>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
