@@ -66,6 +66,8 @@ namespace TiaMcpServer.ModelContextProtocol
             return attributes;
         }
 
+        internal static object? GetAttributeValue(object? value) => NormalizeAttributeValue(value);
+
         public static object? NormalizeAttributeValue(object? value)
         {
             if (value == null || value == DBNull.Value)

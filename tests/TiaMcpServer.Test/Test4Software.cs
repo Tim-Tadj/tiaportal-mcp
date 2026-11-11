@@ -100,7 +100,7 @@ namespace TiaMcpServer.Test
 
             var result = _portal.GetBlock(softwarePath, blockPath);
 
-            if (result != null && blockPath.Contains(result.Name, StringComparison.OrdinalIgnoreCase))
+            if (result != null && blockPath.IndexOf(result.Name, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 Console.WriteLine($"Block found: '{blockPath}");
             }
@@ -128,7 +128,7 @@ namespace TiaMcpServer.Test
 
             var result = _portal.GetType(softwarePath, typePath);
 
-            if (result != null && typePath.Contains(result.Name, StringComparison.OrdinalIgnoreCase))
+            if (result != null && typePath.IndexOf(result.Name, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 Console.WriteLine($"Type found: '{typePath}");
             }

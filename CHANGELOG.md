@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
-No changes yet.
+- [RO][RW] Combine the two-profile version broker with native online-state,
+  live PLC value and rack hardware inspection tools already on main.
+- [RW] Add offline BaseUnit potential-group configuration with an expected
+  current-value check. Online transitions, compilation and hardware changes
+  remain outside the Read profile.
+- [RO][RW] Add explicit process selection and opt-in launching to Connect.
 
 ## [0.1.0-alpha.1] - 2026-07-30
 

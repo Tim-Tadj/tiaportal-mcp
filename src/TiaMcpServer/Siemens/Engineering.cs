@@ -100,11 +100,7 @@ namespace TiaMcpServer.Siemens
 
             var installPath = GetConfiguredInstallPath();
             var versionDirectory = $"V{TiaMajorVersion}";
-            var searchDirectories = new[]
-            {
-                Path.Combine(installPath, "PublicAPI", versionDirectory),
-                Path.Combine(installPath, "Bin", "PublicAPI")
-            };
+            var searchDirectories = GetApiSearchDirectories(installPath, TiaMajorVersion);
             var excludedTiaVersions = new[]
             {
                 "V13",
@@ -137,6 +133,14 @@ namespace TiaMcpServer.Siemens
             }
 
             return Assembly.LoadFrom(assemblyPath);
+        }
+
+        internal static string[] GetApiSearchDirectories(string installPath, int majorVersion)
+        {
+            var apiPath = Path.Combine(installPath, "PublicAPI", $"V{majorVersion}");
+            return majorVersion >= 21
+                ? new[] { Path.Combine(apiPath, "net48") }
+                : new[] { apiPath, Path.Combine(installPath, "Bin", "PublicAPI") };
         }
 
         private static string GetConfiguredInstallPath()

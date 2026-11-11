@@ -25,7 +25,7 @@ using TiaMcpServer.Security;
 
 namespace TiaMcpServer.Siemens
 {
-    public class Portal
+    public partial class Portal
     {
         // closing parantheses for regex characters ommitted, because they are not relevant for regex detection
         private TiaPortal? _portal;
@@ -134,20 +134,28 @@ namespace TiaMcpServer.Siemens
 
         #region portal
 
-        public bool ConnectPortal(bool allowLaunch = true)
+        public bool ConnectPortal(bool allowLaunch = true, int? processId = null)
         {
             lock (_connectionSync)
             {
-                return ConnectPortalLocked(allowLaunch);
+                return ConnectPortalLocked(allowLaunch, processId);
             }
         }
 
-        private bool ConnectPortalLocked(bool allowLaunch)
+        private bool ConnectPortalLocked(bool allowLaunch, int? processId)
         {
             _logger?.LogInformation("Connecting to TIA Portal...");
 
+            if (processId.HasValue && processId.Value <= 0)
+            {
+                throw new ArgumentException("Use a positive TIA Portal process ID.");
+            }
             if (_portal != null && IsPortalConnectionHealthy())
             {
+                if (processId.HasValue && _portal.GetCurrentProcess().Id != processId.Value)
+                {
+                    throw new PortalException(PortalErrorCode.InvalidState, "Disconnect before attaching to another TIA Portal process.");
+                }
                 return true;
             }
 
@@ -158,7 +166,7 @@ namespace TiaMcpServer.Siemens
                 _portal = null;
 
                 // connect to running TIA Portal
-                var processes = TiaPortal.GetProcesses().ToList();
+                var processes = TiaPortal.GetProcesses().Where(p => !processId.HasValue || p.Id == processId.Value).ToList();
                 if (processes.Count > 1)
                 {
                     _logger?.LogWarning(
@@ -185,7 +193,7 @@ namespace TiaMcpServer.Siemens
                     return true;
                 }
 
-                if (!allowLaunch)
+                if (!allowLaunch || processId.HasValue)
                 {
                     _logger?.LogWarning(
                         "No running TIA Portal process is available and the active access profile does not permit launching one.");

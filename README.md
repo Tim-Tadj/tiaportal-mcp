@@ -8,8 +8,13 @@ An MCP server which connects to Siemens TIA Portal.
 - Browse and interact with TIA Portal projects
 - Choose a structurally separated Read or ReadWrite access profile
 - Use the same local version broker from Claude Desktop, VS Code or ChatGPT
+- Inspect native online state, live PLC values and rack hardware
+- Configure offline module types and BaseUnit power groups with ReadWrite
 
 ## Documentation
+
+- See [Online Tools](docs/online-tools.md) and [Hardware Tools](docs/hardware-tools.md)
+  for the native inspection and offline configuration tools.
 
 - See [Project Documentation](docs/README.md) for the architecture, roadmap,
   current status, definition of done and changelog policy.

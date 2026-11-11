@@ -194,8 +194,9 @@ function Assert-VersionConsistency
         -LiteralPath (Join-Path $RepositoryRoot 'CHANGELOG.md') `
         -Raw
     Assert-Condition `
-        -Condition ($changelog.Contains("Target prerelease: ``$releaseVersion``.")) `
-        -Message "CHANGELOG.md does not identify '$releaseVersion' as the target prerelease."
+        -Condition ($changelog.Contains("Target prerelease: ``$releaseVersion``.") -or
+            $changelog.Contains("## [$releaseVersion] - ")) `
+        -Message "CHANGELOG.md does not identify '$releaseVersion' as the target or published prerelease."
 
     return [pscustomobject]@{
         ReleaseVersion = $releaseVersion
@@ -381,7 +382,10 @@ function Assert-SourceProfileBoundaries
     $listSource = Join-Path `
         $RepositoryRoot `
         'src\TiaMcpServer\ModelContextProtocol\McpListTools.cs'
-    $toolSources = @($serverSource, $listSource)
+    $toolSources = @(
+        Get-ChildItem -LiteralPath (Split-Path -Parent $serverSource) -Filter 'McpServer*.cs' |
+            Select-Object -ExpandProperty FullName
+    ) + @($listSource)
 
     $readTools = @(
         'Connect',
@@ -399,7 +403,12 @@ function Assert-SourceProfileBoundaries
         'ListProjects',
         'GetDevices',
         'GetBlocks',
-        'GetTypes'
+        'GetTypes',
+        'GetDeviceOnlineState',
+        'GetOnlineConnectionOptions',
+        'GetAccessibleDevices',
+        'GetHardwareNetworkInfo',
+        'ReadPlcValues'
     )
     $readWriteTools = @(
         $readTools
@@ -414,7 +423,12 @@ function Assert-SourceProfileBoundaries
         'ExportBlocks',
         'ExportType',
         'ImportType',
-        'ExportTypes'
+        'ExportTypes',
+        'GoOnlineDevice',
+        'GoOfflineDevice',
+        'ChangeHardwareType',
+        'CompileHardware',
+        'SetBaseUnitPotentialGroup'
     )
     $v20DocumentTools = @(
         'ExportAsDocuments',

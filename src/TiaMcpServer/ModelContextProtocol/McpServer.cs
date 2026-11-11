@@ -22,7 +22,7 @@ using McpException = ModelContextProtocol.McpProtocolException;
 namespace TiaMcpServer.ModelContextProtocol
 {
     [McpServerToolType]
-    public sealed class McpServer
+    public sealed partial class McpServer
     {
         private static IServiceProvider? _services;
         private static Portal? _portal;
@@ -59,15 +59,17 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region portal
 
-        [McpServerTool(Name = "Connect"), Description("Attach to the single running TIA Portal process. The read-write worker may launch TIA Portal when none is running; the read worker never launches it.")]
-        public static ResponseConnect Connect()
+        [McpServerTool(Name = "Connect"), Description("Attach to an exact running TIA Portal process. Supply processId when multiple instances are running. Starting TIA requires startIfMissing=true and the ReadWrite profile.")]
+        public static ResponseConnect Connect(
+            [Description("Existing TIA Portal process ID; required when more than one is running.")] int? processId = null,
+            [Description("Explicitly allow starting TIA if none is running. ReadWrite only; defaults to false.")] bool startIfMissing = false)
         {
             Logger?.LogInformation("Connecting to TIA Portal...");
 
             try
             {
-                var allowLaunch = WorkerBuild.Current.AccessProfile == AccessProfile.ReadWrite;
-                if (Portal.ConnectPortal(allowLaunch))
+                var allowLaunch = startIfMissing && WorkerBuild.Current.AccessProfile == AccessProfile.ReadWrite;
+                if (Portal.ConnectPortal(allowLaunch, processId))
                 {
                     return new ResponseConnect
                     {
@@ -136,12 +138,17 @@ namespace TiaMcpServer.ModelContextProtocol
                 "devices",
                 "plc-software",
                 "blocks",
-                "types"
+                "types",
+                "native-online-state",
+                "live-plc-values",
+                "hardware-inspection"
             };
 
 #if TIA_MCP_READ_WRITE
             toolFamilies.Add("project-lifecycle");
             toolFamilies.Add("compile");
+            toolFamilies.Add("native-online-transitions");
+            toolFamilies.Add("hardware-configuration");
             toolFamilies.Add("xml-import-export");
 
             if (worker.TiaMajorVersion >= 20)

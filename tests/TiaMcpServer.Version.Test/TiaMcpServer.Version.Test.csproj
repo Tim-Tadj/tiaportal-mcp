@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <TiaWorkerVersion Condition="'$(TiaWorkerVersion)' == ''">19</TiaWorkerVersion>
+    <DefineConstants>$(DefineConstants);TIA_MCP_V$(TiaWorkerVersion)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest" Version="3.9.2" />
+    <Compile Include="..\..\src\TiaMcpServer\Siemens\BuildVersion.cs" Link="BuildVersion.cs" />
+    <Compile Include="..\..\src\TiaMcpServer\Siemens\Engineering.cs" Link="Engineering.cs" />
+    <Compile Include="..\..\src\TiaMcpServer\Runtime\SiemensEngineeringAssemblyPolicy.cs" Link="SiemensEngineeringAssemblyPolicy.cs" />
+  </ItemGroup>
+</Project>

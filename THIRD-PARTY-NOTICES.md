@@ -18,6 +18,11 @@ The public bundles include the complete Apache 2.0 and Microsoft MIT licence
 texts plus Microsoft's bundled third-party notices under each worker's
 `third-party-licenses` directory.
 
+## Direct PLC Reads
+
+`S7netplus` 0.20.0 is provided under the MIT licence. Its licence is included
+as `third-party-licenses/S7NetPlus-LICENSE.txt` in each worker.
+
 ## Siemens Build Inputs
 
 The worker build uses

@@ -58,3 +58,10 @@ dotnet test -p:TiaWorkerVersion=20
 
 Follow the root `AGENTS.md` test execution policy and obtain explicit
 confirmation before running the suite.
+
+Focused offline hardware and online-helper unit tests (no PLC writes or TIA
+project attachment):
+
+```powershell
+dotnet test tests/TiaMcpServer.Test/TiaMcpServer.Test.csproj -p:TiaWorkerVersion=19 -p:TiaAccessProfile=ReadWrite -p:SiemensEngineeringCopyLocal=true --filter "FullyQualifiedName~TestHardwareTools|FullyQualifiedName~TestOnlineTools|FullyQualifiedName~TestPlcValues"
+```
