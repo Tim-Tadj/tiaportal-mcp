@@ -1,5 +1,6 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ModelContextProtocol;
+using McpException = ModelContextProtocol.McpProtocolException;
 using ModelContextProtocol.Server;
 using Siemens.Engineering.Online;
 using System;
@@ -8,6 +9,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.IO;
 using TiaMcpServer.ModelContextProtocol;
+using McpServer = TiaMcpServer.ModelContextProtocol.McpServer;
 using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer.Test
@@ -40,6 +42,15 @@ namespace TiaMcpServer.Test
                 CollectionAssert.AreEqual(new[] { Path.Combine("test-root", "PublicAPI", "V" + major), Path.Combine("test-root", "Bin", "PublicAPI") }, Engineering.GetApiSearchDirectories("test-root", major));
             }
             CollectionAssert.AreEqual(new[] { Path.Combine("test-root", "PublicAPI", "V21", "net48") }, Engineering.GetApiSearchDirectories("test-root", 21));
+        }
+
+        [TestMethod]
+        public void InvalidProcessSelectionIsRejectedBeforeAttaching()
+        {
+            var portal = new Portal();
+            Assert.ThrowsException<ArgumentException>(() => portal.ConnectPortal(false, 0));
+            Assert.ThrowsException<ArgumentException>(() => portal.ConnectPortal(false, -1));
+            Assert.IsFalse(portal.IsConnected());
         }
 
         [TestMethod]

@@ -2,6 +2,9 @@
 using Siemens.Engineering;
 using Siemens.Engineering.Compiler;
 using Siemens.Engineering.Hmi;
+#if TIA_MCP_V19 || TIA_MCP_V20
+using Siemens.Engineering.HmiUnified;
+#endif
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
 using Siemens.Engineering.Multiuser;
@@ -15,20 +18,21 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using TiaMcpServer.Security;
 
 namespace TiaMcpServer.Siemens
 {
     public partial class Portal
     {
         // closing parantheses for regex characters ommitted, because they are not relevant for regex detection
-        private readonly char[] _regexChars = ['.', '^', '$', '*', '+', '?', '(', '[', '{', '\\', '|'];
-
         private TiaPortal? _portal;
         private ProjectBase? _project;
         private LocalSession? _session;
         private readonly ILogger<Portal>? _logger;
+        private readonly object _connectionSync = new object();
 
         #region ctor
 
@@ -89,35 +93,40 @@ namespace TiaMcpServer.Siemens
         public static bool IsLocalSessionFile(string sessionPath)
         {
             // Check if the path ends with '.als\d+' using regex
-            var regex = new Regex(@"\.als\d+$", RegexOptions.IgnoreCase);
+            var regex = BoundedRegex.Create(@"\.als\d+$", RegexOptions.IgnoreCase);
             return regex.IsMatch(sessionPath);
         }
 
         public static bool IsLocalProjectFile(string projectPath)
         {
             // Check if the path ends with '.ap\d+' using regex
-            var regex = new Regex(@"\.ap\d+$", RegexOptions.IgnoreCase);
+            var regex = BoundedRegex.Create(@"\.ap\d+$", RegexOptions.IgnoreCase);
             return regex.IsMatch(projectPath);
         }
 
         public void Dispose()
         {
-            try
+            lock (_connectionSync)
             {
-                (_project as Project)?.Close();
+                DisposeLocked();
             }
-            catch (Exception)
-            {
-                // Console.WriteLine($"Error closing the project: {ex.Message}");
-            }
+        }
 
+        private void DisposeLocked()
+        {
+            var portal = _portal;
+            _project = null;
+            _session = null;
+            _portal = null;
             try
             {
-                _portal?.Dispose();
+                portal?.Dispose();
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                // Console.WriteLine($"Error closing the portal: {ex.Message}");
+                _logger?.LogWarning(
+                    exception,
+                    "Could not detach the MCP worker from TIA Portal during disposal.");
             }
         }
 
@@ -125,26 +134,46 @@ namespace TiaMcpServer.Siemens
 
         #region portal
 
-        public bool ConnectPortal(int? processId = null, bool startIfMissing = false)
+        public bool ConnectPortal(bool allowLaunch = true, int? processId = null)
+        {
+            lock (_connectionSync)
+            {
+                return ConnectPortalLocked(allowLaunch, processId);
+            }
+        }
+
+        private bool ConnectPortalLocked(bool allowLaunch, int? processId)
         {
             _logger?.LogInformation("Connecting to TIA Portal...");
 
+            if (processId.HasValue && processId.Value <= 0)
+            {
+                throw new ArgumentException("Use a positive TIA Portal process ID.");
+            }
+            if (_portal != null && IsPortalConnectionHealthy())
+            {
+                if (processId.HasValue && _portal.GetCurrentProcess().Id != processId.Value)
+                {
+                    throw new PortalException(PortalErrorCode.InvalidState, "Disconnect before attaching to another TIA Portal process.");
+                }
+                return true;
+            }
+
             try
             {
-                if (_portal != null)
-                {
-                    if (processId.HasValue && _portal.GetCurrentProcess().Id != processId.Value)
-                    {
-                        throw new PortalException(PortalErrorCode.InvalidState, "Disconnect before attaching to another TIA Portal process.");
-                    }
-                    return true;
-                }
+                _project = null;
+                _session = null;
+                _portal = null;
 
+                // connect to running TIA Portal
                 var processes = TiaPortal.GetProcesses().Where(p => !processId.HasValue || p.Id == processId.Value).ToList();
                 if (processes.Count > 1)
                 {
-                    throw new PortalException(PortalErrorCode.InvalidState, "Multiple TIA Portal processes are running. Specify processId: " + string.Join(", ", processes.Select(p => p.Id)));
+                    _logger?.LogWarning(
+                        "Multiple TIA Portal processes are running. Refusing to attach without explicit process selection.");
+                    return false;
                 }
+
                 if (processes.Count == 1)
                 {
                     _portal = processes[0].Attach();
@@ -164,31 +193,46 @@ namespace TiaMcpServer.Siemens
                     return true;
                 }
 
-                if (!startIfMissing || processId.HasValue)
+                if (!allowLaunch || processId.HasValue)
                 {
-                    throw new PortalException(PortalErrorCode.InvalidState, "No matching TIA Portal process is running. Open TIA first, or explicitly set startIfMissing=true without processId.");
+                    _logger?.LogWarning(
+                        "No running TIA Portal process is available and the active access profile does not permit launching one.");
+                    return false;
                 }
+
+                // start new TIA Portal
+                ProfileAccessPolicy.DemandWrite("launch TIA Portal");
                 _portal = new TiaPortal(TiaPortalMode.WithUserInterface);
 
                 return true;
             }
-            catch (PortalException)
+            catch (Exception exception)
             {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new PortalException(PortalErrorCode.InvalidState, "Failed to attach to TIA Portal: " + ex.Message, inner: ex);
+                _logger?.LogError(exception, "Could not connect to TIA Portal.");
+                DisposeLocked();
+                return false;
             }
         }
 
         public bool IsConnected()
         {
-            return _portal != null;
+            lock (_connectionSync)
+            {
+                return _portal != null;
+            }
         }
 
         public bool DisconnectPortal()
         {
+            lock (_connectionSync)
+            {
+                return DisconnectPortalLocked();
+            }
+        }
+
+        private bool DisconnectPortalLocked()
+        {
+            ProfileAccessPolicy.DemandWrite("disconnect TIA Portal");
             _logger?.LogInformation("Disconnecting from TIA Portal...");
 
             try
@@ -269,6 +313,7 @@ namespace TiaMcpServer.Siemens
 
         public bool OpenProject(string projectPath)
         {
+            ProfileAccessPolicy.DemandWrite("open project");
             _logger?.LogInformation($"Opening project: {projectPath}");
 
             if (IsPortalNull())
@@ -276,34 +321,35 @@ namespace TiaMcpServer.Siemens
                 return false;
             }
 
-            if (_project != null)
-            {
-                (_project as Project)?.Close();
-                _project = null;
-            }
-
-            if (_session != null)
-            {
-                _session.Close();
-                _session = null;
-            }
-
             try
             {
                 var projects = GetProjects();
-                var projectName = Path.GetFileNameWithoutExtension(projectPath);
+                var resolvedProjectPath = Path.GetFullPath(projectPath);
+                var openProject = projects.FirstOrDefault(
+                    project => PathsEqual(project.Path?.ToString(), resolvedProjectPath));
 
-                if (!string.IsNullOrEmpty(projectName) && projects.Any(p => p.Name.Equals(projectName)))
+                if (openProject != null)
                 {
-                    // Project is already open
-                    _project = _portal?.Projects.FirstOrDefault(p => p.Name == projectName);
+                    _project = openProject;
 
                     return _project != null;
                 }
                 else
                 {
-                    // see [5.3.1 Projekt öffnen, S.113]
-                    _project = _portal?.Projects.OpenWithUpgrade(new FileInfo(projectPath));
+                    if (_session != null)
+                    {
+                        _session.Close();
+                        _session = null;
+                        _project = null;
+                    }
+                    else if (_project != null)
+                    {
+                        (_project as Project)?.Close();
+                        _project = null;
+                    }
+
+                    // Exact-version files are opened without an implicit upgrade.
+                    _project = _portal?.Projects.Open(new FileInfo(resolvedProjectPath));
 
                     return _project != null;
                 }
@@ -345,6 +391,7 @@ namespace TiaMcpServer.Siemens
 
         public bool SaveProject()
         {
+            ProfileAccessPolicy.DemandWrite("save project");
             _logger?.LogInformation("Saving project...");
 
             if (IsProjectNull())
@@ -359,6 +406,7 @@ namespace TiaMcpServer.Siemens
 
         public bool SaveAsProject(string path)
         {
+            ProfileAccessPolicy.DemandWrite("save project as");
             _logger?.LogInformation($"Saving project as: {path}");
 
             if (IsProjectNull())
@@ -375,6 +423,7 @@ namespace TiaMcpServer.Siemens
 
         public bool CloseProject()
         {
+            ProfileAccessPolicy.DemandWrite("close project");
             _logger?.LogInformation("Closing project...");
 
             if (IsProjectNull())
@@ -416,6 +465,7 @@ namespace TiaMcpServer.Siemens
 
         public bool OpenSession(string localSessionPath)
         {
+            ProfileAccessPolicy.DemandWrite("open local session");
             _logger?.LogInformation($"Opening session: {localSessionPath}");
 
             if (IsPortalNull())
@@ -423,33 +473,36 @@ namespace TiaMcpServer.Siemens
                 return false;
             }
 
-            if (_session != null)
-            {
-                _project = null;
-                _session?.Close();
-                _session = null;
-            }
-
             try
             {
-                var sessions = GetSessions();
-                var projectName = Path.GetFileNameWithoutExtension(localSessionPath);
-                var sessionName = Regex.Replace(projectName, @"_(LS|ES)_\d$", string.Empty, RegexOptions.IgnoreCase);
+                var resolvedSessionPath = Path.GetFullPath(localSessionPath);
+                var openSession = _portal?.LocalSessions.FirstOrDefault(
+                    session => PathsEqual(
+                        session.Project.Path?.ToString(),
+                        resolvedSessionPath));
 
-                if (!string.IsNullOrEmpty(sessionName) && sessions.Any(s => s.Name.Equals(sessionName)))
+                if (openSession != null)
                 {
-                    // Session is already open  
-                    _session = _portal?.LocalSessions.FirstOrDefault(s => s.Project.Name == sessionName);
-                    if (_session != null)
-                    {
-                        // Correctly cast MultiuserProject to Project  
-                        _project = _session.Project;
-                        return _project != null;
-                    }
+                    _session = openSession;
+                    _project = _session.Project;
+                    return _project != null;
                 }
                 else
                 {
-                    _session = _portal?.LocalSessions.Open(new FileInfo(localSessionPath));
+                    if (_session != null)
+                    {
+                        _project = null;
+                        _session.Close();
+                        _session = null;
+                    }
+                    else if (_project != null)
+                    {
+                        (_project as Project)?.Close();
+                        _project = null;
+                    }
+
+                    _session = _portal?.LocalSessions.Open(
+                        new FileInfo(resolvedSessionPath));
                     if (_session != null)
                     {
                         // Correctly cast MultiuserProject to Project  
@@ -468,6 +521,7 @@ namespace TiaMcpServer.Siemens
 
         public bool SaveSession()
         {
+            ProfileAccessPolicy.DemandWrite("save local session");
             _logger?.LogInformation("Saving session...");
 
             if (IsSessionNull())
@@ -483,6 +537,7 @@ namespace TiaMcpServer.Siemens
 
         public bool CloseSession()
         {
+            ProfileAccessPolicy.DemandWrite("close local session");
             _logger?.LogInformation("Closing session...");
 
             if (IsSessionNull())
@@ -556,21 +611,29 @@ namespace TiaMcpServer.Siemens
 
             if (IsProjectNull())
             {
-                return [];
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    "No project is open in TIA Portal.");
             }
 
             var list = new List<Device>();
+            var regex = string.IsNullOrWhiteSpace(regexName)
+                ? null
+                : BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
 
             if (_project?.Devices != null)
             {
                 foreach (Device device in _project.Devices)
                 {
-                    list.Add(device);
+                    if (regex == null || regex.IsMatch(device.Name))
+                    {
+                        list.Add(device);
+                    }
                 }
 
                 foreach (var group in _project.DeviceGroups)
                 {
-                    GetDevicesRecursive(group, list, regexName);
+                    GetDevicesRecursive(group, list, regex);
                 }
 
                 //foreach (var group in _project.UngroupedDevicesGroup)
@@ -593,6 +656,34 @@ namespace TiaMcpServer.Siemens
 
             // Retrieve the device by its path
             return GetDeviceByPath(devicePath);
+        }
+
+        public string GetDevicePath(Device device)
+        {
+            if (device == null)
+            {
+                return string.Empty;
+            }
+
+            if (_project?.Devices != null &&
+                _project.Devices.Any(candidate => ReferenceEquals(candidate, device)))
+            {
+                return device.Name;
+            }
+
+            if (_project?.DeviceGroups != null)
+            {
+                foreach (var group in _project.DeviceGroups)
+                {
+                    var path = FindDevicePath(group, device, group.Name);
+                    if (path != null)
+                    {
+                        return path;
+                    }
+                }
+            }
+
+            return device.Name;
         }
 
         public DeviceItem? GetDeviceItem(string deviceItemPath)
@@ -634,6 +725,7 @@ namespace TiaMcpServer.Siemens
 
         public CompilerResult? CompileSoftware(string softwarePath, string password = "")
         {
+            ProfileAccessPolicy.DemandWrite("compile PLC software");
             _logger?.LogInformation($"Compiling software by path: {softwarePath}");
 
             if (IsProjectNull())
@@ -712,23 +804,8 @@ namespace TiaMcpServer.Siemens
                     var group = GetPlcBlockGroupByPath(softwarePath, path);
                     if (group != null)
                     {
-                        if (regexName.IndexOfAny(_regexChars) >= 0)
-                        {
-                            try
-                            {
-                                var regex = new Regex(regexName, RegexOptions.IgnoreCase);
-                                block = group.Blocks.FirstOrDefault(b => regex.IsMatch(b.Name)) as PlcBlock;
-                            }
-                            catch (Exception)
-                            {
-                                // Invalid regex, return null
-                                return null;
-                            }
-                        }
-                        else
-                        {
-                            block = group.Blocks.FirstOrDefault(b => b.Name.Equals(regexName, StringComparison.OrdinalIgnoreCase));
-                        }
+                        block = group.Blocks.FirstOrDefault(
+                            b => b.Name.Equals(regexName, StringComparison.OrdinalIgnoreCase)) as PlcBlock;
 
                         return block;
                     }
@@ -762,23 +839,8 @@ namespace TiaMcpServer.Siemens
                     var group = GetPlcTypeGroupByPath(softwarePath, path);
                     if (group != null)
                     {
-                        if (regexName.IndexOfAny(_regexChars) >= 0)
-                        {
-                            try
-                            {
-                                var regex = new Regex(regexName, RegexOptions.IgnoreCase);
-                                type = group.Types.FirstOrDefault(t => regex.IsMatch(t.Name)) as PlcType;
-                            }
-                            catch (Exception)
-                            {
-                                // Invalid regex, return null
-                                return null;
-                            }
-                        }
-                        else
-                        {
-                            type = group.Types.FirstOrDefault(t => t.Name.Equals(regexName, StringComparison.OrdinalIgnoreCase));
-                        }
+                        type = group.Types.FirstOrDefault(
+                            t => t.Name.Equals(regexName, StringComparison.OrdinalIgnoreCase)) as PlcType;
 
                         return type;
                     }
@@ -804,16 +866,37 @@ namespace TiaMcpServer.Siemens
             return block.Name;
         }
 
+        public string GetTypePath(PlcType type)
+        {
+            if (type == null)
+            {
+                return string.Empty;
+            }
+
+            if (type.Parent is PlcTypeGroup parentGroup)
+            {
+                var groupPath = GetPlcTypeGroupPath(parentGroup);
+                return string.IsNullOrEmpty(groupPath) ? type.Name : $"{groupPath}/{type.Name}";
+            }
+
+            return type.Name;
+        }
+
         public List<PlcBlock> GetBlocks(string softwarePath, string regexName = "")
         {
             _logger?.LogInformation("Getting blocks...");
 
             if (IsProjectNull())
             {
-                return [];
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    "No project is open in TIA Portal.");
             }
 
             var list = new List<PlcBlock>();
+            var regex = string.IsNullOrWhiteSpace(regexName)
+                ? null
+                : BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
 
             try
             {
@@ -824,16 +907,36 @@ namespace TiaMcpServer.Siemens
 
                     if (group != null)
                     {
-                        GetBlocksRecursive(group, list, regexName);
+                        GetBlocksRecursive(group, list, regex);
                     }
-                }
-            }
-            catch (Exception)
-            {
-                // Console.WriteLine($"Error getting blocks: {ex.Message}");
-            }
 
-            return list;
+                    return list;
+                }
+
+                throw new PortalException(
+                    PortalErrorCode.NotFound,
+                    $"PLC software was not found at '{softwarePath}'.");
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw;
+            }
+            catch (PortalException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogError(
+                    exception,
+                    "Failed to traverse PLC blocks at {SoftwarePath}",
+                    softwarePath);
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    $"Failed to traverse PLC blocks at '{softwarePath}'.",
+                    null,
+                    exception);
+            }
         }
 
         public PlcBlockGroup? GetBlockRootGroup(string softwarePath)
@@ -842,7 +945,9 @@ namespace TiaMcpServer.Siemens
 
             if (IsProjectNull())
             {
-                return null;
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    "No project is open in TIA Portal.");
             }
 
             try
@@ -852,13 +957,24 @@ namespace TiaMcpServer.Siemens
                 {
                     return plcSoftware.BlockGroup;
                 }
+
+                throw new PortalException(
+                    PortalErrorCode.NotFound,
+                    $"PLC software was not found at '{softwarePath}'.");
+            }
+            catch (PortalException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error getting block root group");
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    $"Failed to retrieve the block root group at '{softwarePath}'.",
+                    null,
+                    ex);
             }
-
-            return null;
         }
 
         public List<PlcType> GetTypes(string softwarePath, string regexName = "")
@@ -867,10 +983,15 @@ namespace TiaMcpServer.Siemens
 
             if (IsProjectNull())
             {
-                return [];
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    "No project is open in TIA Portal.");
             }
 
             var list = new List<PlcType>();
+            var regex = string.IsNullOrWhiteSpace(regexName)
+                ? null
+                : BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
 
             try
             {
@@ -881,20 +1002,46 @@ namespace TiaMcpServer.Siemens
 
                     if (group != null)
                     {
-                        GetTypesRecursive(group, list, regexName);
+                        GetTypesRecursive(group, list, regex);
                     }
-                }
-            }
-            catch (Exception)
-            {
-                // Console.WriteLine($"Error getting user defined types: {ex.Message}");
-            }
 
-            return list;
+                    return list;
+                }
+
+                throw new PortalException(
+                    PortalErrorCode.NotFound,
+                    $"PLC software was not found at '{softwarePath}'.");
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw;
+            }
+            catch (PortalException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogError(
+                    exception,
+                    "Failed to traverse PLC data types at {SoftwarePath}",
+                    softwarePath);
+                throw new PortalException(
+                    PortalErrorCode.InvalidState,
+                    $"Failed to traverse PLC data types at '{softwarePath}'.",
+                    null,
+                    exception);
+            }
         }
 
-        public PlcBlock? ExportBlock(string softwarePath, string blockPath, string exportPath, bool preservePath = false)
+        public PlcBlock? ExportBlock(
+            string softwarePath,
+            string blockPath,
+            string exportPath,
+            bool preservePath = false,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("export PLC block");
             _logger?.LogInformation($"Exporting block by path: {blockPath}");
 
             try
@@ -925,6 +1072,7 @@ namespace TiaMcpServer.Siemens
                 {
                     exportPath = Path.Combine(exportPath, $"{block.Name}.xml");
                 }
+                exportPath = OutputPathPolicy.ResolveDirectory(exportPath);
 
                 // TIA Portal never exports inconsistent blocks
                 if (!block.IsConsistent)
@@ -932,12 +1080,10 @@ namespace TiaMcpServer.Siemens
                     throw new PortalException(PortalErrorCode.InvalidState, "Block is inconsistent; TIA Portal does not export inconsistent blocks.");
                 }
 
-                if (File.Exists(exportPath))
-                {
-                    File.Delete(exportPath);
-                }
-
-                block.Export(new FileInfo(exportPath), ExportOptions.None);
+                ExportFileSafely(
+                    exportPath,
+                    overwrite,
+                    file => block.Export(file, ExportOptions.None));
 
                 return block;
             }
@@ -955,8 +1101,14 @@ namespace TiaMcpServer.Siemens
             }
         }
 
-        public PlcType? ExportType(string softwarePath, string typePath, string exportPath, bool preservePath = false)
+        public PlcType? ExportType(
+            string softwarePath,
+            string typePath,
+            string exportPath,
+            bool preservePath = false,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("export PLC data type");
             _logger?.LogInformation($"Exporting type by path: {typePath}");
 
             try
@@ -993,13 +1145,12 @@ namespace TiaMcpServer.Siemens
                 {
                     exportPath = Path.Combine(exportPath, $"{type.Name}.xml");
                 }
+                exportPath = OutputPathPolicy.ResolveDirectory(exportPath);
 
-                if (File.Exists(exportPath))
-                {
-                    File.Delete(exportPath);
-                }
-
-                type.Export(new FileInfo(exportPath), ExportOptions.None);
+                ExportFileSafely(
+                    exportPath,
+                    overwrite,
+                    file => type.Export(file, ExportOptions.None));
 
                 return type;
             }
@@ -1016,8 +1167,13 @@ namespace TiaMcpServer.Siemens
             }
         }
 
-        public bool ImportBlock(string softwarePath, string groupPath, string importPath)
+        public bool ImportBlock(
+            string softwarePath,
+            string groupPath,
+            string importPath,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("import PLC block");
             _logger?.LogInformation($"Importing block from path: {importPath}");
 
             if (IsProjectNull())
@@ -1045,7 +1201,10 @@ namespace TiaMcpServer.Siemens
                         var fileInfo = new FileInfo(importPath);
                         if (fileInfo.Exists)
                         {
-                            var list = group.Blocks.Import(fileInfo, ImportOptions.Override);
+                            var importOption = overwrite
+                                ? ImportOptions.Override
+                                : ImportOptions.None;
+                            var list = group.Blocks.Import(fileInfo, importOption);
                             if (list != null && list.Count > 0)
                             {
                                 return true;
@@ -1063,8 +1222,13 @@ namespace TiaMcpServer.Siemens
             return false;
         }
 
-        public bool ImportType(string softwarePath, string groupPath, string importPath)
+        public bool ImportType(
+            string softwarePath,
+            string groupPath,
+            string importPath,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("import PLC data type");
             _logger?.LogInformation($"Importing type from path: {importPath}");
 
             var success = false;
@@ -1093,7 +1257,10 @@ namespace TiaMcpServer.Siemens
                         var fileInfo = new FileInfo(importPath);
                         if (fileInfo.Exists)
                         {
-                            var list = group.Types.Import(fileInfo, ImportOptions.Override);
+                            var importOption = overwrite
+                                ? ImportOptions.Override
+                                : ImportOptions.None;
+                            var list = group.Types.Import(fileInfo, importOption);
                             if (list != null && list.Count > 0)
                             {
                                 return true;
@@ -1110,8 +1277,14 @@ namespace TiaMcpServer.Siemens
             return success;
         }
 
-        public IEnumerable<PlcBlock>? ExportBlocks(string softwarePath, string exportPath, string regexName = "", bool preservePath = false)
+        public IEnumerable<PlcBlock>? ExportBlocks(
+            string softwarePath,
+            string exportPath,
+            string regexName = "",
+            bool preservePath = false,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("bulk export PLC blocks");
             _logger?.LogInformation("Exporting blocks...");
 
             if (IsProjectNull())
@@ -1127,6 +1300,14 @@ namespace TiaMcpServer.Siemens
             try
             {
                 list = GetBlocks(softwarePath, regexName).ToArray();
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw;
+            }
+            catch (ArgumentException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1154,6 +1335,7 @@ namespace TiaMcpServer.Siemens
                 {
                     path = Path.Combine(exportPath, $"{block.Name}.xml");
                 }
+                path = OutputPathPolicy.ResolveDirectory(path);
 
                 try
                 {
@@ -1164,27 +1346,12 @@ namespace TiaMcpServer.Siemens
                         continue;
                     }
 
-                    var dir = Path.GetDirectoryName(path);
-                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                    {
-                        Directory.CreateDirectory(dir);
-                    }
-
-                    if (File.Exists(path))
-                    {
-                        try { File.Delete(path); }
-                        catch (Exception ioEx)
-                        {
-                            failures.Add($"{block.Name}: cannot delete existing file ({ioEx.Message})");
-                            _logger?.LogError(ioEx, "Delete failed for {File}", path);
-
-                            continue;
-                        }
-                    }
-
                     try
                     {
-                        block.Export(new FileInfo(path), ExportOptions.None);
+                        ExportFileSafely(
+                            path,
+                            overwrite,
+                            file => block.Export(file, ExportOptions.None));
                     }
                     catch (LicenseNotFoundException licEx)
                     {
@@ -1232,8 +1399,14 @@ namespace TiaMcpServer.Siemens
             return exportList;
         }
 
-        public IEnumerable<PlcType>? ExportTypes(string softwarePath, string exportPath, string regexName = "", bool preservePath = false)
+        public IEnumerable<PlcType>? ExportTypes(
+            string softwarePath,
+            string exportPath,
+            string regexName = "",
+            bool preservePath = false,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("bulk export PLC data types");
             _logger?.LogInformation("Exporting types...");
 
             if (IsProjectNull())
@@ -1249,6 +1422,14 @@ namespace TiaMcpServer.Siemens
             try
             {
                 list = GetTypes(softwarePath, regexName).ToArray();
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw;
+            }
+            catch (ArgumentException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1276,6 +1457,7 @@ namespace TiaMcpServer.Siemens
                 {
                     path = Path.Combine(exportPath, $"{type.Name}.xml");
                 }
+                path = OutputPathPolicy.ResolveDirectory(path);
 
                 try
                 {
@@ -1285,29 +1467,12 @@ namespace TiaMcpServer.Siemens
                         continue;
                     }
 
-                    var dir = Path.GetDirectoryName(path);
-                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                    {
-                        Directory.CreateDirectory(dir);
-                    }
-
-                    if (File.Exists(path))
-                    {
-                        try
-                        {
-                            File.Delete(path);
-                        }
-                        catch (Exception ioEx)
-                        {
-                            failures.Add($"{type.Name}: cannot delete existing file ({ioEx.Message})");
-                            _logger?.LogError(ioEx, "Delete failed for {File}", path);
-                            continue;
-                        }
-                    }
-
                     try
                     {
-                        type.Export(new FileInfo(path), ExportOptions.None);
+                        ExportFileSafely(
+                            path,
+                            overwrite,
+                            file => type.Export(file, ExportOptions.None));
                     }
                     catch (Exception ex)
                     {
@@ -1338,9 +1503,15 @@ namespace TiaMcpServer.Siemens
         }
         
 
-#if TIA_V20_OR_LATER
-        public bool ExportAsDocuments(string softwarePath, string blockPath, string exportPath, bool preservePath = false)
+#if TIA_MCP_V20
+        public bool ExportAsDocuments(
+            string softwarePath,
+            string blockPath,
+            string exportPath,
+            bool preservePath = false,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite("export PLC block as SIMATIC SD documents");
             _logger?.LogInformation($"Exporting block as documents by path: {blockPath}");
             var success = false;
             try
@@ -1352,7 +1523,7 @@ namespace TiaMcpServer.Siemens
 
                 if (Engineering.TiaMajorVersion < 20)
                 {
-                    throw new PortalException(PortalErrorCode.InvalidState, "ExportAsDocuments requires TIA Portal V20 or newer");
+                    throw new PortalException(PortalErrorCode.InvalidState, "ExportAsDocuments is available only in the TIA Portal V20 worker for this alpha");
                 }
 
                 
@@ -1364,44 +1535,35 @@ namespace TiaMcpServer.Siemens
                         // Export code blocks as documents
                         // https://docs.tia.siemens.cloud/r/en-us/v20/creating-and-managing-blocks/exporting-and-importing-blocks-in-simatic-sd-format-s7-1200-s7-1500/exporting-and-importing-blocks-in-simatic-sd-format-s7-1200-s7-1500
 
-                        var groupPath = blockPath.Contains("/") ? blockPath.Substring(0, blockPath.LastIndexOf("/")) : string.Empty;
-                        var blockName = blockPath.Contains("/") ? blockPath.Substring(blockPath.LastIndexOf("/") + 1) : blockPath;
+                        var block = GetBlock(softwarePath, blockPath);
+                        if (block == null)
+                        {
+                            throw new PortalException(
+                                PortalErrorCode.NotFound,
+                                $"Block was not found at '{blockPath}'.");
+                        }
 
-                        var group = GetPlcBlockGroupByPath(softwarePath, groupPath);
+                        var blockName = block.Name;
+                        var groupPath = block.Parent is PlcBlockGroup parentGroup
+                            ? GetPlcBlockGroupPath(parentGroup)
+                            : string.Empty;
 
                         //group?.Blocks.ForEach(b => Console.WriteLine($"Block: {b.Name}, Type: {b.GetType().Name}"));
 
-                        // join exportPath and groupPath
-                        if (!Directory.Exists(exportPath))
-                        {
-                            Directory.CreateDirectory(exportPath);
-                        }
-
+                        // Join and validate exportPath and groupPath before creating directories.
                         if (preservePath && !string.IsNullOrEmpty(groupPath))
                         {
                             exportPath = Path.Combine(exportPath, groupPath);
-
-                            if (!Directory.Exists(exportPath))
-                            {
-                                Directory.CreateDirectory(exportPath);
-                            }
                         }
+                        exportPath = OutputPathPolicy.ResolveDirectory(exportPath);
 
                         try
                         {
-                            // delete files s7dcl/s7res if already exists
-                            var blockFiles7dclPath = Path.Combine(exportPath, $"{blockName}.s7dcl");
-                            if (File.Exists(blockFiles7dclPath))
-                            {
-                                File.Delete(blockFiles7dclPath);
-                            }
-                            var blockFiles7resPath = Path.Combine(exportPath, $"{blockName}.s7res");
-                            if (File.Exists(blockFiles7resPath))
-                            {
-                                File.Delete(blockFiles7resPath);
-                            }
-
-                            var result = group?.Blocks.Find(blockName)?.ExportAsDocuments(new DirectoryInfo(exportPath), blockName);
+                            var result = ExportDocumentsSafely(
+                                block,
+                                exportPath,
+                                blockName,
+                                overwrite);
 
                             if (result != null && result.State == DocumentResultState.Success)
                             {
@@ -1412,6 +1574,10 @@ namespace TiaMcpServer.Siemens
                         {
                             // The export or import of blocks with mixed programming languages is not possible
                             throw new PortalException(PortalErrorCode.ExportFailed, $"EngineeringNotSupportedException at block '{blockName}'. {ex.Message}", null, ex);
+                        }
+                        catch (PortalException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -1437,12 +1603,17 @@ namespace TiaMcpServer.Siemens
             }
             return success;
         }
-#endif
 
         // TIA portal crashes when exporting blocks as documents, :-(
-#if TIA_V20_OR_LATER
-        public IEnumerable<PlcBlock>? ExportBlocksAsDocuments(string softwarePath, string exportPath, string regexName = "", bool preservePath = false)
+        public IEnumerable<PlcBlock>? ExportBlocksAsDocuments(
+            string softwarePath,
+            string exportPath,
+            string regexName = "",
+            bool preservePath = false,
+            bool overwrite = false)
         {
+            ProfileAccessPolicy.DemandWrite(
+                "bulk export PLC blocks as SIMATIC SD documents");
             _logger?.LogInformation("Exporting blocks as documents...");
 
             if (IsProjectNull())
@@ -1452,7 +1623,7 @@ namespace TiaMcpServer.Siemens
 
             if (Engineering.TiaMajorVersion < 20)
             {
-                _logger?.LogWarning("ExportBlocksAsDocuments is only supported on TIA Portal V20 or newer");
+                _logger?.LogWarning("ExportBlocksAsDocuments is available only in the TIA Portal V20 worker for this alpha");
                 return null;
             }
 
@@ -1463,6 +1634,14 @@ namespace TiaMcpServer.Siemens
             try
             {
                 list = GetBlocks(softwarePath, regexName).ToArray();
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw;
+            }
+            catch (ArgumentException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1493,48 +1672,18 @@ namespace TiaMcpServer.Siemens
                         targetDir = Path.Combine(exportPath, groupPath.Replace('/', '\\'));
                     }
                 }
-
-                try
-                {
-                    if (!Directory.Exists(targetDir))
-                    {
-                        Directory.CreateDirectory(targetDir);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    failures.Add($"{block.Name}: cannot create directory '{targetDir}' ({ex.Message})");
-                    _logger?.LogError(ex, $"Directory creation failed for {targetDir}");
-                    continue;
-                }
-
-                var fileDcl = Path.Combine(targetDir, $"{block.Name}.s7dcl");
-                var fileRes = Path.Combine(targetDir, $"{block.Name}.s7res");
-
-                // Clean previous artifacts
-                foreach (var f in new[] { fileDcl, fileRes })
-                {
-                    try
-                    {
-                        if (File.Exists(f))
-                        {
-                            File.Delete(f);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        failures.Add($"{block.Name}: cannot delete existing '{Path.GetFileName(f)}' ({ex.Message})");
-                        _logger?.LogError(ex, $"Failed deleting existing file {f}");
-                        // Continue anyway; export might overwrite.
-                    }
-                }
+                targetDir = OutputPathPolicy.ResolveDirectory(targetDir);
 
                 try
                 {
                     DocumentExportResult? result = null;
                     try
                     {
-                        result = block.ExportAsDocuments(new DirectoryInfo(targetDir), block.Name);
+                        result = ExportDocumentsSafely(
+                            block,
+                            targetDir,
+                            block.Name,
+                            overwrite);
                     }
                     catch (EngineeringNotSupportedException ex)
                     {
@@ -1590,11 +1739,11 @@ namespace TiaMcpServer.Siemens
 
             return exportList;
         }
-#endif
 
-#if TIA_V20_OR_LATER
         public bool ImportFromDocuments(string softwarePath, string groupPath, string importPath, string fileNameWithoutExtension, ImportDocumentOptions option)
         {
+            ProfileAccessPolicy.DemandWrite(
+                "import PLC block from SIMATIC SD documents");
             _logger?.LogInformation($"Importing block from documents: {fileNameWithoutExtension} in {importPath}");
 
             if (IsProjectNull())
@@ -1604,7 +1753,7 @@ namespace TiaMcpServer.Siemens
 
             if (Engineering.TiaMajorVersion < 20)
             {
-                _logger?.LogWarning("ImportFromDocuments is only supported on TIA Portal V20 or newer");
+                _logger?.LogWarning("ImportFromDocuments is available only in the TIA Portal V20 worker for this alpha");
                 return false;
             }
 
@@ -1645,11 +1794,11 @@ namespace TiaMcpServer.Siemens
             }
             return false;
         }
-#endif
 
-#if TIA_V20_OR_LATER
         public IEnumerable<PlcBlock>? ImportBlocksFromDocuments(string softwarePath, string groupPath, string importPath, string regexName, ImportDocumentOptions option, bool preservePath = false)
         {
+            ProfileAccessPolicy.DemandWrite(
+                "bulk import PLC blocks from SIMATIC SD documents");
             _logger?.LogInformation($"Importing blocks from documents in {importPath} with regex '{regexName}'");
 
             if (IsProjectNull())
@@ -1659,7 +1808,7 @@ namespace TiaMcpServer.Siemens
 
             if (Engineering.TiaMajorVersion < 20)
             {
-                _logger?.LogWarning("ImportBlocksFromDocuments is only supported on TIA Portal V20 or newer");
+                _logger?.LogWarning("ImportBlocksFromDocuments is available only in the TIA Portal V20 worker for this alpha");
                 return null;
             }
 
@@ -1680,7 +1829,7 @@ namespace TiaMcpServer.Siemens
 
                     var rx = string.IsNullOrWhiteSpace(regexName)
                         ? null
-                        : new Regex(regexName, RegexOptions.Compiled);
+                        : BoundedRegex.Create(regexName, RegexOptions.IgnoreCase);
 
                     // Consider .s7dcl as the primary index; .s7res is optional supplemental
                     var files = dir.GetFiles("*.s7dcl", SearchOption.TopDirectoryOnly);
@@ -1720,6 +1869,14 @@ namespace TiaMcpServer.Siemens
                     }
                 }
             }
+            catch (RegexMatchTimeoutException)
+            {
+                throw;
+            }
+            catch (ArgumentException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error importing blocks from documents");
@@ -1732,6 +1889,463 @@ namespace TiaMcpServer.Siemens
         #endregion
 
         #region private helper
+
+        private void ExportFileSafely(
+            string targetPath,
+            bool overwrite,
+            Action<FileInfo> exportAction)
+        {
+            var resolvedTargetPath = OutputPathPolicy.ResolveDirectory(targetPath);
+            var targetDirectory = Path.GetDirectoryName(resolvedTargetPath);
+            if (string.IsNullOrWhiteSpace(targetDirectory))
+            {
+                throw new PortalException(
+                    PortalErrorCode.InvalidParams,
+                    "The export target must have a parent directory.");
+            }
+
+            Directory.CreateDirectory(targetDirectory);
+            resolvedTargetPath = OutputPathPolicy.ResolveDirectory(resolvedTargetPath);
+
+            if (File.Exists(resolvedTargetPath) && !overwrite)
+            {
+                throw new PortalException(
+                    PortalErrorCode.InvalidParams,
+                    "The output file already exists. Set overwrite to true to replace it.");
+            }
+
+            var stagedFileName =
+                $".{Path.GetFileNameWithoutExtension(resolvedTargetPath)}." +
+                $"{Guid.NewGuid():N}.tmp{Path.GetExtension(resolvedTargetPath)}";
+            var stagedPath = OutputPathPolicy.ResolveDirectory(
+                Path.Combine(targetDirectory, stagedFileName));
+
+            try
+            {
+                exportAction(new FileInfo(stagedPath));
+                if (!File.Exists(stagedPath))
+                {
+                    throw new PortalException(
+                        PortalErrorCode.ExportFailed,
+                        "TIA Portal reported export completion but did not create the staged file.");
+                }
+
+                CommitStagedFile(stagedPath, resolvedTargetPath, overwrite);
+            }
+            finally
+            {
+                TryDeleteStagingFile(stagedPath);
+            }
+        }
+
+#if TIA_MCP_V20
+        private DocumentExportResult? ExportDocumentsSafely(
+            PlcBlock block,
+            string targetDirectory,
+            string blockName,
+            bool overwrite)
+        {
+            var resolvedTargetDirectory =
+                OutputPathPolicy.ResolveDirectory(targetDirectory);
+            Directory.CreateDirectory(resolvedTargetDirectory);
+            resolvedTargetDirectory =
+                OutputPathPolicy.ResolveDirectory(resolvedTargetDirectory);
+
+            var targetDclPath = OutputPathPolicy.ResolveDirectory(
+                Path.Combine(resolvedTargetDirectory, $"{blockName}.s7dcl"));
+            var targetResPath = OutputPathPolicy.ResolveDirectory(
+                Path.Combine(resolvedTargetDirectory, $"{blockName}.s7res"));
+
+            if (!overwrite &&
+                (File.Exists(targetDclPath) || File.Exists(targetResPath)))
+            {
+                throw new PortalException(
+                    PortalErrorCode.InvalidParams,
+                    "A document output already exists. Set overwrite to true to replace it.");
+            }
+
+            var stagingDirectory = OutputPathPolicy.ResolveDirectory(
+                Path.Combine(
+                    resolvedTargetDirectory,
+                    $".tia-mcp-export-{Guid.NewGuid():N}"));
+            Directory.CreateDirectory(stagingDirectory);
+            stagingDirectory = OutputPathPolicy.ResolveDirectory(stagingDirectory);
+            var preserveStagingDirectory = false;
+
+            try
+            {
+                var result = block.ExportAsDocuments(
+                    new DirectoryInfo(stagingDirectory),
+                    blockName);
+                if (result == null || result.State != DocumentResultState.Success)
+                {
+                    return result;
+                }
+
+                var stagedDclPath = OutputPathPolicy.ResolveDirectory(
+                    Path.Combine(stagingDirectory, $"{blockName}.s7dcl"));
+                var stagedResPath = OutputPathPolicy.ResolveDirectory(
+                    Path.Combine(stagingDirectory, $"{blockName}.s7res"));
+                if (!File.Exists(stagedDclPath))
+                {
+                    throw new PortalException(
+                        PortalErrorCode.ExportFailed,
+                        "TIA Portal reported document export success but did not create the .s7dcl file.");
+                }
+
+                CommitDocumentPair(
+                    stagedDclPath,
+                    File.Exists(stagedResPath) ? stagedResPath : null,
+                    targetDclPath,
+                    targetResPath,
+                    overwrite,
+                    ref preserveStagingDirectory);
+
+                return result;
+            }
+            finally
+            {
+                if (preserveStagingDirectory)
+                {
+                    _logger?.LogError(
+                        "Document export recovery files were preserved at {StagingDirectory}",
+                        stagingDirectory);
+                }
+                else
+                {
+                    TryDeleteStagingDirectory(stagingDirectory);
+                }
+            }
+        }
+#endif
+
+        private static void CommitStagedFile(
+            string stagedPath,
+            string targetPath,
+            bool overwrite)
+        {
+            stagedPath = OutputPathPolicy.ResolveDirectory(stagedPath);
+            targetPath = OutputPathPolicy.ResolveDirectory(targetPath);
+
+            if (File.Exists(targetPath))
+            {
+                if (!overwrite)
+                {
+                    throw new PortalException(
+                        PortalErrorCode.InvalidParams,
+                        "The output file appeared while the export was running. " +
+                        "Set overwrite to true to replace it.");
+                }
+
+                File.Replace(stagedPath, targetPath, null);
+                return;
+            }
+
+            File.Move(stagedPath, targetPath);
+        }
+
+#if TIA_MCP_V20
+        private static void CommitDocumentPair(
+            string stagedDclPath,
+            string? stagedResPath,
+            string targetDclPath,
+            string targetResPath,
+            bool overwrite,
+            ref bool preserveRecoveryFiles)
+        {
+            stagedDclPath = OutputPathPolicy.ResolveDirectory(stagedDclPath);
+            stagedResPath = stagedResPath == null
+                ? null
+                : OutputPathPolicy.ResolveDirectory(stagedResPath);
+            targetDclPath = OutputPathPolicy.ResolveDirectory(targetDclPath);
+            targetResPath = OutputPathPolicy.ResolveDirectory(targetResPath);
+
+            var stagedDclFingerprint = CaptureFileFingerprint(stagedDclPath)
+                ?? throw new PortalException(
+                    PortalErrorCode.ExportFailed,
+                    "The staged .s7dcl document disappeared before it could be committed.");
+            var stagedResFingerprint = stagedResPath == null
+                ? null
+                : CaptureFileFingerprint(stagedResPath)
+                    ?? throw new PortalException(
+                        PortalErrorCode.ExportFailed,
+                        "The staged .s7res document disappeared before it could be committed.");
+            var originalDclFingerprint = CaptureFileFingerprint(targetDclPath);
+            var originalResFingerprint = CaptureFileFingerprint(targetResPath);
+            var backupDirectory = Path.GetDirectoryName(stagedDclPath)
+                ?? throw new PortalException(
+                    PortalErrorCode.ExportFailed,
+                    "The staged document export has no parent directory.");
+            var transactionId = Guid.NewGuid().ToString("N");
+            var backupDclPath = OutputPathPolicy.ResolveDirectory(
+                Path.Combine(backupDirectory, $".previous-{transactionId}.s7dcl"));
+            var backupResPath = OutputPathPolicy.ResolveDirectory(
+                Path.Combine(backupDirectory, $".previous-{transactionId}.s7res"));
+
+            EnsureFileFingerprint(
+                targetDclPath,
+                originalDclFingerprint,
+                "The .s7dcl output changed while the export was being prepared.");
+            EnsureFileFingerprint(
+                targetResPath,
+                originalResFingerprint,
+                "The .s7res output changed while the export was being prepared.");
+
+            var dclCommitted = false;
+            var resCommitted = false;
+            var resDeleted = false;
+            var previousDclExisted = false;
+            var previousResExisted = false;
+
+            try
+            {
+                previousDclExisted = CommitStagedDocumentFile(
+                    stagedDclPath,
+                    targetDclPath,
+                    backupDclPath,
+                    overwrite);
+                dclCommitted = true;
+                if (stagedResPath != null)
+                {
+                    previousResExisted = CommitStagedDocumentFile(
+                        stagedResPath,
+                        targetResPath,
+                        backupResPath,
+                        overwrite);
+                    resCommitted = true;
+                }
+                else if (overwrite && File.Exists(targetResPath))
+                {
+                    File.Move(targetResPath, backupResPath);
+                    previousResExisted = true;
+                    resDeleted = true;
+                }
+
+                EnsureFileFingerprint(
+                    targetDclPath,
+                    stagedDclFingerprint,
+                    "The committed .s7dcl output changed during the document transaction.");
+                EnsureFileFingerprint(
+                    targetResPath,
+                    stagedResFingerprint,
+                    "The committed .s7res output changed during the document transaction.");
+            }
+            catch (Exception commitException)
+            {
+                var rollbackExceptions = new List<Exception>();
+                if (dclCommitted)
+                {
+                    try
+                    {
+                        RestoreDocumentFile(
+                            targetDclPath,
+                            backupDclPath,
+                            previousDclExisted,
+                            stagedDclFingerprint);
+                    }
+                    catch (Exception exception)
+                    {
+                        rollbackExceptions.Add(exception);
+                    }
+                }
+                if (resCommitted || resDeleted)
+                {
+                    try
+                    {
+                        RestoreDocumentFile(
+                            targetResPath,
+                            backupResPath,
+                            previousResExisted,
+                            resCommitted ? stagedResFingerprint : null);
+                    }
+                    catch (Exception exception)
+                    {
+                        rollbackExceptions.Add(exception);
+                    }
+                }
+
+                if (rollbackExceptions.Count > 0)
+                {
+                    preserveRecoveryFiles = true;
+                    var transactionExceptions = new List<Exception>
+                    {
+                        commitException
+                    };
+                    transactionExceptions.AddRange(rollbackExceptions);
+                    throw new PortalException(
+                        PortalErrorCode.ExportFailed,
+                        $"Document export failed and the previous document pair could not be fully restored. " +
+                        $"Recovery files are preserved in '{backupDirectory}'.",
+                        null,
+                        new AggregateException(transactionExceptions));
+                }
+
+                throw;
+            }
+        }
+
+        private static bool CommitStagedDocumentFile(
+            string stagedPath,
+            string targetPath,
+            string backupPath,
+            bool overwrite)
+        {
+            stagedPath = OutputPathPolicy.ResolveDirectory(stagedPath);
+            targetPath = OutputPathPolicy.ResolveDirectory(targetPath);
+            backupPath = OutputPathPolicy.ResolveDirectory(backupPath);
+
+            if (!File.Exists(targetPath))
+            {
+                File.Move(stagedPath, targetPath);
+                return false;
+            }
+
+            if (!overwrite)
+            {
+                throw new PortalException(
+                    PortalErrorCode.InvalidParams,
+                    "A document output appeared while the export was running. " +
+                    "Set overwrite to true to replace it.");
+            }
+
+            File.Replace(stagedPath, targetPath, backupPath);
+            return true;
+        }
+
+        private static void RestoreDocumentFile(
+            string targetPath,
+            string backupPath,
+            bool originalExisted,
+            string? committedFingerprint)
+        {
+            targetPath = OutputPathPolicy.ResolveDirectory(targetPath);
+            backupPath = OutputPathPolicy.ResolveDirectory(backupPath);
+            EnsureFileFingerprint(
+                targetPath,
+                committedFingerprint,
+                $"The document output '{targetPath}' changed before rollback.");
+
+            if (!originalExisted)
+            {
+                if (File.Exists(targetPath))
+                {
+                    File.Delete(targetPath);
+                }
+
+                return;
+            }
+
+            var backupFingerprint = CaptureFileFingerprint(backupPath)
+                ?? throw new IOException(
+                    $"The document backup '{backupPath}' is unavailable.");
+            File.Copy(backupPath, targetPath, true);
+            EnsureFileFingerprint(
+                targetPath,
+                backupFingerprint,
+                $"The previous document output '{targetPath}' was not restored correctly.");
+        }
+
+        private static string? CaptureFileFingerprint(string path)
+        {
+            path = OutputPathPolicy.ResolveDirectory(path);
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            using (var algorithm = SHA256.Create())
+            using (var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read))
+            {
+                return Convert.ToBase64String(algorithm.ComputeHash(stream));
+            }
+        }
+
+        private static void EnsureFileFingerprint(
+            string path,
+            string? expectedFingerprint,
+            string errorMessage)
+        {
+            var actualFingerprint = CaptureFileFingerprint(path);
+            if (!string.Equals(
+                actualFingerprint,
+                expectedFingerprint,
+                StringComparison.Ordinal))
+            {
+                throw new IOException(errorMessage);
+            }
+        }
+#endif
+
+        private bool IsPortalConnectionHealthy()
+        {
+            try
+            {
+                _portal?.Projects.Count();
+                _portal?.LocalSessions.Count();
+                return _portal != null;
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogWarning(
+                    exception,
+                    "The existing TIA Portal connection is no longer usable. Reconnecting.");
+                DisposeLocked();
+                return false;
+            }
+        }
+
+        private static bool PathsEqual(string? firstPath, string secondPath)
+        {
+            if (string.IsNullOrWhiteSpace(firstPath))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                Path.GetFullPath(firstPath),
+                Path.GetFullPath(secondPath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void TryDeleteStagingFile(string stagedPath)
+        {
+            try
+            {
+                if (File.Exists(stagedPath))
+                {
+                    File.Delete(stagedPath);
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogWarning(
+                    exception,
+                    "Could not remove staged export file {StagedPath}",
+                    stagedPath);
+            }
+        }
+
+        private void TryDeleteStagingDirectory(string stagingDirectory)
+        {
+            try
+            {
+                if (Directory.Exists(stagingDirectory))
+                {
+                    Directory.Delete(stagingDirectory, true);
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogWarning(
+                    exception,
+                    "Could not remove staged export directory {StagingDirectory}",
+                    stagingDirectory);
+            }
+        }
 
         private bool IsPortalNull()
         {
@@ -1956,24 +2570,25 @@ namespace TiaMcpServer.Siemens
             }
 
             //Unified HMI software: dlls will only exist on TIA Portal V19 and newer.
-            if (Engineering.TiaMajorVersion >= 19)
-                TryGetUnifiedSoftware(sb, deviceItem, ancestorStates, softwareContainer, hasSoftware);
+#if TIA_MCP_V19 || TIA_MCP_V20
+            TryGetUnifiedSoftware(sb, deviceItem, ancestorStates, softwareContainer, hasSoftware);
+#endif
         }
 
+#if TIA_MCP_V19 || TIA_MCP_V20
         private bool TryGetUnifiedSoftware(StringBuilder sb, DeviceItem deviceItem, List<bool> ancestorStates, SoftwareContainer? softwareContainer, bool hasSoftware)
         {
-            var hmiSoftware = softwareContainer?.Software;
-            var unifiedType = hmiSoftware?.GetType().Assembly.GetType("Siemens.Engineering.HmiUnified.HmiSoftware");
-            if (hmiSoftware != null && unifiedType != null && unifiedType.IsInstanceOfType(hmiSoftware))
+            if (softwareContainer?.Software is HmiSoftware hmiSoftware)
             {
                 var hasOtherItems = (deviceItem.Items != null && deviceItem.Items.Count > 0) ||
                                     (deviceItem.DeviceItems != null && deviceItem.DeviceItems.Count > 0);
-                sb.AppendLine($"{GetTreePrefix(ancestorStates, !hasOtherItems && !hasSoftware)}HmiSoftware: {hmiSoftware.GetAttribute("Name")} [HMI Program]");
+                sb.AppendLine($"{GetTreePrefix(ancestorStates, !hasOtherItems && !hasSoftware)}HmiSoftware: {hmiSoftware.Name} [HMI Program]");
                 hasSoftware = true;
             }
 
             return hasSoftware;
         }
+#endif
 
         private void GetProjectTreeUngroupedDeviceGroup(StringBuilder sb, DeviceSystemGroup ungroupedDevicesGroup, List<bool> ancestorStates)
         {
@@ -2383,6 +2998,34 @@ namespace TiaMcpServer.Siemens
             return null;
         }
 
+        private static string? FindDevicePath(
+            DeviceUserGroup group,
+            Device target,
+            string groupPath)
+        {
+            foreach (var device in group.Devices)
+            {
+                if (ReferenceEquals(device, target))
+                {
+                    return $"{groupPath}/{device.Name}";
+                }
+            }
+
+            foreach (var subgroup in group.Groups)
+            {
+                var path = FindDevicePath(
+                    subgroup,
+                    target,
+                    $"{groupPath}/{subgroup.Name}");
+                if (path != null)
+                {
+                    return path;
+                }
+            }
+
+            return null;
+        }
+
         private DeviceItem? GetDeviceItemByPath(string deviceItemPath)
         {
             if (_project == null || _project.Devices == null)
@@ -2614,7 +3257,10 @@ namespace TiaMcpServer.Siemens
 
         #region GetRecursive ...
 
-        private bool GetDevicesRecursive(DeviceUserGroup group, List<Device> list, string regexName = "")
+        private bool GetDevicesRecursive(
+            DeviceUserGroup group,
+            List<Device> list,
+            Regex? regex)
         {
             var anySuccess = false;
 
@@ -2622,16 +3268,8 @@ namespace TiaMcpServer.Siemens
             {
                 if (composition is Device device)
                 {
-                    try
+                    if (regex != null && !regex.IsMatch(device.Name))
                     {
-                        if (!string.IsNullOrEmpty(regexName) && !Regex.IsMatch(device.Name, regexName, RegexOptions.IgnoreCase))
-                        {
-                            continue; // Skip this device if it doesn't match the pattern
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // Invalid regex pattern, skip this device
                         continue;
                     }
 
@@ -2643,13 +3281,16 @@ namespace TiaMcpServer.Siemens
 
             foreach (var subgroup in group.Groups)
             {
-                anySuccess = GetDevicesRecursive(subgroup, list, regexName);
+                anySuccess = GetDevicesRecursive(subgroup, list, regex) || anySuccess;
             }
 
             return anySuccess;
         }
 
-        private bool GetBlocksRecursive(PlcBlockGroup group, List<PlcBlock> list, string regexName = "")
+        private bool GetBlocksRecursive(
+            PlcBlockGroup group,
+            List<PlcBlock> list,
+            Regex? regex)
         {
             var anySuccess = false;
 
@@ -2657,16 +3298,8 @@ namespace TiaMcpServer.Siemens
             {
                 if (composition is PlcBlock block)
                 {
-                    try
+                    if (regex != null && !regex.IsMatch(block.Name))
                     {
-                        if (!string.IsNullOrEmpty(regexName) && !Regex.IsMatch(block.Name, regexName, RegexOptions.IgnoreCase))
-                        {
-                            continue; // Skip this block if it doesn't match the pattern
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // Invalid regex pattern, skip this block
                         continue;
                     }
 
@@ -2678,13 +3311,16 @@ namespace TiaMcpServer.Siemens
 
             foreach (var subgroup in group.Groups)
             {
-                anySuccess = GetBlocksRecursive(subgroup, list, regexName);
+                anySuccess = GetBlocksRecursive(subgroup, list, regex) || anySuccess;
             }
 
             return anySuccess;
         }
 
-        private bool GetTypesRecursive(PlcTypeGroup group, List<PlcType> list, string regexName = "")
+        private bool GetTypesRecursive(
+            PlcTypeGroup group,
+            List<PlcType> list,
+            Regex? regex)
         {
             var anySuccess = false;
 
@@ -2692,16 +3328,8 @@ namespace TiaMcpServer.Siemens
             {
                 if (composition is PlcType type)
                 {
-                    try
+                    if (regex != null && !regex.IsMatch(type.Name))
                     {
-                        if (!string.IsNullOrEmpty(regexName) && !Regex.IsMatch(type.Name, regexName, RegexOptions.IgnoreCase))
-                        {
-                            continue; // Skip this block if it doesn't match the pattern
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // Invalid regex pattern, skip this block
                         continue;
                     }
 
@@ -2714,7 +3342,7 @@ namespace TiaMcpServer.Siemens
 
             foreach (PlcTypeGroup subgroup in group.Groups)
             {
-                anySuccess = GetTypesRecursive(subgroup, list, regexName);
+                anySuccess = GetTypesRecursive(subgroup, list, regex) || anySuccess;
             }
 
             return anySuccess;

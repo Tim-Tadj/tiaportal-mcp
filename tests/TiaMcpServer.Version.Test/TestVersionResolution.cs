@@ -27,7 +27,7 @@ namespace TiaMcpServer.Version.Test
         {
             var directories = Engineering.GetApiSearchDirectories("test-root", BuildVersion.TiaMajorVersion);
             var expected = Path.Combine("test-root", "PublicAPI", "V" + BuildVersion.TiaMajorVersion);
-#if TIA_V21
+#if TIA_MCP_V21 || TIA_V21
             CollectionAssert.AreEqual(new[] { Path.Combine(expected, "net48") }, directories);
 #else
             CollectionAssert.AreEqual(new[] { expected, Path.Combine("test-root", "Bin", "PublicAPI") }, directories);

@@ -1,6 +1,8 @@
 .vs/
 .gemini
 .claude
+artifacts/
 **/bin/
 **/obj/
-TestResults/
+*.mcpb
+*.vsix

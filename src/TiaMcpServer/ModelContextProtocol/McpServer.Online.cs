@@ -1,4 +1,5 @@
 ﻿using ModelContextProtocol;
+using McpException = ModelContextProtocol.McpProtocolException;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using System;
@@ -8,7 +9,7 @@ using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer.ModelContextProtocol
 {
-    public static partial class McpServer
+    public sealed partial class McpServer
     {
         [McpServerTool(Name = "GetDeviceOnlineState", ReadOnly = true, Idempotent = true), Description("Read native Openness online state and service availability for an exact device-item path. Unsupported is not a device fault. This does not read runtime faults, warnings, motor state or diagnostic buffers, and does not save the project.")]
         public static DeviceOnlineInfo GetDeviceOnlineState([Description("Full group/device/item path. For example Gatton_STP01/Gatton_STP01. Bare names are refused.")] string deviceItemPath)
@@ -22,6 +23,7 @@ namespace TiaMcpServer.ModelContextProtocol
             return OnlineCall(() => Portal.GetOnlineConnectionOptions(deviceItemPath));
         }
 
+#if TIA_MCP_READ_WRITE
         [McpServerTool(Name = "GoOnlineDevice", ReadOnly = false, Destructive = false), Description("Request native GoOnline, reusing TIA's existing connection by default. To change connection settings, supply all four connection options; TIA may reject configuration changes while another session is online. Does not download, start/stop the CPU, control a motor or save the project. Timeout cannot interrupt the synchronous Siemens call. Read state before retrying a pending request.")]
         public static DeviceOnlineInfo GoOnlineDevice(string deviceItemPath, string? mode = null, string? pcInterfaceName = null, int? pcInterfaceNumber = null, string? targetIpAddress = null, int timeoutSeconds = 30)
         {
@@ -33,6 +35,8 @@ namespace TiaMcpServer.ModelContextProtocol
         {
             return OnlineCall(() => Portal.GoOfflineDevice(deviceItemPath, timeoutSeconds));
         }
+
+#endif
 
         private static T OnlineCall<T>(Func<T> action)
         {

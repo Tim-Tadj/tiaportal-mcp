@@ -1,4 +1,7 @@
 ﻿using System;
+using System.IO;
+
+using TiaMcpServer.Security;
 
 namespace TiaMcpServer.Test
 {
@@ -8,8 +11,10 @@ namespace TiaMcpServer.Test
         [AssemblyInitialize]
         public static void AssemblyInit(TestContext context)
         {
-            // Runs once before any tests in the assembly  
-            // context.WriteLine("Assembly initialization started");
+            Settings.PrepareTestAssets();
+            Directory.CreateDirectory(Settings.OutputRoot);
+            OutputPathPolicy.Configure(Settings.OutputRoot);
+            context.WriteLine($"Test output root: {Settings.OutputRoot}");
         }
 
         [AssemblyCleanup]

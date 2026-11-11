@@ -7,9 +7,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcpServer.Test", "tests\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcpServer", "src\TiaMcpServer\TiaMcpServer.csproj", "{9979E0D0-923F-F721-2D6E-3663C0D68B0F}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E2B242C8-2425-4443-9BF6-9200EA3D1752}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcpBroker", "src\TiaMcpBroker\TiaMcpBroker.csproj", "{C7D8495A-061C-49E6-B7F2-ED8277F2803E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcpServer.Version.Test", "tests\TiaMcpServer.Version.Test\TiaMcpServer.Version.Test.csproj", "{C325331D-2F70-4268-BE96-16670ED4EBEF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcp.Contracts", "src\TiaMcp.Contracts\TiaMcp.Contracts.csproj", "{5E7A1C2D-3F40-4B51-8C62-7D8394EA0F12}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcp.Contracts.Test", "tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj", "{6F8B2D3E-4A51-4C62-9D73-8EA405FB1023}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{A2F96ED5-4AA6-4C8B-88B0-C284402C69F6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiaMcpServer.Version.Test", "tests\TiaMcpServer.Version.Test\TiaMcpServer.Version.Test.csproj", "{8A232942-57BF-43E8-A0CF-AE997667AAD7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,10 +31,22 @@ Global
 		{9979E0D0-923F-F721-2D6E-3663C0D68B0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9979E0D0-923F-F721-2D6E-3663C0D68B0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9979E0D0-923F-F721-2D6E-3663C0D68B0F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C325331D-2F70-4268-BE96-16670ED4EBEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C325331D-2F70-4268-BE96-16670ED4EBEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C325331D-2F70-4268-BE96-16670ED4EBEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C325331D-2F70-4268-BE96-16670ED4EBEF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7D8495A-061C-49E6-B7F2-ED8277F2803E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7D8495A-061C-49E6-B7F2-ED8277F2803E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7D8495A-061C-49E6-B7F2-ED8277F2803E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7D8495A-061C-49E6-B7F2-ED8277F2803E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E7A1C2D-3F40-4B51-8C62-7D8394EA0F12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E7A1C2D-3F40-4B51-8C62-7D8394EA0F12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E7A1C2D-3F40-4B51-8C62-7D8394EA0F12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E7A1C2D-3F40-4B51-8C62-7D8394EA0F12}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F8B2D3E-4A51-4C62-9D73-8EA405FB1023}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F8B2D3E-4A51-4C62-9D73-8EA405FB1023}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F8B2D3E-4A51-4C62-9D73-8EA405FB1023}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F8B2D3E-4A51-4C62-9D73-8EA405FB1023}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A232942-57BF-43E8-A0CF-AE997667AAD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A232942-57BF-43E8-A0CF-AE997667AAD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A232942-57BF-43E8-A0CF-AE997667AAD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A232942-57BF-43E8-A0CF-AE997667AAD7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -37,6 +55,6 @@ Global
 		SolutionGuid = {126264AE-6DBE-4666-9702-855C73562D58}
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{C325331D-2F70-4268-BE96-16670ED4EBEF} = {E2B242C8-2425-4443-9BF6-9200EA3D1752}
+		{8A232942-57BF-43E8-A0CF-AE997667AAD7} = {A2F96ED5-4AA6-4C8B-88B0-C284402C69F6}
 	EndGlobalSection
 EndGlobal

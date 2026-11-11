@@ -1,4 +1,5 @@
 ﻿using ModelContextProtocol;
+using McpException = ModelContextProtocol.McpProtocolException;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using System;
@@ -9,7 +10,7 @@ using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer.ModelContextProtocol
 {
-    public static partial class McpServer
+    public sealed partial class McpServer
     {
         [McpServerTool(Name = "ReadPlcValues", ReadOnly = true, Idempotent = true), Description("Read live absolute I/Q/M/DB values directly from an explicitly selected PLC over S7 TCP port 102. Does not require a TIA connection, save, download, write, force, reset or start/stop equipment. Optional bounded sampling can observe heartbeat transitions. This is separate from Openness and cannot query a SIMOCODE directly. I/Q are process-image values, not proof of physical contactor or motor state. Reads are not guaranteed to be atomic with the PLC scan. B/W/D values are unsigned. S7-1200/1500 need accessible non-optimised memory and permitted S7 access; no security settings are changed.")]
         public static async Task<PlcValueResult> ReadPlcValues(

@@ -2,37 +2,35 @@
 
 ## Build and run
 
-Build the server against the PublicAPI assemblies for the intended TIA version.
-The NuGet reference package locates an installation; it does not supply the
-licensed Siemens API assemblies. A matching API is required for a full build.
-Building and testing also require a .NET SDK. If NuGet has no configured
-package sources, restore with `--source https://api.nuget.org/v3/index.json`
-and the same `TiaMajorVersion` property before building.
+Use the profile-locked broker and exact-version workers described in
+[Build and packaging](../build/README.md). A matching installed Siemens
+PublicAPI is required to compile a worker; the broker has no Siemens dependency.
 
 ```powershell
-dotnet build src/TiaMcpServer/TiaMcpServer.csproj -c Release -p:TiaMajorVersion=19 '-p:TiaPortalLocation=C:\Program Files\Siemens\Automation\Portal V19'
+./build/Build-Workers.ps1 -Version 0.1.0-alpha.1 -TiaVersions 19
 ```
 
-Use `20` or `21` and the corresponding installation path for those builds.
-Outputs are separated under `src/TiaMcpServer/bin/V19/Release/net48`,
-`bin/V20/Release/net48` and `bin/V21/Release/net48`. Intermediate files are
-also separate and excluded from source compilation across all three versions.
-
-Set the runtime environment variable `TiaPortalLocation` to the matching
-installation if registry-based discovery is unsuitable. V21 uses the `net48`
-API directory, rather than its modern .NET assemblies. Siemens assemblies
-are not copied into release output by default.
+For a development build of one worker:
 
 ```powershell
-$env:TiaPortalLocation = 'C:\Program Files\Siemens\Automation\Portal V19'
-& './src/TiaMcpServer/bin/V19/Release/net48/TiaMcpServer.exe' --tia-major-version 19
+dotnet build src/TiaMcpServer/TiaMcpServer.csproj -c Release -p:TiaWorkerVersion=19 -p:TiaAccessProfile=ReadWrite '-p:TiaPortalLocation=C:\Program Files\Siemens\Automation\Portal V19'
 ```
 
-The version argument is optional and defaults to the compiled version. A
-mismatched argument is refused before attachment. Membership of the Windows
-`Siemens TIA Openness` group is checked without changing group membership.
-Siemens may require the user to approve its local Openness application-access
-dialogue, including after an executable changes.
+Worker and broker runtime arguments use `--tia-version V19`, with the profile
+fixed by the executable. The broker resolves installed versions and launches
+the matching bundled worker. The published alpha supports V17 to V19; V20 is
+deferred and V21 requires a separate modular adapter. The legacy main-branch
+`TiaMajorVersion` build property and `--tia-major-version` argument are replaced
+by this broker configuration.
+
+Both profiles expose read-only online state and PLC values. `GoOnlineDevice`
+and `GoOfflineDevice` require ReadWrite. A new TIA instance is started only
+when `Connect(startIfMissing=true)` is called in ReadWrite. Use `processId`
+when more than one TIA instance is running.
+
+Membership of the Windows `Siemens TIA Openness` group is checked without
+changing group membership. Siemens may require the user to approve its
+application-access dialogue after an executable changes.
 
 ## Tools
 
@@ -137,7 +135,7 @@ tests do not attach to TIA or make device requests. Copying the locally
 installed API into test output enables discovery. Do not redistribute it.
 
 ```powershell
-dotnet test tests/TiaMcpServer.Test/TiaMcpServer.Test.csproj -p:TiaMajorVersion=19 -p:SiemensEngineeringCopyLocal=true --filter FullyQualifiedName~TestOnlineTools
+dotnet test tests/TiaMcpServer.Test/TiaMcpServer.Test.csproj -p:TiaWorkerVersion=19 -p:SiemensEngineeringCopyLocal=true --filter FullyQualifiedName~TestOnlineTools
 ```
 
 The version suite links only the production build-version and assembly-resolver
@@ -145,9 +143,9 @@ files. It needs no TIA installation and can exercise the version-specific
 branches for each target:
 
 ```powershell
-dotnet test tests/TiaMcpServer.Version.Test/TiaMcpServer.Version.Test.csproj -p:TiaMajorVersion=19
-dotnet test tests/TiaMcpServer.Version.Test/TiaMcpServer.Version.Test.csproj -p:TiaMajorVersion=20
-dotnet test tests/TiaMcpServer.Version.Test/TiaMcpServer.Version.Test.csproj -p:TiaMajorVersion=21
+dotnet test tests/TiaMcpServer.Version.Test/TiaMcpServer.Version.Test.csproj -p:TiaWorkerVersion=19
+dotnet test tests/TiaMcpServer.Version.Test/TiaMcpServer.Version.Test.csproj -p:TiaWorkerVersion=20
+dotnet test tests/TiaMcpServer.Version.Test/TiaMcpServer.Version.Test.csproj -p:TiaWorkerVersion=21
 ```
 
 Check executed/passed test counts as well as exit status. An absent API can
@@ -157,28 +155,16 @@ the focused filter above.
 
 ## Compatibility evidence
 
-Checked on 10 November 2026:
+The native online and PLC-value tools were exercised with V19 before broker
+integration, including exact-process attachment, online/offline transitions
+and read-only S7-315 sampling. Those checks do not prove physical I/O or
+equipment operation.
 
-- V19 release builds with zero warnings and errors against the installed API.
-- Eleven focused online-tool tests pass. Two version/resolver tests pass for
-  each of V19, V20 and V21.
-- V19 stdio initialisation, tool discovery and exact-process attachment work.
-  Live device reads cover an S7-315 PN/DP and SIMOCODE pro V PN.
-- The SIMOCODE engineering-session offline/online cycle succeeds using the
-  existing connection, including while the CPU has another online session.
-- The S7-315 engineering-session offline/online cycle also succeeds. Both
-  reconnects reach the requested state without a polling timeout.
-- The bench project's existing unsaved state and last-saved timestamp remain
-  unchanged across the live checks; no project save or hardware download is
-  performed by this verification.
-- The explicit connection-setting attempt exposed TIA's online-mode
-  restriction; the default reuse path was added and retested successfully.
-- V20/V21 reference packages restore and their version-specific build
-  properties are checked. Full builds correctly refuse the missing Siemens
-  APIs. V20/V21 full compilation and live operation remain unverified.
-- Siemens' V20/V21 documentation supports the shared online service and
-  connection model. Documentation review and API-independent tests do not
-  replace compiling or running against those versions.
+For the combined source, the V19 focused hardware, online and PLC-value unit
+tests pass. The shared contracts, operation gate and Siemens-free version
+tests also pass. Both broker profiles and V19 workers build without warnings.
+The existing release support matrix remains authoritative for other versions;
+the integration does not establish new runtime support for them.
 
 References:
 

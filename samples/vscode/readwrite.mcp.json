@@ -1,0 +1,29 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "tiaPortalMcpReadWriteBundle",
+      "description": "Absolute path to the extracted TIA Portal MCP ReadWrite bundle"
+    },
+    {
+      "type": "promptString",
+      "id": "tiaPortalMcpOutputRoot",
+      "description": "Absolute directory beneath which write tools may create files"
+    }
+  ],
+  "servers": {
+    "tia-portal-mcp-readwrite": {
+      "type": "stdio",
+      "command": "${input:tiaPortalMcpReadWriteBundle}\\server\\TiaPortalMcp.exe",
+      "args": [
+        "--access-profile",
+        "ReadWrite",
+        "--tia-version",
+        "Auto",
+        "--output-root",
+        "${input:tiaPortalMcpOutputRoot}"
+      ],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "tia-portal-mcp-readwrite": {
+      "command": "C:\\path\\to\\tia-portal-mcp-readwrite\\server\\TiaPortalMcp.exe",
+      "args": [
+        "--access-profile",
+        "ReadWrite",
+        "--tia-version",
+        "Auto",
+        "--output-root",
+        "C:\\path\\to\\approved\\TIA Portal MCP\\Exports"
+      ],
+      "env": {}
+    }
+  }
+}

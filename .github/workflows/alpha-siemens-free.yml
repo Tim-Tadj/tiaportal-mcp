@@ -1,0 +1,82 @@
+name: Alpha Siemens-free checks
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Static contracts and dependency-free brokers
+    runs-on: windows-2022
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Validate alpha source and client contracts
+        shell: pwsh
+        run: .\build\Validate-AlphaRelease.ps1
+
+      - name: Run Siemens-free contract and operation-gate tests
+        shell: pwsh
+        run: >
+          dotnet test
+          tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj
+          --configuration Release
+
+      - name: Build both dependency-free broker profiles
+        shell: pwsh
+        run: |
+          $buildRoot = Join-Path $env:GITHUB_WORKSPACE 'artifacts\ci-brokers'
+          $profiles = @(
+              [pscustomobject]@{ Name = 'Read'; Key = 'read' },
+              [pscustomobject]@{ Name = 'ReadWrite'; Key = 'readwrite' }
+          )
+
+          foreach ($profile in $profiles)
+          {
+              $output = Join-Path $buildRoot "brokers\$($profile.Key)"
+              $intermediate =
+                  (Join-Path $buildRoot "obj\$($profile.Key)") +
+                  [System.IO.Path]::DirectorySeparatorChar
+              $arguments = @(
+                  'build',
+                  'src\TiaMcpBroker\TiaMcpBroker.csproj',
+                  '--configuration',
+                  'Release',
+                  '--output',
+                  $output,
+                  "-p:TiaAccessProfile=$($profile.Name)",
+                  "-p:TiaMcpIntermediateRoot=$intermediate",
+                  '-p:IncludeSourceRevisionInInformationalVersion=false'
+              )
+
+              & dotnet @arguments
+              if ($LASTEXITCODE -ne 0)
+              {
+                  throw "The $($profile.Name) broker build failed with exit code $LASTEXITCODE."
+              }
+          }
+
+      - name: Validate built broker dependency boundaries
+        shell: pwsh
+        run: >
+          .\build\Validate-AlphaRelease.ps1
+          -BuildDirectory
+          (Join-Path $env:GITHUB_WORKSPACE 'artifacts\ci-brokers')
+
+# Exact-version workers are deliberately not built here. Their Siemens.Engineering
+# references require the matching licensed TIA Portal installation and are
+# validated only in an explicitly prepared Windows release environment.

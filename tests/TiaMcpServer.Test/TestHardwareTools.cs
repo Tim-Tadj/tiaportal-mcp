@@ -1,9 +1,11 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ModelContextProtocol;
+using McpException = ModelContextProtocol.McpProtocolException;
 using ModelContextProtocol.Server;
 using System;
 using System.Linq;
 using TiaMcpServer.ModelContextProtocol;
+using McpServer = TiaMcpServer.ModelContextProtocol.McpServer;
 using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer.Test
@@ -41,6 +43,17 @@ namespace TiaMcpServer.Test
         }
 
         [TestMethod]
+        public void BaseUnitChangesRejectStaleOrInvalidExpectedValues()
+        {
+            Portal.ValidatePotentialGroupChange(0, 0);
+            Portal.ValidatePotentialGroupChange(1, 1);
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidatePotentialGroupChange(0, 1));
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidatePotentialGroupChange(1, 0));
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidatePotentialGroupChange(0, -1));
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidatePotentialGroupChange(0, 2));
+        }
+
+        [TestMethod]
         public void MissingProjectCannotScanCompileOrChangeHardware()
         {
             var previous = McpServer.Portal;
@@ -49,6 +62,7 @@ namespace TiaMcpServer.Test
             {
                 Assert.ThrowsException<McpException>(() => McpServer.GetAccessibleDevices("Station/CPU", "PN/IE", "wired adapter", 1));
                 Assert.ThrowsException<McpException>(() => McpServer.GetHardwareNetworkInfo("Station/Module"));
+                Assert.ThrowsException<McpException>(() => McpServer.SetBaseUnitPotentialGroup("Station/Module", 0, true));
                 Assert.ThrowsException<McpException>(() => McpServer.CompileHardware("Station/CPU"));
                 Assert.ThrowsException<McpException>(() => McpServer.ChangeHardwareType("Station/Module", Current, Replacement));
             }

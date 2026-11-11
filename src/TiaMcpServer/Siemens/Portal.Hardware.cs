@@ -41,6 +41,7 @@ namespace TiaMcpServer.Siemens
 
         public object ChangeHardwareType(string deviceItemPath, string expectedTypeIdentifier, string newTypeIdentifier)
         {
+            TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("ChangeHardwareType");
             var item = GetOnlineDeviceItem(deviceItemPath);
             ValidateHardwareTypeChange(item.TypeIdentifier, expectedTypeIdentifier, newTypeIdentifier);
             item.ChangeType(newTypeIdentifier);
@@ -61,8 +62,27 @@ namespace TiaMcpServer.Siemens
             }
         }
 
+        public object SetBaseUnitPotentialGroup(string deviceItemPath, int expectedValue, bool lightBaseUnit)
+        {
+            TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("SetBaseUnitPotentialGroup");
+            var item = GetOnlineDeviceItem(deviceItemPath);
+            var before = Convert.ToInt32(item.GetAttribute("PotentialGroup"));
+            ValidatePotentialGroupChange(before, expectedValue);
+            item.SetAttribute("PotentialGroup", lightBaseUnit ? PotentialGroup.LightBaseUnit : PotentialGroup.DarkBaseUnit);
+            return new { item.Name, Before = before, After = item.GetAttribute("PotentialGroup"), Saved = false, Downloaded = false };
+        }
+
+        internal static void ValidatePotentialGroupChange(int currentValue, int expectedValue)
+        {
+            if ((expectedValue != 0 && expectedValue != 1) || currentValue != expectedValue)
+            {
+                throw new ArgumentException("The BaseUnit setting differs from the expected zero (dark) or one (light). Read it again before changing it.");
+            }
+        }
+
         public object CompileHardware(string deviceItemPath)
         {
+            TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("CompileHardware");
             var item = GetOnlineDeviceItem(deviceItemPath);
             var compiler = item.GetService<ICompilable>()
                 ?? throw new ArgumentException("No hardware compiler at this path.");

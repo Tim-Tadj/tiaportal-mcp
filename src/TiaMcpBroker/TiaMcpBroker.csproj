@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>Latest</LangVersion>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>TiaPortalMcp</AssemblyName>
+    <RootNamespace>TiaMcpBroker</RootNamespace>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <TiaAccessProfile Condition="'$(TiaAccessProfile)' == ''">ReadWrite</TiaAccessProfile>
+    <OutputPath>bin\$(Configuration)\$(TiaAccessProfile)\</OutputPath>
+    <DefineConstants Condition="'$(TiaAccessProfile)' == 'ReadWrite'">$(DefineConstants);TIA_MCP_BROKER_READ_WRITE</DefineConstants>
+  </PropertyGroup>
+
+  <Target Name="ValidateBrokerConfiguration" BeforeTargets="PrepareForBuild">
+    <Error
+      Condition="'$(TiaAccessProfile)' != 'Read' and '$(TiaAccessProfile)' != 'ReadWrite'"
+      Text="TiaAccessProfile must be Read or ReadWrite." />
+  </Target>
+</Project>

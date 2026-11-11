@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TiaMcpServer.ModelContextProtocol;
+using McpServer = TiaMcpServer.ModelContextProtocol.McpServer;
 using TiaMcpServer.Siemens;
 
 namespace TiaMcpServer.Test

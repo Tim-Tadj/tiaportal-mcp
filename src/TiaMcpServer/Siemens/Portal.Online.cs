@@ -46,6 +46,7 @@ namespace TiaMcpServer.Siemens
 
         public DeviceOnlineInfo GoOnlineDevice(string deviceItemPath, string? mode = null, string? pcInterfaceName = null, int? pcInterfaceNumber = null, string? targetIpAddress = null, int timeoutSeconds = 30)
         {
+            TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("GoOnlineDevice");
             ValidateOnlineSelection(mode, pcInterfaceName, pcInterfaceNumber, targetIpAddress, timeoutSeconds);
             var online = RequireOnlineProvider(deviceItemPath);
             if (mode != null)
@@ -79,6 +80,7 @@ namespace TiaMcpServer.Siemens
 
         public DeviceOnlineInfo GoOfflineDevice(string deviceItemPath, int timeoutSeconds = 30)
         {
+            TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("GoOfflineDevice");
             ValidateOnlineTimeout(timeoutSeconds);
             var online = RequireOnlineProvider(deviceItemPath);
             var timer = Stopwatch.StartNew();

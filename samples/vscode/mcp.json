@@ -1,12 +1,22 @@
 {
-    "servers": {
-        "vscode-tiaportal-mcp": {
-        "command": "c:\\Users\\<user>\\.vscode\\extensions\\jheilingbrunner.vscode-tiaportal-mcp-<version>\\srv\\net48\\TiaMcpServer.exe",
-        "args": [
-            "--tia-major-version",
-            "18"
-        ],
-        "env": {}
-        }
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "tiaPortalMcpReadBundle",
+      "description": "Absolute path to the extracted TIA Portal MCP Read bundle"
     }
+  ],
+  "servers": {
+    "tia-portal-mcp-read": {
+      "type": "stdio",
+      "command": "${input:tiaPortalMcpReadBundle}\\server\\TiaPortalMcp.exe",
+      "args": [
+        "--access-profile",
+        "Read",
+        "--tia-version",
+        "Auto"
+      ],
+      "env": {}
+    }
+  }
 }
