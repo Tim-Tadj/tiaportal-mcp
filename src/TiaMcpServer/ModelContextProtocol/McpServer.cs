@@ -141,12 +141,15 @@ namespace TiaMcpServer.ModelContextProtocol
                 "types",
                 "native-online-state",
                 "live-plc-values",
-                "hardware-inspection"
+                "hardware-inspection",
+                "plc-tags-and-constants",
+                worker.TiaMajorVersion >= 18 ? "native-cross-references" : "cross-references-unavailable-v17"
             };
 
 #if TIA_MCP_READ_WRITE
             toolFamilies.Add("project-lifecycle");
             toolFamilies.Add("compile");
+            toolFamilies.Add("source-generation");
             toolFamilies.Add("native-online-transitions");
             toolFamilies.Add("hardware-configuration");
             toolFamilies.Add("xml-import-export");
@@ -162,7 +165,7 @@ namespace TiaMcpServer.ModelContextProtocol
                 TiaMajorVersion = worker.TiaMajorVersion,
                 AccessProfile = worker.AccessProfile.ToString(),
                 SupportStatus = "Experimental",
-                Contract = "v1-with-toon-csv-preview",
+                Contract = "v2-single-content-paged-diagnostics",
                 DefaultPageLimit = PageRequest.DefaultLimit,
                 MaximumPageLimit = PageRequest.MaximumLimit,
                 DefaultDetailLevel = ResponseDetailLevel.Summary.ToString(),
@@ -211,6 +214,7 @@ namespace TiaMcpServer.ModelContextProtocol
                     return new ResponseState
                     {
                         Message = "TIA-Portal MCP server state retrieved",
+                        WorkerProcessId = System.Diagnostics.Process.GetCurrentProcess().Id,
                         IsConnected = state.IsConnected,
                         Project = state.Project,
                         Session = state.Session,
@@ -536,7 +540,7 @@ namespace TiaMcpServer.ModelContextProtocol
         [McpServerTool(Name = "GetDeviceInfo"), Description("Get one device using compact detail by default. Request Full only when bounded raw attributes are needed.")]
         public static ResponseDeviceInfo GetDeviceInfo(
             [Description("devicePath: exact path returned by device discovery")] string devicePath,
-            [Description("detailLevel: Summary and Standard return identity; Full also includes bounded raw attributes and diagnostics")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
+            [Description("detailLevel: Summary returns identity; Standard adds module order/firmware/type identifiers; Full adds bounded raw attributes")] ResponseDetailLevel detailLevel = ResponseDetailLevel.Standard)
         {
             try
             {
@@ -544,6 +548,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
                 if (device != null)
                 {
+                    var modules = detailLevel == ResponseDetailLevel.Summary ? null : Portal.GetDeviceModuleSummary(device);
                     return new ResponseDeviceInfo
                     {
                         Message = detailLevel == ResponseDetailLevel.Full
@@ -551,6 +556,8 @@ namespace TiaMcpServer.ModelContextProtocol
                             : null,
                         Path = Portal.GetDevicePath(device),
                         Name = device.Name,
+                        Modules = modules?.Take(200).ToArray(),
+                        ModulesTruncated = modules == null ? (bool?)null : modules.Length > 200,
                         Attributes = detailLevel == ResponseDetailLevel.Full
                             ? Helper.GetAttributeList(device)
                             : null,
@@ -777,73 +784,57 @@ namespace TiaMcpServer.ModelContextProtocol
         }
 
 #if TIA_MCP_READ_WRITE
-        [McpServerTool(Name = "CompileSoftware"), Description("Compile PLC software and return a compact state summary. Detailed diagnostics remain a planned paged surface.")]
+        [McpServerTool(Name = "CompileSoftware"), Description("Compile offline PLC software and return state, counts and the first diagnostics page, including errors. Does not download. Read remaining diagnostics with GetCompileDiagnostics without recompiling.")]
         public static ResponseCompileSoftware CompileSoftware(
-            [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
-            [Description("password: optional safety administration password. Tool arguments may be retained by the MCP client, so leave empty unless the user explicitly accepts that exposure")] string password = "")
+            string softwarePath,
+            [Description("Optional safety password; client tool history may retain it.")] string password = "",
+            int limit = PageRequest.DefaultLimit)
         {
-            try
+            return ProjectCall(() =>
             {
-                var result = Portal.CompileSoftware(softwarePath, password);
-                if (result != null && !result.State.ToString().Equals("Error"))
-                {
-                    return new ResponseCompileSoftware
-                    {
-                        Message =
-                            $"Software '{softwarePath}' compilation completed with state '{result.State}'.",
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true,
-                            ["state"] = result.State.ToString()
-                        }
-                    };
-                }
-                else
-                {
-                    var state = result?.State.ToString() ?? "NoResult";
-                    throw new McpException(
-                        $"Failed compiling software '{softwarePath}' with state '{state}'.",
-                        McpErrorCode.InternalError);
-                }
-            }
-            catch (Exception ex) when (ex is not McpException)
-            {
-                throw new McpException($"Unexpected error compiling software '{softwarePath}': {ex.Message}", ex, McpErrorCode.InternalError);
-            }
+                var result = Portal.CompileSoftware(softwarePath, password)
+                    ?? throw new ArgumentException("No compiler result. Check the selected project, software path and safety access.");
+                var report = Portal.RememberCompile(softwarePath, result);
+                return CompilePage(report, limit, "");
+            });
         }
+
+        [McpServerTool(Name = "GetCompileDiagnostics", ReadOnly = true), Description("Read another page of the last software compile without recompiling. CompileId and cursor must come from that compile. Results expire on selected-project changes, disconnect or another compile.")]
+        public static ResponseCompileSoftware GetCompileDiagnostics(string compileId, int limit = PageRequest.DefaultLimit, string cursor = "")
+        {
+            return ProjectCall(() => CompilePage(Portal.GetCompileReport(compileId), limit, cursor));
+        }
+
+        internal static ResponseCompileSoftware CompilePage(TiaMcpServer.Siemens.CompileReport report, int limit, string cursor)
+        {
+            var items = PageItems(report.Diagnostics, limit, cursor, "compile:" + report.Id, out var page);
+            return new ResponseCompileSoftware
+            {
+                CompileId = report.Id, State = report.State,
+                ErrorCount = report.ErrorCount, WarningCount = report.WarningCount,
+                Diagnostics = items, Page = page,
+                Message = "Offline compile completed. Diagnostic paths and descriptions are supplied by Siemens; line/network fields are not available through this API."
+            };
+        }
+
 #endif
 
-        [McpServerTool(Name = "GetSoftwareTree"), Description("Legacy unpaged PLC software tree which may be large. Prefer paged GetBlocks and GetTypes for discovery.")]
-        public static ResponseSoftwareTree GetSoftwareTree(
-            [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath)
+        [McpServerTool(Name = "GetSoftwareTree", ReadOnly = true), Description("Read a bounded page of the PLC hierarchy. Includes blocks, types and tag tables. Follow the cursor for remaining lines; use paged GetBlocks, GetTypes or GetPlcTags for typed discovery.")]
+        public static ResponseSoftwareTree GetSoftwareTree(string softwarePath, int limit = PageRequest.DefaultLimit, string cursor = "")
         {
-            try
+            return ProjectCall(() =>
             {
                 var tree = Portal.GetSoftwareTree(softwarePath);
-
-                if (!string.IsNullOrEmpty(tree))
-                {
-                    return new ResponseSoftwareTree
-                    {
-                        Message = $"Software tree retrieved from '{softwarePath}'",
-                        Tree = "```\n" + tree + "\n```",
-                        Meta = new JsonObject
-                        {
-                            ["timestamp"] = DateTime.Now,
-                            ["success"] = true
-                        }
-                    };
-                }
-                else
-                {
-                    throw new McpException($"Failed retrieving software tree from '{softwarePath}'", McpErrorCode.InternalError);
-                }
-            }
-            catch (Exception ex) when (ex is not McpException)
-            {
-                throw new McpException($"Unexpected error retrieving software tree from '{softwarePath}': {ex.Message}", ex, McpErrorCode.InternalError);
-            }
+                if (string.IsNullOrEmpty(tree)) throw new ArgumentException("PLC software was not found.");
+                tree += Portal.GetTagTableTree(softwarePath);
+                var lines = tree.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+                string scope;
+                using (var hash = System.Security.Cryptography.SHA256.Create())
+                    scope = "tree:" + softwarePath + ":" + Convert.ToBase64String(
+                        hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(tree)));
+                var items = PageItems(lines, limit, cursor, scope, out var page);
+                return new ResponseSoftwareTree { Tree = string.Join("\n", items), Page = page };
+            });
         }
 
         #endregion
@@ -1331,12 +1322,13 @@ namespace TiaMcpServer.ModelContextProtocol
                 }
 
                 // Export blocks asynchronously
+                var failures = new List<BlockExportFailure>();
                 var exportedBlocks = await Task.Run(() => Portal.ExportBlocks(
                     softwarePath,
                     resolvedExportPath,
                     regexName,
                     preservePath,
-                    overwrite));
+                    overwrite, failures));
 
                 // Build list of inconsistent (skipped) blocks for reporting
                 var inconsistentInfos = new List<ResponseBlockInfo>();
@@ -1430,10 +1422,13 @@ namespace TiaMcpServer.ModelContextProtocol
                         Message = $"Export completed: {processedCount} blocks with regex '{regexName}' exported from '{softwarePath}' to '{resolvedExportPath}'",
                         Items = responseList,
                         Inconsistent = inconsistentInfos,
+                        Failures = failures.Take(boundedResultLimit).ToArray(),
                         Meta = new JsonObject
                         {
                             ["timestamp"] = DateTime.Now,
-                            ["success"] = notExportedCount == 0,
+                            ["success"] = notExportedCount == 0 && inconsistentCount == 0,
+                            ["failureCount"] = failures.Count,
+                            ["failuresTruncated"] = failures.Count > boundedResultLimit,
                             ["totalBlocks"] = totalBlocks,
                             ["exportedBlocks"] = processedCount,
                             ["inconsistentBlocks"] = inconsistentCount,

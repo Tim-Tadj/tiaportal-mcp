@@ -111,7 +111,7 @@ The hierarchical tree will display:
 Common parameter values:
 - softwarePath: normally something like 'PLC_1' for hardware PLC, 'PC-System_1/Software PLC_1' for PC based PLC
 
-Prefer paged GetBlocks and GetTypes for normal discovery. Use GetSoftwareTree only when the user explicitly needs the complete hierarchy.
+Prefer paged GetBlocks and GetTypes for normal discovery. Use GetSoftwareTree for bounded hierarchy pages, following its cursor only as needed.
 
 Use the GetSoftwareTree tool with these parameters:
 - softwarePath: {softwarePath}";

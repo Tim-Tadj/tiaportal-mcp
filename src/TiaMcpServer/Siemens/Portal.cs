@@ -118,6 +118,8 @@ namespace TiaMcpServer.Siemens
             _project = null;
             _session = null;
             _portal = null;
+            _lastCompile = null;
+            _compileProject = null;
             try
             {
                 portal?.Dispose();
@@ -178,17 +180,7 @@ namespace TiaMcpServer.Siemens
                 {
                     _portal = processes[0].Attach();
 
-                    // check for existing local sessions
-                    if (_portal.LocalSessions.Any())
-                    {
-                        _session = _portal.LocalSessions.First();
-                        _project = _session.Project;
-                    }
-                    // checks for existing projects
-                    else if (_portal.Projects.Any())
-                    {
-                        _project = _portal.Projects.First();
-                    }
+                    RefreshSelectedProject();
 
                     return true;
                 }
@@ -259,28 +251,69 @@ namespace TiaMcpServer.Siemens
 
         public State GetState()
         {
-            _logger?.LogInformation("Getting TIA Portal state...");
-            if (_portal != null)
+            lock (_connectionSync)
             {
-                // check for existing local sessions
-                if (_portal.LocalSessions.Any())
+                RefreshSelectedProject();
+                return new State
                 {
-                    _session = _portal.LocalSessions.First();
-                    _project = _session.Project;
-                }
-                // checks for existing projects
-                else if (_portal.Projects.Any())
-                {
-                    _project = _portal.Projects.First();
-                }
+                    IsConnected = _portal != null,
+                    Project = _project?.Name ?? "-",
+                    Session = _session?.Project.Name ?? "-"
+                };
+            }
+        }
+
+        private static bool SameProject(ProjectBase? left, ProjectBase? right)
+        {
+            // Openness may return a fresh proxy for the same project between calls.
+            // Closed UI projects can also leave an invalid old proxy until this refresh.
+            try
+            {
+                return left != null && right != null && string.Equals(
+                    left.Path?.FullName, right.Path?.FullName, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(left.Name, right.Name, StringComparison.Ordinal);
+            }
+            catch (EngineeringException) { return false; }
+            catch (ObjectDisposedException) { return false; }
+        }
+
+        private void RefreshSelectedProject()
+        {
+            if (!IsPortalConnectionHealthy())
+            {
+                _project = null;
+                _session = null;
+                return;
             }
 
-            return new State
+            var sessions = _portal!.LocalSessions.ToList();
+            var projects = _portal.Projects.ToList();
+            // Retain an explicitly selected open project. Clear references closed in the UI.
+            var session = _session == null ? null : sessions.FirstOrDefault(s => SameProject(s.Project, _project));
+            if (session != null)
             {
-                IsConnected = IsConnected(),
-                Project = _project != null ? _project.Name : "-",
-                Session = _session != null ? _session.Project.Name : "-"
-            };
+                _project = session.Project;
+                return;
+            }
+            _session = null;
+            var selected = projects.FirstOrDefault(p => SameProject(p, _project));
+            if (selected != null)
+            {
+                _project = selected;
+                return;
+            }
+            _project = null;
+            _lastCompile = null;
+            _compileProject = null;
+            if (sessions.Count == 1 && projects.Count == 0)
+            {
+                _session = sessions[0];
+                _project = _session.Project;
+            }
+            else if (projects.Count == 1 && sessions.Count == 0)
+            {
+                _project = projects[0];
+            }
         }
 
         #endregion
@@ -379,7 +412,7 @@ namespace TiaMcpServer.Siemens
             var info = new
             {
                 Name = project.Name,
-                Path = project.Path,
+                Path = project.Path?.FullName,
                 Type = project.GetType().Name,
                 IsMultiuserProject = project is MultiuserProject,
                 IsLocalSession = _session != null,
@@ -767,9 +800,10 @@ namespace TiaMcpServer.Siemens
 
                     return result;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    return null; // "Error, compiling failed";
+                    throw new PortalException(PortalErrorCode.InvalidState,
+                        "Could not compile PLC software: " + ex.Message, null, ex);
                 }
             }
 
@@ -1077,7 +1111,7 @@ namespace TiaMcpServer.Siemens
                 // TIA Portal never exports inconsistent blocks
                 if (!block.IsConsistent)
                 {
-                    throw new PortalException(PortalErrorCode.InvalidState, "Block is inconsistent; TIA Portal does not export inconsistent blocks.");
+                    throw new PortalException(PortalErrorCode.InvalidState, "Block is inconsistent. Compile the PLC software and resolve its errors before exporting.");
                 }
 
                 ExportFileSafely(
@@ -1282,7 +1316,8 @@ namespace TiaMcpServer.Siemens
             string exportPath,
             string regexName = "",
             bool preservePath = false,
-            bool overwrite = false)
+            bool overwrite = false,
+            IList<BlockExportFailure>? failureDetails = null)
         {
             ProfileAccessPolicy.DemandWrite("bulk export PLC blocks");
             _logger?.LogInformation("Exporting blocks...");
@@ -1342,6 +1377,8 @@ namespace TiaMcpServer.Siemens
                     if (!block.IsConsistent)
                     {
                         _logger?.LogWarning("Skipping inconsistent block {Name}", block.Name);
+                        failureDetails?.Add(new BlockExportFailure { Path = GetBlockPath(block), Name = block.Name,
+                            Reason = "Block is inconsistent. Compile the PLC software and resolve its errors before exporting." });
 
                         continue;
                     }
@@ -1356,6 +1393,7 @@ namespace TiaMcpServer.Siemens
                     catch (LicenseNotFoundException licEx)
                     {
                         failures.Add($"{block.Name}: license not found ({licEx.Message})");
+                        failureDetails?.Add(new BlockExportFailure { Path = GetBlockPath(block), Name = block.Name, Reason = licEx.Message });
                         _logger?.LogError(licEx, "License issue exporting {Block}", block.Name);
 
                         continue;
@@ -1363,6 +1401,7 @@ namespace TiaMcpServer.Siemens
                     catch (EngineeringTargetInvocationException engEx)
                     {
                         failures.Add($"{block.Name}: target invocation failed ({engEx.Message})");
+                        failureDetails?.Add(new BlockExportFailure { Path = GetBlockPath(block), Name = block.Name, Reason = engEx.Message });
                         _logger?.LogError(engEx, "TargetInvocationException exporting {Block}", block.Name);
 
                         continue;
@@ -1370,6 +1409,7 @@ namespace TiaMcpServer.Siemens
                     catch (Exception ex)
                     {
                         failures.Add($"{block.Name}: export failed ({ex.Message})");
+                        failureDetails?.Add(new BlockExportFailure { Path = GetBlockPath(block), Name = block.Name, Reason = ex.Message });
                         _logger?.LogError(ex, "Export failed for {Block}", block.Name);
 
                         continue;
@@ -1381,6 +1421,7 @@ namespace TiaMcpServer.Siemens
                 {
                     // Catch only truly unexpected wrapper-level errors
                     failures.Add($"{block.Name}: unexpected exception ({ex.Message})");
+                    failureDetails?.Add(new BlockExportFailure { Path = GetBlockPath(block), Name = block.Name, Reason = ex.Message });
                     _logger?.LogError(ex, "Unexpected error at block {Block}", block.Name);
                     // continue with next block
                 }
@@ -2361,6 +2402,7 @@ namespace TiaMcpServer.Siemens
 
         private bool IsProjectNull()
         {
+            RefreshSelectedProject();
             if (_project == null)
             {
                 _logger?.LogWarning("No TIA project available.");
@@ -3122,7 +3164,7 @@ namespace TiaMcpServer.Siemens
 
 
                 // Split the path by '/' to get each group name
-                var groupNames = groupPath.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
+                var groupNames = ChildGroupNames(groupPath, plcSoftware.BlockGroup.Name);
 
                 PlcBlockGroup? currentGroup = plcSoftware.BlockGroup;
 
@@ -3157,7 +3199,7 @@ namespace TiaMcpServer.Siemens
                     return null;
                 }
 
-                var groupNames = groupPath.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
+                var groupNames = ChildGroupNames(groupPath, plcSoftware.TypeGroup.Name);
 
                 PlcTypeGroup? currentGroup = plcSoftware.TypeGroup;
 

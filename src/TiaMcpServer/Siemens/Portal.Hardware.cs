@@ -12,6 +12,9 @@ namespace TiaMcpServer.Siemens
     {
         public object GetAccessibleDevices(string deviceItemPath, string mode, string pcInterfaceName, int pcInterfaceNumber)
         {
+#if TIA_MCP_V17 || TIA_MCP_V18
+            throw new NotSupportedException("Accessible-device discovery requires TIA Portal V19 or later. This worker cannot call an API absent from its exact-version PublicAPI.");
+#else
             var online = RequireOnlineProvider(deviceItemPath);
             var configurationMode = online.Configuration.Modes.Find(mode)
                 ?? throw new ArgumentException("Connection mode not found.");
@@ -23,6 +26,7 @@ namespace TiaMcpServer.Siemens
                 Attributes = d.GetAttributeInfos().Select(a => new { a.Name, Value = Convert.ToString(d.GetAttribute(a.Name)) }).ToArray(),
                 Services = ((IEngineeringServiceProvider)d).GetServiceInfos().Select(s => s.Type.FullName).ToArray()
             }).ToArray();
+#endif
         }
 
         public object GetHardwareNetworkInfo(string deviceItemPath)
@@ -42,10 +46,14 @@ namespace TiaMcpServer.Siemens
         public object ChangeHardwareType(string deviceItemPath, string expectedTypeIdentifier, string newTypeIdentifier)
         {
             TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("ChangeHardwareType");
+#if TIA_MCP_V17
+            throw new NotSupportedException("Offline ChangeType requires TIA Portal V18 or later.");
+#else
             var item = GetOnlineDeviceItem(deviceItemPath);
             ValidateHardwareTypeChange(item.TypeIdentifier, expectedTypeIdentifier, newTypeIdentifier);
             item.ChangeType(newTypeIdentifier);
             return new { item.Name, item.TypeIdentifier, Saved = false, Downloaded = false };
+#endif
         }
 
         internal static void ValidateHardwareTypeChange(string currentType, string expectedType, string newType)

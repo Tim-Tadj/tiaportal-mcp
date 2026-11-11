@@ -408,7 +408,10 @@ function Assert-SourceProfileBoundaries
         'GetOnlineConnectionOptions',
         'GetAccessibleDevices',
         'GetHardwareNetworkInfo',
-        'ReadPlcValues'
+        'ReadPlcValues',
+        'GetPlcTagTables',
+        'GetPlcTags',
+        'FindReferences'
     )
     $readWriteTools = @(
         $readTools
@@ -418,6 +421,8 @@ function Assert-SourceProfileBoundaries
         'SaveAsProject',
         'CloseProject',
         'CompileSoftware',
+        'GetCompileDiagnostics',
+        'ImportBlockFromSource',
         'ExportBlock',
         'ImportBlock',
         'ExportBlocks',

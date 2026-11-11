@@ -18,7 +18,7 @@ An MCP server which connects to Siemens TIA Portal.
 
 - See [Project Documentation](docs/README.md) for the architecture, roadmap,
   current status, definition of done and changelog policy.
-- See [0.1.0-alpha.1 Alpha Release](docs/alpha-release.md) for the experimental
+- See [0.1.0-alpha.2 Alpha Release](docs/alpha-release.md) for the experimental
   support matrix, completed publication checklist and deferred work.
 - See [Model-Facing Output Format Policy](docs/output-formats.md) for the
   normative compact CSV, bounded TOON and JSON result contract.
@@ -26,17 +26,17 @@ An MCP server which connects to Siemens TIA Portal.
 ## Current Status
 
 The experimental Windows x64 prerelease
-[`0.1.0-alpha.1`](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1)
-contains two public distributions,
-`tia-portal-mcp-read` and `tia-portal-mcp-readwrite`, with automatic selection
-of isolated V17, V18 and V19 workers. V17 and V18 are
-`experimental-build-only`. V19 is `experimental-prior-runtime-evidence` with
-`runtimeValidated=false`: earlier Read and ReadWrite live-project evidence
-informs confidence, but it predates the Siemens-DLL-free resolver used by the
-published bits. The release bits have build, strong-name preflight and
-Siemens-free validation only. V20 is planned for a later alpha and V21 is
-unsupported in this release. It was published as a GitHub prerelease on
-30 July 2026.
+[`0.1.0-alpha.2`](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2)
+contains two public distributions, `tia-portal-mcp-read` and
+`tia-portal-mcp-readwrite`, with isolated V17, V18 and V19 workers. It patches
+[issue #1](https://github.com/Tim-Tadj/tiaportal-mcp/issues/1) with complete
+list payloads, compile diagnostics, source import, native cross-references,
+PLC tags/constants and bounded software trees. See [Issue #1 changes](docs/issue-1.md)
+for compatibility changes and validation limits.
+
+V17 and V18 remain build-only experimental workers. V19 has focused local
+runtime coverage; this is not production certification. V20 is deferred and
+V21 is unsupported. Packages contain no Siemens runtime DLLs.
 
 The alpha is for evaluation and does not claim production support for any
 profile or TIA Portal version. See [Current Status](docs/status.md) and the
@@ -48,7 +48,7 @@ against TIA Portal V20.
 ## Released v0.0.18 Requirements
 
 These requirements apply to the legacy v0.0.18 release. The
-`0.1.0-alpha.1` broker discovers installed TIA Portal versions, selects a
+`0.1.0-alpha.2` broker discovers installed TIA Portal versions, selects a
 bundled worker and does not require a checkout-specific path or the
 `TiaPortalLocation` variable.
 
@@ -71,18 +71,17 @@ installation.
 
 ## TIA Portal Versions
 
-- V19 retains prior Read and ReadWrite live-project evidence from before the
-  resolver change. The exact `0.1.0-alpha.1` release bits have not received a
-  live TIA run and are explicitly runtime-unverified.
+- V19 is experimental with focused local runtime checks. The broader licensed
+  runtime matrix and clean-account client certification remain outstanding.
 - V17 and V18 workers are included for build-only evaluation and are
   explicitly runtime-unverified.
-- V20 is not included in `0.1.0-alpha.1`. Its exact-version worker and SIMATIC
+- V20 is not included in `0.1.0-alpha.2`. Its exact-version worker and SIMATIC
   SD document operations are planned for a later alpha. The published v0.0.18
   release remains the legacy V20 option.
-- V21 is unsupported in `0.1.0-alpha.1` and requires its own modular Openness
+- V21 is unsupported in `0.1.0-alpha.2` and requires its own modular Openness
   adapter before a later release can include it.
 - SIMATIC SD document import and export are unavailable in
-  `0.1.0-alpha.1` because those operations require a V20 worker.
+  `0.1.0-alpha.2` because those operations require a V20 worker.
 
 ## Known Limitations
 
@@ -156,9 +155,9 @@ manifests, and build metadata remain JSON. The complete normative rules are in
 
 - The current upstream VS Code extension remains available for the released
   single-worker server: [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp).
-- The published `0.1.0-alpha.1` profile ZIPs support direct stdio installation.
+- The published `0.1.0-alpha.2` profile ZIPs support direct stdio installation.
   The broker chooses the exact bundled V17, V18 or V19 worker.
-- A VSIX is not required or included in `0.1.0-alpha.1`.
+- A VSIX is not required or included in `0.1.0-alpha.2`.
 - The packaged installer and workspace configuration instructions are in
   [`packaging/clients/vscode`](packaging/clients/vscode/README.md).
 
@@ -192,12 +191,12 @@ manifests, and build metadata remain JSON. The complete normative rules are in
 ## Claude Desktop
 
 - Download the matching Read or ReadWrite `.mcpb` from the
-  [`0.1.0-alpha.1` prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1),
+  [`0.1.0-alpha.2` prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2),
   verify it against `SHA256SUMS.txt`, then choose
   **Settings > Extensions > Advanced settings > Install Extension** in Claude
   Desktop and select the file.
   See [Claude's local MCP server guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
-- The MCPB files are experimental in `0.1.0-alpha.1`. All published alpha
+- The MCPB files are experimental in `0.1.0-alpha.2`. All published alpha
   workers are runtime-unverified. V19 retains only prior runtime evidence from
   before the resolver change.
 - For development, add the matching broker directly to
@@ -231,7 +230,7 @@ The TIA MCP broker and worker run only on the user's PC. This project does not
 host them in a cloud service or expose them through a public inbound port.
 
 ChatGPT does not connect to the local stdio process directly. The
-`0.1.0-alpha.1` connection kit uses
+`0.1.0-alpha.2` connection kit uses
 [OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 and configures the local `tunnel-client` to launch the selected profile broker
 through `--mcp-command`. No Streamable HTTP adapter is required. The tunnel

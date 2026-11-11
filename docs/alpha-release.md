@@ -1,15 +1,16 @@
-# 0.1.0-alpha.1 Release Gate
+# 0.1.0-alpha.2 Release Gate
 
-Status date: 30 July 2026.
+Status date: 11 November 2026.
 
 ## Purpose
 
-`0.1.0-alpha.1` is an experimental Windows x64 prerelease for early evaluation.
+`0.1.0-alpha.2` is an experimental Windows x64 prerelease for early evaluation.
 It is not a supported release. It was
-[published as a GitHub prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1)
-on 30 July 2026.
+[published as a GitHub prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2)
+on 11 November 2026.
 
-The alpha proves the two-profile package design, version broker, compact MCP
+This update patches [issue #1](issue-1.md). The alpha retains the two-profile
+package design, version broker, compact MCP
 contract and local client installation paths. It does not claim that any
 published worker passed a live-project runtime test.
 
@@ -29,7 +30,7 @@ bundled worker to compile in the prepared release environment.
 | V20 | Excluded | Excluded | Planned for a later alpha; use legacy v0.0.18 for the current V20 build |
 | V21 | Excluded | Excluded | Unsupported in this alpha |
 
-Earlier V19 Read and ReadWrite builds completed MCP initialisation, profile
+Historical alpha.1 V19 Read and ReadWrite builds completed MCP initialisation, profile
 capability reporting, connection to an open project and bounded read queries
 through fixed-profile brokers. That evidence predates the Siemens-DLL-free
 resolver used by the published bits and informs confidence only. The exact V19
@@ -67,7 +68,7 @@ results pass through OpenAI when the custom app is used. See
 The alpha publication gate required all of the following non-TIA checks:
 
 - [x] product, informational, bundle, MCPB and release-manifest versions are
-  `0.1.0-alpha.1`, while numeric Windows assembly and file versions are
+  `0.1.0-alpha.2`, while numeric Windows assembly and file versions are
   `0.1.0.0`;
 - [x] Read and ReadWrite workers build for V17, V18 and V19 on Windows x64;
 - [x] Siemens-free contract, broker, schema, profile-boundary and strong-name
@@ -91,7 +92,7 @@ The alpha publication gate required all of the following non-TIA checks:
   prerequisites and third-party notices, and package inspection confirms no
   Siemens-supplied runtime or object-code DLL is present;
 - [x] the
-  [GitHub release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.1)
+  [GitHub release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2)
   is marked as a prerelease and prominently links this support matrix.
 
 The blocking client check for this alpha is static and package-level. It
@@ -115,22 +116,20 @@ Siemens Openness.
 
 ## Runtime Testing Position
 
-No additional TIA-dependent test was required before this alpha was published.
-The release records the earlier V19 evidence without treating it as validation
-of the published bits. V17 and V18 remain `experimental-build-only`; V19 is
-`experimental-prior-runtime-evidence` with `runtimeValidated=false`. Any
-failure report for a bundled worker is an alpha compatibility finding, not a
-regression against a runtime support promise. V20 is not part of this release
-and does not block it.
+Focused V19 tests for issue #1 use a disposable copy of the bench project.
+See [Issue #1 changes](issue-1.md) for the tested paths and remaining limits.
+These checks do not constitute the full supported-release runtime matrix.
+The manifest therefore retains `runtimeValidated=false` for each worker.
+V17 and V18 remain `experimental-build-only`; V19 retains the conservative
+`experimental-prior-runtime-evidence` classification.
 
-A later alpha may set `runtimeValidated=true` only after its exact release
-candidate has exercised the matching licensed TIA Portal runtime. Production
-support still requires the full validation matrix in
-[Current Status](status.md).
+The exact release packages receive assembly, profile and client packaging
+checks. No PLC downloads or output operations are part of this release gate.
+Production support still requires the full matrix in [Current Status](status.md).
 
 ## Explicitly Deferred
 
-The following work does not block `0.1.0-alpha.1`:
+The following work does not block `0.1.0-alpha.2`:
 
 - further licensed TIA Portal runtime testing;
 - the V20 exact-version worker and its SIMATIC SD document operations, planned
@@ -159,10 +158,10 @@ The following work does not block `0.1.0-alpha.1`:
 The published GitHub prerelease contains exactly these six assets:
 
 ```text
-tia-portal-mcp-0.1.0-alpha.1-read-win-x64.zip
-tia-portal-mcp-0.1.0-alpha.1-readwrite-win-x64.zip
-tia-portal-mcp-0.1.0-alpha.1-read-win-x64.mcpb
-tia-portal-mcp-0.1.0-alpha.1-readwrite-win-x64.mcpb
+tia-portal-mcp-0.1.0-alpha.2-read-win-x64.zip
+tia-portal-mcp-0.1.0-alpha.2-readwrite-win-x64.zip
+tia-portal-mcp-0.1.0-alpha.2-read-win-x64.mcpb
+tia-portal-mcp-0.1.0-alpha.2-readwrite-win-x64.mcpb
 SHA256SUMS.txt
 release-manifest.json
 ```
