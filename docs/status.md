@@ -4,11 +4,13 @@ Status date: 11 November 2026.
 
 ## Issue #1 release update
 
-The alpha.2 changes, compatibility notes and current validation are in
-[Issue #1 changes](issue-1.md). The implementation adds five tools and keeps
+The latest experimental prerelease is
+[0.1.0-alpha.2](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2),
+published on 11 November 2026. Changes, compatibility notes and validation are
+in [Issue #1 changes](issue-1.md). The implementation adds five tools and keeps
 both public profiles. V17/V18 are build-only; V19 focused checks do not certify
-all operations or client installation paths. The historical evidence below
-belongs to alpha.1 unless an alpha.2 result is explicitly stated.
+all operations or client installation paths. Historical alpha.1 evidence
+remains in its changelog and GitHub release.
 
 ## Release scope
 

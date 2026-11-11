@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-Target prerelease: `0.1.0-alpha.2`.
+## [0.1.0-alpha.2] - 2026-11-11
 
 ### Fixed
 
