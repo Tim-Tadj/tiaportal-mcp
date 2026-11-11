@@ -17,17 +17,17 @@ namespace TiaMcpServer.ModelContextProtocol
             return OnlineCall(() => Portal.GetDeviceOnlineState(deviceItemPath));
         }
 
-        [McpServerTool(Name = "GetOnlineConnectionOptions", ReadOnly = true, Idempotent = true), Description("List native connection modes and PC interface names/numbers for a device exposing OnlineProvider. Does not change connection settings or save the project.")]
+        [McpServerTool(Name = "GetOnlineConnectionOptions", ReadOnly = true, Idempotent = true), Description("List native connection modes, PC interface names/numbers and target interface names for a device exposing OnlineProvider. Does not change connection settings or save the project.")]
         public static IEnumerable<OnlineConnectionOption> GetOnlineConnectionOptions(string deviceItemPath)
         {
             return OnlineCall(() => Portal.GetOnlineConnectionOptions(deviceItemPath));
         }
 
 #if TIA_MCP_READ_WRITE
-        [McpServerTool(Name = "GoOnlineDevice", ReadOnly = false, Destructive = false), Description("Request native GoOnline, reusing TIA's existing connection by default. To change connection settings, supply all four connection options; TIA may reject configuration changes while another session is online. Does not download, start/stop the CPU, control a motor or save the project. Timeout cannot interrupt the synchronous Siemens call. Read state before retrying a pending request.")]
-        public static DeviceOnlineInfo GoOnlineDevice(string deviceItemPath, string? mode = null, string? pcInterfaceName = null, int? pcInterfaceNumber = null, string? targetIpAddress = null, int timeoutSeconds = 30)
+        [McpServerTool(Name = "GoOnlineDevice", ReadOnly = false, Destructive = false), Description("Request native GoOnline, reusing TIA's existing connection by default. To select a connection, first go offline, then supply mode, PC interface name/number and either targetInterfaceName or targetIpAddress. A target interface uses its configured project address and is the direct PLC route, e.g. 2 X2. Does not download, start/stop the CPU, control a motor or save the project. Timeout cannot interrupt the synchronous Siemens call. Read state before retrying a pending request.")]
+        public static DeviceOnlineInfo GoOnlineDevice(string deviceItemPath, string? mode = null, string? pcInterfaceName = null, int? pcInterfaceNumber = null, string? targetIpAddress = null, int timeoutSeconds = 30, string? targetInterfaceName = null)
         {
-            return OnlineCall(() => Portal.GoOnlineDevice(deviceItemPath, mode, pcInterfaceName, pcInterfaceNumber, targetIpAddress, timeoutSeconds));
+            return OnlineCall(() => Portal.GoOnlineDevice(deviceItemPath, mode, pcInterfaceName, pcInterfaceNumber, targetIpAddress, timeoutSeconds, targetInterfaceName));
         }
 
         [McpServerTool(Name = "GoOfflineDevice", ReadOnly = false, Destructive = false), Description("Disconnect the native engineering online session for a supported device. Does not stop the CPU, remove fieldbus communications, control a motor or save the project. Read state before retrying a pending request.")]

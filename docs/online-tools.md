@@ -56,13 +56,18 @@ Example requests, using names from the engineering project:
 {"name":"GoOnlineDevice","arguments":{"deviceItemPath":"Station/CPU"}}
 ```
 
-To change the connection, first inspect `GetOnlineConnectionOptions`, then
-supply all four options together: `mode`, `pcInterfaceName`,
-`pcInterfaceNumber` and `targetIpAddress`. The target must be a complete
-dotted IPv4 address. Partial options fail before a native online request.
+To change the connection, first inspect `GetOnlineConnectionOptions` and use
+`GoOfflineDevice`. Supply `mode`, `pcInterfaceName`, `pcInterfaceNumber` and
+either `targetInterfaceName` or `targetIpAddress`, never both. For a direct
+PLC connection, choose an exact target interface returned by discovery,
+such as `2 X2`. TIA uses that interface's configured project address.
+The IP selection remains available for native address-based routes and must
+be a complete dotted IPv4 address. Partial options fail before a native request.
 TIA can refuse `ApplyConfiguration` while another session is online. The
 tool does not disconnect other devices to work around that restriction.
-Omit all four options to use the existing connection instead.
+`NotReachable` can still be an active engineering session, so it must also
+be disconnected before changing its route. Omit all connection options to
+reuse the existing connection instead.
 
 ```json
 {
@@ -72,7 +77,7 @@ Omit all four options to use the existing connection instead.
     "mode": "PN/IE",
     "pcInterfaceName": "Exact name returned by GetOnlineConnectionOptions",
     "pcInterfaceNumber": 1,
-    "targetIpAddress": "192.168.0.10",
+    "targetInterfaceName": "2 X2",
     "timeoutSeconds": 30
   }
 }

@@ -24,5 +24,6 @@ namespace TiaMcpServer.Siemens
         public string? Mode { get; set; }
         public string? PcInterfaceName { get; set; }
         public int PcInterfaceNumber { get; set; }
+        public IEnumerable<string>? TargetInterfaces { get; set; }
     }
 }

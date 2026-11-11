@@ -5,6 +5,7 @@ using Siemens.Engineering.HW.Features;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace TiaMcpServer.Siemens
 {
@@ -62,11 +63,16 @@ namespace TiaMcpServer.Siemens
             {
                 throw new ArgumentException("Current type differs from the expected type. Read it again before changing hardware.");
             }
-            if (String.IsNullOrWhiteSpace(newType) || !newType.StartsWith("OrderNumber:", StringComparison.Ordinal)
-                || newType.IndexOf("/V", StringComparison.Ordinal) <= "OrderNumber:".Length
-                || newType.EndsWith("/V", StringComparison.Ordinal))
+            var firmwareVersion = newType != null
+                && newType.IndexOf("/V", StringComparison.Ordinal) > "OrderNumber:".Length
+                && !newType.EndsWith("/V", StringComparison.Ordinal);
+            var softwareVersion = newType != null && Regex.IsMatch(newType,
+                @"\AOrderNumber:[^/\r\n]+/SW V[0-9]+(?:\.[0-9]+)* \.\.\.\z",
+                RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+            if (String.IsNullOrWhiteSpace(newType) || !newType!.StartsWith("OrderNumber:", StringComparison.Ordinal)
+                || (!firmwareVersion && !softwareVersion))
             {
-                throw new ArgumentException("An exact order number and firmware type identifier is required.");
+                throw new ArgumentException("An exact catalogue order number and firmware or software version identifier is required.");
             }
         }
 
@@ -92,8 +98,13 @@ namespace TiaMcpServer.Siemens
         {
             TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("CompileHardware");
             var item = GetOnlineDeviceItem(deviceItemPath);
-            var compiler = item.GetService<ICompilable>()
-                ?? throw new ArgumentException("No hardware compiler at this path.");
+            var compiler = item.GetService<ICompilable>();
+            // Classic SIMATIC PC racks expose the compiler on their parent Device.
+            if (compiler == null && item.TypeIdentifier == "System:Rack.PC" && item.Parent is Device pcStation)
+            {
+                compiler = pcStation.GetService<ICompilable>();
+            }
+            if (compiler == null) throw new ArgumentException("No hardware compiler at this path.");
             var result = compiler.Compile();
             return new { State = result.State.ToString(), result.ErrorCount, result.WarningCount, Messages = HardwareMessages(result.Messages).ToArray() };
         }

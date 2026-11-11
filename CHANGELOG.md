@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- [RW] Select direct PLC online routes through an explicit target interface,
+  such as `2 X2`, using its configured project address. Require Offline before
+  changing a route, including when the previous session is NotReachable.
+- [RO][RW] Include target interface names in GetOnlineConnectionOptions.
+- [RW] Accept exact Siemens software catalogue versions such as
+  `OrderNumber:OPC Server/SW V17 ...` in ChangeHardwareType, preserving the
+  expected-current-type guard.
+- [RW] Compile classic SIMATIC PC station racks through their parent Device
+  when the rack itself has no compiler, allowing their configured XDB to regenerate.
+
 ## [0.1.0-alpha.2] - 2026-11-11
 
 ### Fixed
