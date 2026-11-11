@@ -92,6 +92,17 @@ namespace TiaMcpServer.Test
         }
 
         [TestMethod]
+        public void ConfiguredTargetInterfaceIsExplicitAndCannotConflictWithAnIp()
+        {
+            Portal.ValidateOnlineSelection("PN/IE", "NIC", 1, null, 30, "2 X2");
+            Assert.ThrowsException<PortalException>(() => Portal.ValidateOnlineSelection("PN/IE", "NIC", 1, "10.72.72.231", 30, "2 X2"));
+            Assert.ThrowsException<PortalException>(() => Portal.ValidateOnlineSelection(null, "NIC", 1, null, 30, "2 X2"));
+            Assert.ThrowsException<PortalException>(() => Portal.ValidateOnlineSelection("PN/IE", "NIC", null, null, 30, "2 X2"));
+            foreach (var invalid in new[] { "", " ", "2 X2\n", new string('X', 129) })
+                Assert.ThrowsException<PortalException>(() => Portal.ValidateOnlineSelection("PN/IE", "NIC", 1, null, 30, invalid));
+        }
+
+        [TestMethod]
         public void ConnectingIsPolledUntilActualOnlineState()
         {
             var states = new Queue<OnlineState>(new[] { OnlineState.Connecting, OnlineState.Connecting, OnlineState.Online });

@@ -24,7 +24,7 @@ namespace TiaMcpServer.ModelContextProtocol
             return OnlineCall(() => Portal.ChangeHardwareType(deviceItemPath, expectedTypeIdentifier, newTypeIdentifier));
         }
 
-        [McpServerTool(Name = "CompileHardware", ReadOnly = false, Destructive = false), Description("Compile hardware at an exact device-item path and return all compiler messages. Does not save or download.")]
+        [McpServerTool(Name = "CompileHardware", ReadOnly = false, Destructive = false), Description("Compile hardware at an exact device-item path and return all compiler messages. A classic SIMATIC PC rack compiles its parent PC station. Does not save or download.")]
         public static object CompileHardware(string deviceItemPath)
         {
             return OnlineCall(() => Portal.CompileHardware(deviceItemPath));

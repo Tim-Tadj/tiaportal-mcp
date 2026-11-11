@@ -40,18 +40,19 @@ namespace TiaMcpServer.Siemens
             {
                 Mode = mode.Name,
                 PcInterfaceName = pc.Name,
-                PcInterfaceNumber = pc.Number
+                PcInterfaceNumber = pc.Number,
+                TargetInterfaces = pc.TargetInterfaces.Select(target => target.Name).ToArray()
             })).ToArray();
         }
 
-        public DeviceOnlineInfo GoOnlineDevice(string deviceItemPath, string? mode = null, string? pcInterfaceName = null, int? pcInterfaceNumber = null, string? targetIpAddress = null, int timeoutSeconds = 30)
+        public DeviceOnlineInfo GoOnlineDevice(string deviceItemPath, string? mode = null, string? pcInterfaceName = null, int? pcInterfaceNumber = null, string? targetIpAddress = null, int timeoutSeconds = 30, string? targetInterfaceName = null)
         {
             TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("GoOnlineDevice");
-            ValidateOnlineSelection(mode, pcInterfaceName, pcInterfaceNumber, targetIpAddress, timeoutSeconds);
+            ValidateOnlineSelection(mode, pcInterfaceName, pcInterfaceNumber, targetIpAddress, timeoutSeconds, targetInterfaceName);
             var online = RequireOnlineProvider(deviceItemPath);
             if (mode != null)
             {
-                if (online.State != OnlineState.Offline && online.State != OnlineState.NotReachable)
+                if (online.State != OnlineState.Offline)
                 {
                     throw new PortalException(PortalErrorCode.InvalidState, "The device must be offline before selecting a connection. Read its state and use GoOfflineDevice first. Omit connection options to reuse the existing connection.");
                 }
@@ -59,8 +60,20 @@ namespace TiaMcpServer.Siemens
                     ?? throw new PortalException(PortalErrorCode.InvalidParams, "Connection mode not found. Use GetOnlineConnectionOptions.");
                 var pc = configurationMode.PcInterfaces.Find(pcInterfaceName!, pcInterfaceNumber!.Value)
                     ?? throw new PortalException(PortalErrorCode.InvalidParams, "PC interface not found. Use GetOnlineConnectionOptions and its exact name and number.");
-                var address = pc.Addresses.Find(targetIpAddress!) ?? pc.Addresses.Create(targetIpAddress!);
-                if (!online.Configuration.ApplyConfiguration(address))
+                bool applied;
+                if (targetInterfaceName != null)
+                {
+                    var target = pc.TargetInterfaces.Find(targetInterfaceName)
+                        ?? throw new PortalException(PortalErrorCode.InvalidParams, "Target interface not found. Use GetOnlineConnectionOptions and its exact target interface name.");
+                    // Direct PLC connections use the configured target interface and its project address.
+                    applied = online.Configuration.ApplyConfiguration(target);
+                }
+                else
+                {
+                    var address = pc.Addresses.Find(targetIpAddress!) ?? pc.Addresses.Create(targetIpAddress!);
+                    applied = online.Configuration.ApplyConfiguration(address);
+                }
+                if (!applied)
                 {
                     throw new PortalException(PortalErrorCode.InvalidState, "TIA rejected the selected online connection configuration. GoOnline was not called. Omit connection options to reuse the existing connection.");
                 }
@@ -181,11 +194,21 @@ namespace TiaMcpServer.Siemens
             }
         }
 
-        internal static void ValidateOnlineSelection(string? mode, string? pcName, int? pcNumber, string? ip, int timeoutSeconds)
+        internal static void ValidateOnlineSelection(string? mode, string? pcName, int? pcNumber, string? ip, int timeoutSeconds, string? targetInterfaceName = null)
         {
             ValidateOnlineTimeout(timeoutSeconds);
-            if (mode == null && pcName == null && pcNumber == null && ip == null)
+            if (mode == null && pcName == null && pcNumber == null && ip == null && targetInterfaceName == null)
             {
+                return;
+            }
+            if (targetInterfaceName != null)
+            {
+                if (string.IsNullOrWhiteSpace(mode) || string.IsNullOrWhiteSpace(pcName) || pcNumber == null || pcNumber < 0
+                    || ip != null || string.IsNullOrWhiteSpace(targetInterfaceName) || targetInterfaceName.Length > 128
+                    || targetInterfaceName.Any(char.IsControl))
+                {
+                    throw new PortalException(PortalErrorCode.InvalidParams, "For a configured target interface, supply mode, PC interface name/number and targetInterfaceName; omit targetIpAddress. TIA uses that interface's configured project address.");
+                }
                 return;
             }
             if (mode == null || pcName == null || pcNumber == null || ip == null)

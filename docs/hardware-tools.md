@@ -7,13 +7,17 @@ Use full group/device/item paths from `GetProjectTree`.
 | --- | --- |
 | `GetAccessibleDevices` | Discover devices on one selected PC interface, returning names, IPs, MACs and device series. Select the mode, interface name and number from `GetOnlineConnectionOptions`. |
 | `GetHardwareNetworkInfo` | Read a module's attributes, I/O addresses, network nodes and IO-controller assignment. Read the interface item for network details and the nested I/O submodule for its addresses. |
-| `ChangeHardwareType` | Replace an offline module using Siemens `ChangeType`, provided its current type matches `expectedTypeIdentifier`. Supply the complete order-number and firmware identifier from hardware read-back. |
+| `ChangeHardwareType` | Replace an offline module using Siemens `ChangeType`, provided its current type matches `expectedTypeIdentifier`. Supply the complete catalogue identifier from hardware read-back, including hardware `/V4.2` or software `/SW V17 ...` syntax. |
 | `SetBaseUnitPotentialGroup` | Set a light/new or dark/continued power group after checking the expected current value. |
 | `CompileHardware` | Compile the selected hardware item and return its result, error/warning counts and recursive compiler messages. |
 
 After replacing a module, read back the module order, I/O addresses, subnet
 and controller assignment, then compile and inspect the messages before using
 `SaveProject`. Hardware replacement and compilation leave saving explicit.
+For a classic PC station, compile its rack path, for example
+`PC_Station/PC_Station`. This invokes the parent Device compiler and regenerates
+its configured XDB. A missing Openness DownloadProvider remains unsupported;
+this does not turn a classic PC station into a downloadable PLC.
 I/O address attributes retain Siemens' native units, including bit lengths.
 
 The hardware read-back, head replacement and compilation were exercised with

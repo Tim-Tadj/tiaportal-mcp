@@ -43,6 +43,17 @@ namespace TiaMcpServer.Test
         }
 
         [TestMethod]
+        public void SoftwareVersionsUseTheExactSiemensCatalogueSyntax()
+        {
+            const string current = "OrderNumber:OPC Server/SW V19 ...";
+            Portal.ValidateHardwareTypeChange(current, current, "OrderNumber:OPC Server/SW V17 ...");
+            Portal.ValidateHardwareTypeChange(current, current, "OrderNumber:OPC Server/SW V17.0 ...");
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidateHardwareTypeChange(current, "OrderNumber:OPC Server/SW V18 ...", "OrderNumber:OPC Server/SW V17 ..."));
+            foreach (var invalid in new[] { "OrderNumber:/SW V17 ...", "OrderNumber:OPC Server/SW V ...", "OrderNumber:OPC Server/SW V17", "OrderNumber:OPC Server/SW V17 ...extra", "OrderNumber:OPC Server/SW V17 ...\n" })
+                Assert.ThrowsException<ArgumentException>(() => Portal.ValidateHardwareTypeChange(current, current, invalid), invalid);
+        }
+
+        [TestMethod]
         public void BaseUnitChangesRejectStaleOrInvalidExpectedValues()
         {
             Portal.ValidatePotentialGroupChange(0, 0);
