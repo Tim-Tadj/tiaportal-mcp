@@ -1,16 +1,19 @@
 ﻿# Current Status
 
-Status date: 11 November 2026.
+Status date: 13 November 2026.
 
-## Issue #1 release update
+## General interface release update
 
-The latest experimental prerelease is
-[0.1.0-alpha.2](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2),
-published on 11 November 2026. Changes, compatibility notes and validation are
-in [Issue #1 changes](issue-1.md). The implementation adds five tools and keeps
-both public profiles. V17/V18 are build-only; V19 focused checks do not certify
-all operations or client installation paths. Historical alpha.1 evidence
-remains in its changelog and GitHub release.
+The current experimental prerelease is
+[0.1.0-alpha.3](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3).
+It adds a schema-guided public Openness interface across installed domains,
+while retaining the common typed workflows. See the
+[release notes](alpha3-release.md), [interface guide](public-api-interface.md)
+and [independent source review](general-interface-review.md).
+
+These release bits have build-only evidence. No tests, standalone validators,
+MCP probes, TIA attachment or PLC calls were run for this release. Historical
+alpha.1/alpha.2 runtime evidence does not qualify the new binaries.
 
 ## Release scope
 
@@ -18,8 +21,10 @@ Both profiles bundle exact V17, V18 and V19 workers. V17/V18 have compile-time
 coverage only. V20 is deferred; V21 needs its own modular adapter. The legacy
 v0.0.18 V20 release is separate.
 
-Read exposes 24 inspection tools. ReadWrite exposes 43 tools, adding controlled
-lifecycle, source/XML import, export, compilation and offline hardware changes.
+Read exposes inspection and public API discovery. ReadWrite adds typed project
+workflows and guarded generic native methods, constructors, actions, attribute
+changes, events and resource disposal. Generic effects can include PLC changes.
+Use GetOperations and GetOperationInfo for the exact advertised tool surface.
 The broker and worker remain local, and Siemens runtime DLLs are not bundled.
 
 The output contract is `v2-single-content-paged-diagnostics`. Formatted lists
@@ -48,7 +53,8 @@ capability manifests and the remaining path hardening recorded in the roadmap.
 
 The two-profile release is supported only when all of the following conditions
 are met. The deliberately narrower alpha gate is defined in
-[0.1.0-alpha.2 Release Gate](alpha-release.md).
+[0.1.0-alpha.3 release notes](alpha3-release.md); the historical alpha.2 gate
+is retained separately in [alpha-release.md](alpha-release.md).
 
 ### Architecture and Versioning
 

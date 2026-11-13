@@ -65,6 +65,18 @@ namespace TiaMcpServer.Test
         }
 
         [TestMethod]
+        public void HardwareChangesRejectStaleValuesAndNonCanonicalAddresses()
+        {
+            Portal.ValidateExactValue("Input", "Input", "direction");
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidateExactValue("Input", "Output", "direction"));
+            Assert.ThrowsException<ArgumentException>(() => Portal.ValidateExactValue("Input", null!, "direction"));
+            Portal.ValidateIpv4("192.168.1.10", "address");
+            foreach (var value in new[] { "192.168.001.10", "::1", "192.168.1.256", " 192.168.1.10" })
+                Assert.ThrowsException<ArgumentException>(() => Portal.ValidateIpv4(value, "address"), value);
+            Assert.ThrowsException<ArgumentException>(() => Portal.RequireHardwareName(" module ", "module name"));
+        }
+
+        [TestMethod]
         public void MissingProjectCannotScanCompileOrChangeHardware()
         {
             var previous = McpServer.Portal;

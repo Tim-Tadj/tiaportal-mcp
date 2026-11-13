@@ -24,7 +24,7 @@ namespace TiaMcpServer.Siemens
             return pc.GetAccessibleDevices().Select(d => new
             {
                 d.Name, d.Address, d.MACAddress, d.DeviceSeries,
-                Attributes = d.GetAttributeInfos().Select(a => new { a.Name, Value = Convert.ToString(d.GetAttribute(a.Name)) }).ToArray(),
+                Attributes = TiaMcpServer.ModelContextProtocol.Helper.GetAttributeList(d),
                 Services = ((IEngineeringServiceProvider)d).GetServiceInfos().Select(s => s.Type.FullName).ToArray()
             }).ToArray();
 #endif
@@ -36,11 +36,12 @@ namespace TiaMcpServer.Siemens
             var network = item.GetService<NetworkInterface>();
             return new
             {
-                item.Name, item.TypeIdentifier,
-                Attributes = item.GetAttributeInfos().Select(a => new { a.Name, Value = Convert.ToString(item.GetAttribute(a.Name)) }).ToArray(),
-                Addresses = item.Addresses.Select(a => a.GetAttributeInfos().Select(i => new { i.Name, Value = Convert.ToString(a.GetAttribute(i.Name)) }).ToArray()).ToArray(),
-                Nodes = network?.Nodes.Select(n => new { Attributes = n.GetAttributeInfos().Select(a => new { a.Name, Value = Convert.ToString(n.GetAttribute(a.Name)) }).ToArray(), Subnet = n.ConnectedSubnet?.Name }).ToArray(),
-                IoConnectors = network?.IoConnectors.Select(c => new { Attributes = c.GetAttributeInfos().Select(a => new { a.Name, Value = Convert.ToString(c.GetAttribute(a.Name)) }).ToArray(), IoSystem = c.ConnectedToIoSystem?.Name, Number = c.ConnectedToIoSystem?.Number }).ToArray()
+                Path = deviceItemPath, item.Name, item.TypeIdentifier,
+                Attributes = TiaMcpServer.ModelContextProtocol.Helper.GetAttributeList(item),
+                Addresses = item.Addresses.Select((address, index) => new { Index = index, Attributes = TiaMcpServer.ModelContextProtocol.Helper.GetAttributeList(address) }).ToArray(),
+                Nodes = network?.Nodes.Select((node, index) => new { Index = index, Attributes = TiaMcpServer.ModelContextProtocol.Helper.GetAttributeList(node), Subnet = node.ConnectedSubnet?.Name }).ToArray(),
+                IoControllers = network?.IoControllers.Select((controller, index) => new { Index = index, Attributes = TiaMcpServer.ModelContextProtocol.Helper.GetAttributeList(controller), IoSystem = controller.IoSystem?.Name, Number = controller.IoSystem?.Number }).ToArray(),
+                IoConnectors = network?.IoConnectors.Select((connector, index) => new { Index = index, Attributes = TiaMcpServer.ModelContextProtocol.Helper.GetAttributeList(connector), IoSystem = connector.ConnectedToIoSystem?.Name, Number = connector.ConnectedToIoSystem?.Number }).ToArray()
             };
         }
 
@@ -94,7 +95,7 @@ namespace TiaMcpServer.Siemens
             }
         }
 
-        public object CompileHardware(string deviceItemPath)
+        public CompileReport CompileHardware(string deviceItemPath)
         {
             TiaMcpServer.Security.ProfileAccessPolicy.DemandWrite("CompileHardware");
             var item = GetOnlineDeviceItem(deviceItemPath);
@@ -106,16 +107,7 @@ namespace TiaMcpServer.Siemens
             }
             if (compiler == null) throw new ArgumentException("No hardware compiler at this path.");
             var result = compiler.Compile();
-            return new { State = result.State.ToString(), result.ErrorCount, result.WarningCount, Messages = HardwareMessages(result.Messages).ToArray() };
-        }
-
-        private static IEnumerable<object> HardwareMessages(CompilerResultMessageComposition messages)
-        {
-            foreach (var m in messages)
-            {
-                yield return new { State = m.State.ToString(), m.Path, m.Description };
-                foreach (var child in HardwareMessages(m.Messages)) yield return child;
-            }
+            return RememberCompile(deviceItemPath, result, "Hardware");
         }
 
     }

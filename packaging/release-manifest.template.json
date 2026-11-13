@@ -25,7 +25,7 @@
     "19": {
       "bundled": true,
       "runtimeValidated": false,
-      "classification": "experimental-prior-runtime-evidence"
+      "classification": "experimental-build-only"
     },
     "20": {
       "bundled": false,

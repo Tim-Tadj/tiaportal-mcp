@@ -114,6 +114,7 @@ namespace TiaMcpServer.Siemens
 
         private void DisposeLocked()
         {
+            ReleaseApiEvents();
             var portal = _portal;
             _project = null;
             _session = null;
@@ -669,10 +670,11 @@ namespace TiaMcpServer.Siemens
                     GetDevicesRecursive(group, list, regex);
                 }
 
-                //foreach (var group in _project.UngroupedDevicesGroup)
-                //{
-                //    GetDevicesRecursive(_project.UngroupedDevicesGroup, list, regexName);
-                //}
+                foreach (var device in _project.UngroupedDevicesGroup.Devices)
+                {
+                    if ((regex == null || regex.IsMatch(device.Name)) && !list.Any(existing => SameNativeObject(existing, device)))
+                        list.Add(device);
+                }
             }
 
             return list;
@@ -698,8 +700,11 @@ namespace TiaMcpServer.Siemens
                 return string.Empty;
             }
 
+            if (_project?.UngroupedDevicesGroup.Devices.Any(candidate => SameNativeObject(candidate, device)) == true)
+                return "UngroupedDevices/" + device.Name;
+
             if (_project?.Devices != null &&
-                _project.Devices.Any(candidate => ReferenceEquals(candidate, device)))
+                _project.Devices.Any(candidate => SameNativeObject(candidate, device)))
             {
                 return device.Name;
             }
@@ -2868,6 +2873,8 @@ namespace TiaMcpServer.Siemens
             }
 
             string[] pathSegments = softwarePath.Split('/');
+            if (pathSegments.Length >= 3 && pathSegments[0] == "UngroupedDevices")
+                return GetSoftwareContainerInDevices(_project.UngroupedDevicesGroup.Devices, pathSegments, 1);
             int index = 0;
 
             if (index >= pathSegments.Length)
@@ -3005,6 +3012,9 @@ namespace TiaMcpServer.Siemens
                 return null;
             }
 
+            if (pathSegments[0] == "UngroupedDevices")
+                return pathSegments.Length == 2 ? _project.UngroupedDevicesGroup.Devices.FirstOrDefault(d => d.Name.Equals(pathSegments[1], StringComparison.OrdinalIgnoreCase)) : null;
+
             // Try top-level device first
             if (pathSegments.Length == 1)
             {
@@ -3026,7 +3036,7 @@ namespace TiaMcpServer.Siemens
                 var device = group.Devices.FirstOrDefault(d => d.Name.Equals(pathSegments[i], StringComparison.OrdinalIgnoreCase));
                 if (device != null)
                 {
-                    return device;
+                    return i == pathSegments.Length - 1 ? device : null;
                 }
 
                 // Try to find subgroup
@@ -3047,7 +3057,7 @@ namespace TiaMcpServer.Siemens
         {
             foreach (var device in group.Devices)
             {
-                if (ReferenceEquals(device, target))
+                if (SameNativeObject(device, target))
                 {
                     return $"{groupPath}/{device.Name}";
                 }

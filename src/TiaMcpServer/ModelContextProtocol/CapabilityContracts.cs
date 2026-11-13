@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace TiaMcpServer.ModelContextProtocol
 {
@@ -18,6 +18,7 @@ namespace TiaMcpServer.ModelContextProtocol
         public bool CanModifyProject { get; set; }
         public bool CanWriteFiles { get; set; }
         public IEnumerable<string>? ToolFamilies { get; set; }
+        public string? OperationDiscovery { get; set; }
         public IEnumerable<string>? Guidance { get; set; }
     }
 }

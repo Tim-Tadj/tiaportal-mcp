@@ -47,7 +47,7 @@ namespace TiaMcpServer.ModelContextProtocol
                     {
                         name = attr.Name;
                         accessMode = Enum.GetName(typeof(EngineeringAttributeAccessMode), attr.AccessMode);
-                        value = NormalizeAttributeValue(obj.GetAttribute(name));
+                        value = IsSensitiveAttribute(name) ? "<redacted>" : NormalizeAttributeValue(obj.GetAttribute(name));
                     }
                     catch (Exception ex)
                     {
@@ -67,6 +67,13 @@ namespace TiaMcpServer.ModelContextProtocol
         }
 
         internal static object? GetAttributeValue(object? value) => NormalizeAttributeValue(value);
+
+        internal static bool IsSensitiveAttribute(string name)
+        {
+            foreach (var term in new[] { "password", "secret", "credential", "token", "privatekey" })
+                if (name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
 
         public static object? NormalizeAttributeValue(object? value)
         {

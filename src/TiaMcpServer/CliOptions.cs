@@ -1,5 +1,6 @@
 ﻿using System;
 using TiaMcpServer.Runtime;
+using System.Collections.Generic;
 
 namespace TiaMcpServer
 {
@@ -36,6 +37,7 @@ namespace TiaMcpServer
 
         public AccessProfile? AccessProfile { get; set; }
         public string? OutputRoot { get; set; }
+        public List<string> ApiFileRoots { get; } = new List<string>();
         public int? Logging { get; set; } // "stdio" or "http"
         public bool ShowHelp { get; private set; }
         public string? Error { get; private set; }
@@ -52,7 +54,9 @@ namespace TiaMcpServer
             "  --access-profile <Read|ReadWrite>",
             "      Select the exact access-profile worker. If omitted, the worker's built profile is used.",
             "  --output-root <path>",
-            "      Contain all exported files beneath this directory.",
+            "      Contain typed workflow exports beneath this directory.",
+            "  --api-file-root <path>",
+            "      Grant native API typed file inputs access beneath this root. Repeat for multiple roots.",
             "  --logging <number>",
             "      Preserve the existing logging selector.",
             "  --help",
@@ -170,6 +174,15 @@ namespace TiaMcpServer
                         }
 
                         options.Logging = logging;
+                        break;
+
+                    case "--api-file-root":
+                        if (!TryReadValue(args, ref i, out var apiRoot))
+                        {
+                            options.Error = "--api-file-root requires a directory path.";
+                            return options;
+                        }
+                        options.ApiFileRoots.Add(apiRoot);
                         break;
 
                     case "-output-root":

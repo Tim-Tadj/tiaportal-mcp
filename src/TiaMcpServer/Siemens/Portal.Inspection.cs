@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Siemens.Engineering;
 using Siemens.Engineering.Compiler;
 using Siemens.Engineering.HW;
@@ -37,6 +37,8 @@ namespace TiaMcpServer.Siemens
     public sealed class CompileReport
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N");
+        public string? TargetPath { get; set; }
+        public string Kind { get; set; } = "Software";
         public string? State { get; set; }
         public int ErrorCount { get; set; }
         public int WarningCount { get; set; }
@@ -94,10 +96,11 @@ namespace TiaMcpServer.Siemens
                 ?? throw new ArgumentException("PLC software was not found at the supplied path.");
         }
 
-        public CompileReport RememberCompile(string softwarePath, CompilerResult result)
+        public CompileReport RememberCompile(string targetPath, CompilerResult result, string kind = "Software")
         {
             var report = new CompileReport
             {
+                TargetPath = targetPath, Kind = kind,
                 State = result.State.ToString(), ErrorCount = result.ErrorCount, WarningCount = result.WarningCount
             };
             AddCompileMessages(report.Diagnostics, result.Messages, null);
@@ -123,7 +126,7 @@ namespace TiaMcpServer.Siemens
         public CompileReport GetCompileReport(string compileId)
         {
             if (IsProjectNull() || !SameProject(_compileProject, _project) || _lastCompile?.Id != compileId)
-                throw new ArgumentException("Compile results expired or compileId is invalid. Compile the selected PLC software again.");
+                throw new ArgumentException("Compile results expired or compileId is invalid. Compile the intended hardware or software target again.");
             return _lastCompile;
         }
 

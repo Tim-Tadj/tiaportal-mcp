@@ -1,248 +1,294 @@
-# TIA Portal MCP Server
+﻿# TIA Portal MCP
 
-An MCP server which connects to Siemens TIA Portal.
+**AI-assisted engineering for Siemens TIA Portal.**
 
-## Features
+Connect your AI assistant to a TIA Portal project. Explore PLC code, trace
+references, inspect hardware and networks, and carry out requested engineering
+changes through the Model Context Protocol.
 
-- Connect to a TIA Portal instance
-- Browse and interact with TIA Portal projects
-- Choose a structurally separated Read or ReadWrite access profile
-- Use the same local version broker from Claude Desktop, VS Code or ChatGPT
-- Inspect native online state, live PLC values and rack hardware
-- Configure offline module types and BaseUnit power groups with ReadWrite
+Use focused tools for everyday work and a general public Openness interface
+for additional workflows. The assistant can discover the native objects,
+services and exact method schemas available in your installation, rather than
+needing a new C# helper for each task.
 
-## Documentation
+[Download 0.1.0-alpha.3](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3)
+| [Install](#installation)
+| [TIA versions](#tia-portal-versions)
+| [Interface guide](docs/public-api-interface.md)
 
-- See [Online Tools](docs/online-tools.md) and [Hardware Tools](docs/hardware-tools.md)
-  for the native inspection and offline configuration tools.
+> Experimental Windows release. V17, V18 and V19 workers are included in both
+> profiles. These release binaries have build-only evidence; tests and live
+> TIA/PLC checks were not run. See the [release notes](docs/alpha3-release.md).
 
-- See [Project Documentation](docs/README.md) for the architecture, roadmap,
-  current status, definition of done and changelog policy.
-- See [0.1.0-alpha.2 Alpha Release](docs/alpha-release.md) for the experimental
-  support matrix, completed publication checklist and deferred work.
-- See [Model-Facing Output Format Policy](docs/output-formats.md) for the
-  normative compact CSV, bounded TOON and JSON result contract.
+## What you can do
 
-## Current Status
+| Engineering task | MCP capabilities |
+| --- | --- |
+| Understand an unfamiliar project | Explore devices, PLC software, program blocks, data types, tag tables and constants. |
+| Explain PLC logic | Inspect block/type metadata, capture native XML or supported generated source, and follow native cross-references. Content capture requires ReadWrite because Siemens exports through a temporary file. |
+| Inspect hardware and networks | Read module identities, I/O addresses, IP/node settings and PROFINET controller assignments. Search the hardware catalogue on V19. |
+| Build and configure offline hardware | Create catalogue-verified devices, plug modules, configure addresses and nodes, and create or assign PROFINET I/O systems. |
+| Compile and review changes | Compile software or hardware and page through native errors, warnings and diagnostic details. Export local-project device configuration as AML with its native log. |
+| Work beyond PLC code | Discover public HMI, library, technology-object, drive, OPC, safety and collaboration surfaces through the general Openness bridge, where the installed Siemens API provides them. |
+| Inspect online information | Read native engineering connection state or make bounded PLC value reads against an explicit target. |
 
-The experimental Windows x64 prerelease
-[`0.1.0-alpha.2`](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2)
-contains two public distributions, `tia-portal-mcp-read` and
-`tia-portal-mcp-readwrite`, with isolated V17, V18 and V19 workers. It patches
-[issue #1](https://github.com/Tim-Tadj/tiaportal-mcp/issues/1) with complete
-list payloads, compile diagnostics, source import, native cross-references,
-PLC tags/constants and bounded software trees. See [Issue #1 changes](docs/issue-1.md)
-for compatibility changes and validation limits.
+For example, ask your assistant:
 
-V17 and V18 remain build-only experimental workers. V19 has focused local
-runtime coverage; this is not production certification. V20 is deferred and
-V21 is unsupported. Packages contain no Siemens runtime DLLs.
+- “Explain how `FC_Pump` works and find the symbols it references.”
+- “Show the I/O addresses and PROFINET controller assignments for this station.”
+- “Create the requested module configuration, compile it, and show the diagnostics before saving.”
+- “Find the public library and HMI services available in this project.”
 
-The alpha is for evaluation and does not claim production support for any
-profile or TIA Portal version. See [Current Status](docs/status.md) and the
-[Alpha Release Gate](docs/alpha-release.md) before installing it.
+Content capture and engineering changes require ReadWrite.
+Availability depends on the project, installed modules, licences and TIA version.
 
-The stable legacy v0.0.18 release remains the single read-write server compiled
-against TIA Portal V20.
+## What is in the MCP interface?
 
-## Released v0.0.18 Requirements
+Two layers share the same connection and project context:
 
-These requirements apply to the legacy v0.0.18 release. The
-`0.1.0-alpha.2` broker discovers installed TIA Portal versions, selects a
-bundled worker and does not require a checkout-specific path or the
-`TiaPortalLocation` variable.
+**Task-focused tools** provide short, named operations for common workflows.
+**The general public API bridge** lets an AI discover and use additional public
+Siemens contracts through a small, consistent set of operations.
 
-- __.net Framework 4.8__ installed
-- __Siemens TIA Portal V20__ installed and running on your machine
-- Check if under `Environment Variables/User variable for user <name>` the variable `TiaPortalLocation` is set to `C:\Program Files\Siemens\Automation\Portal V20`
-- User must be in Windows User Group `Siemens TIA Openness`
+| Interface area | Representative tools |
+| --- | --- |
+| Capabilities and tool discovery | `GetCapabilities`, `GetOperations`, `GetOperationInfo` |
+| Connection and project state | `GetTiaProcesses`, `Connect`, `GetState`, `ListProjects` |
+| Project and PLC browsing | `GetDevices`, `GetBlocks`, `GetTypes`, `GetPlcTagTables`, `GetPlcTags` |
+| Logic and content | `ReadBlockContent`, `ReadTypeContent`, `FindReferences`, `GetExternalSources` |
+| Hardware workflows | `GetHardwareNetworkInfo`, `FindHardwareCatalog`, `CreateHardwareDevice`, `PlugHardwareModule`, `ConfigureIoAddress`, `ConfigureHardwareNode` |
+| Compile, import and export | `CompileSoftware`, `CompileHardware`, `GetCompileDiagnostics`, `ImportBlock`, `ExportBlock`, `ExportDeviceConfiguration` |
+| Public API discovery and reads | `ListApiTypes`, `DescribeApiObject`, `ReadApiProperty`, `ReadApiField`, `BrowseApiCollection`, `GetApiService` |
+| Public native operations | `InvokeApiMethod`, `CreateApiObject`, `WriteApiProperty`, `CreateEngineeringObject`, `UpdateEngineeringAttributes`, `InvokeEngineeringAction` |
+| Events, callbacks and resources | `SubscribeApiEvent`, `ReadApiEvents`, `UnsubscribeApiEvent`, `ReleaseApiObject`; declarative callback arguments for synchronous native decisions |
 
-The server checks Windows group membership but must not add the user to that
-group automatically.
+The worker reports its exact available tools and parameter schemas at runtime.
+Object references and paged results help the assistant reuse discovered targets
+and request only the data it needs. The bridge uses public Siemens contracts;
+it does not evaluate arbitrary C# or provide UI-only editor functions.
 
-Experimental V17 to V19 profile bundles require Windows x64, .NET Framework
-4.8, at least one matching TIA Portal Openness installation and membership of
-the `Siemens TIA Openness` group. When several bundled TIA versions are
-installed, pass an exact value such as `--tia-version V19`.
+See [the complete interface guide](docs/public-api-interface.md) for native
+creation/action schemas, generic methods, ref/out values, callback policies,
+file access and reference lifetimes.
 
-The bundles contain no Siemens-supplied runtime or object-code DLLs. Each
-worker loads the matching Openness assemblies from the user's local TIA Portal
-installation.
+## Choose your access profile
 
-## TIA Portal Versions
+| Profile | Use it for | What it exposes |
+| --- | --- | --- |
+| **Read** | Project exploration and inspection | Query tools, public API schemas, property/field reads, collection browsing and declared services. |
+| **ReadWrite** | Deliberate engineering operations | Read tools plus project lifecycle, content capture, compile, import/export, hardware changes and guarded generic native calls. |
 
-- V19 is experimental with focused local runtime checks. The broader licensed
-  runtime matrix and clean-account client certification remain outstanding.
-- V17 and V18 workers are included for build-only evaluation and are
-  explicitly runtime-unverified.
-- V20 is not included in `0.1.0-alpha.2`. Its exact-version worker and SIMATIC
-  SD document operations are planned for a later alpha. The published v0.0.18
-  release remains the legacy V20 option.
-- V21 is unsupported in `0.1.0-alpha.2` and requires its own modular Openness
-  adapter before a later release can include it.
-- SIMATIC SD document import and export are unavailable in
-  `0.1.0-alpha.2` because those operations require a V20 worker.
+The profiles are separate binaries. Installing Read does not expose the
+ReadWrite commands. Enable one profile for the same TIA Portal process at a time.
 
-## Known Limitations
+Generic ReadWrite native calls require an exact expected project context and
+explicit acceptance of unclassified effects. Depending on the selected native
+method, those effects can include files, downloads, CPU commands or security
+changes. ReadWrite extends beyond the typed offline workflows; inspect native
+results before retrying a failed operation.
 
-- As of 2025-09-02: Importing Ladder (LAD) blocks from SIMATIC SD documents requires the companion `.s7res` file to contain en-US tags for all items; otherwise import may fail. This is a known limitation/bug in TIA Portal Openness.
-- `ExportBlock` requires a fully qualified `blockPath` like `Group/Subgroup/Name`. If only a name is provided, the MCP server returns `InvalidParams` and may include suggestions for likely full paths.
+## TIA Portal versions
 
-## Testing
+**The current release bundles exact workers for TIA Portal V17, V18 and V19.**
 
-- Run the Siemens-free output contract suite with
-  `dotnet test tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj`.
-- See `tests/McpSmoke/README.md` for the reusable read-only broker smoke test.
-- See `tests/TiaMcpServer.Test/README.md` for licensed integration
-  prerequisites and project asset setup.
-- Run solution-wide `dotnet test` only when those integration prerequisites
-  are available and the user has explicitly confirmed the run.
-- The complete test execution policy is in `AGENTS.md`.
+| TIA Portal version | Included in alpha.3 | Current evidence |
+| --- | --- | --- |
+| **V17** | Read and ReadWrite | Compiled; runtime-unverified |
+| **V18** | Read and ReadWrite | Compiled; runtime-unverified |
+| **V19** | Read and ReadWrite | Compiled; runtime-unverified |
+| V20 | No | Deferred to a later release |
+| V21 | No | Requires a dedicated adapter |
+| V16 and earlier | No | No worker included |
 
-## Contributing
+Choose an access profile, then select a TIA version. The included broker starts
+the matching worker. `Auto` succeeds only when exactly one bundled version is
+installed; otherwise set `V17`, `V18` or `V19` explicitly.
 
-- See `AGENTS.md` for guidance on working with agentic assistants and the test execution policy.
+Some functions vary by version: native cross-references and hardware type
+replacement require V18 or newer; catalogue lookup, catalogue-verified device
+creation and accessible-device discovery require V19. SIMATIC SD document
+operations are not included in this release.
 
-## Error Handling (ExportBlock)
+Bundled means an exact worker is provided, not that every native workflow has
+been runtime-qualified. Siemens runtime DLLs are loaded from your local
+installation and are not included in the downloads.
 
-- The Portal layer throws `PortalException` with a short message and `PortalErrorCode` (e.g., NotFound, ExportFailed), and attaches `softwarePath`, `blockPath`, `exportPath` in `Exception.Data` while preserving `InnerException` on export failures.
-- The MCP layer maps these to `McpException` codes. For `ExportFailed`, it includes a concise reason from the underlying error; for `NotFound`, it returns `InvalidParams` and may suggest likely full block paths if a bare name was provided.
-- Consistency required: TIA Portal never exports inconsistent blocks/types. Single export returns `InvalidParams` with a message to compile first. Bulk export skips inconsistent items and returns them in an `Inconsistent` list alongside `Items`.
-- Standardisation: Exception context metadata is attached in a single catch per portal method right before rethrow, not at inline throw sites. See `docs/error-model.md`.
-- This standardised pattern currently applies to `ExportBlock` and will expand incrementally.
+## Installation
 
-## Model-Facing Output Formats
+### 1. Prepare the Windows PC
 
-Eligible bounded list tools expose
-`responseFormat=Auto|Toon|Csv|Json`. `Auto` is the default:
+Install and run the client on the Windows PC where TIA Portal is installed.
+You need:
 
-- compact flat `Summary` tables use RFC 4180 CSV;
-- richer eligible `Standard` tables use the bounded
-  `tia-toon-table/1` profile based on TOON v4.1;
-- `Full`, nested, compatibility and otherwise ineligible results use compact
-  JSON.
+- Windows x64 and .NET Framework 4.8.
+- TIA Portal V17, V18 or V19 with its matching Openness API installed.
+- Licences and installed Siemens modules for the engineering functions you use.
+- Your Windows account in the **Siemens TIA Openness** local group.
+- An MCP client, such as Claude Desktop or a local VS Code/Copilot session.
 
-Automatic selection falls back to compact JSON whenever a table format would
-lose structure. An incompatible explicit `Csv` or `Toon` request returns MCP
-`InvalidParams` guidance instead of flattening fields or silently changing
-format. Explicit `Json` works for every valid response shape.
+<details>
+<summary>Set up Siemens Openness group membership</summary>
 
-Formatted list metadata reports the selected format, `returned`, `hasMore` and
-`nextCursor`. Full row data appears once in model-facing text. The TOON profile
-is intended to make repeated record structure conspicuous to models, but any
-accuracy benefit is model and data dependent and must be evaluated locally.
+Ask your administrator to open **Computer Management**, locate the local
+**Siemens TIA Openness** group under **Local Users and Groups**, and add your
+Windows account. Fully sign out of Windows and sign in again afterwards.
+The MCP does not change group membership for you.
 
-MCP JSON-RPC, tool schemas, VS Code and Claude configuration, MCPB and release
-manifests, and build metadata remain JSON. The complete normative rules are in
-[Model-Facing Output Format Policy](docs/output-formats.md).
+See [Siemens' group setup instructions](https://docs.tia.siemens.cloud/r/en-us/v21/tia-portal-openness-api-for-automation-of-engineering-workflows/basics/installation/adding-users-to-the-siemens-tia-openness-user-group).
+This Windows access setup also applies to the bundled earlier versions; the
+link's V21 documentation does not imply a V21 worker is included.
 
-## Transports
+</details>
 
-- Supported today: `stdio`
-  - Program wires `AddMcpServer().WithStdioServerTransport()`.
-  - For stdio, logs must go to stderr to avoid corrupting JSON-RPC.
-- Available via SDK: `stream` (custom streams)
-  - The SDK exposes `WithStreamServerTransport(Stream input, Stream output)` which can be used to host over TCP sockets or other streams.
-  - Not wired in this repo yet.
-- Streamable HTTP: not implemented yet
-  - It is not required for the ChatGPT alpha. OpenAI Secure MCP Tunnel can
-    launch the local stdio broker directly through `--mcp-command`.
-  - No TIA MCP component is hosted remotely or exposed through a public
-    inbound port. The tunnel client sends MCP work over outbound HTTPS.
-  - A bespoke `HttpListener` JSON bridge is not considered a supported MCP transport.
+Open the project in the matching TIA Portal version. Respond to TIA's Openness
+authorisation prompt if it appears when connecting.
 
-## VS Code
+### 2. Download a profile
 
-- The current upstream VS Code extension remains available for the released
-  single-worker server: [TIA-Portal MCP-Server](https://marketplace.visualstudio.com/items?itemName=JHeilingbrunner.vscode-tiaportal-mcp).
-- The published `0.1.0-alpha.2` profile ZIPs support direct stdio installation.
-  The broker chooses the exact bundled V17, V18 or V19 worker.
-- A VSIX is not required or included in `0.1.0-alpha.2`.
-- The packaged installer and workspace configuration instructions are in
-  [`packaging/clients/vscode`](packaging/clients/vscode/README.md).
+Open the [alpha.3 release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3)
+and download the package matching your client and intended access:
 
-  Add the selected broker to your user or workspace `mcp.json`:
+| Client | Read package | ReadWrite package |
+| --- | --- | --- |
+| Claude Desktop | `tia-portal-mcp-0.1.0-alpha.3-read-win-x64.mcpb` | `tia-portal-mcp-0.1.0-alpha.3-readwrite-win-x64.mcpb` |
+| VS Code, other local stdio clients, or the ChatGPT tunnel kit | `tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip` | `tia-portal-mcp-0.1.0-alpha.3-readwrite-win-x64.zip` |
 
-  ```json
-  {
-    "servers": {
-      "tia-portal-mcp-read": {
-        "type": "stdio",
-        "command": "C:\\path\\to\\tia-portal-mcp-read\\server\\TiaPortalMcp.exe",
-        "args": [
-          "--access-profile",
-          "Read",
-          "--tia-version",
-          "Auto"
-        ],
-        "env": {}
-      }
-    }
-  }
-  ```
+Use a profile package from the release assets, rather than GitHub's automatic
+source-code ZIP. No source checkout, .NET SDK, Node.js or Python is needed to
+run the packaged broker and workers.
 
-  A copyable example is available in
-  [`samples/vscode/mcp.json`](samples/vscode/mcp.json). Select only one
-  profile for a TIA Portal process.
+The packages are unsigned. Download `SHA256SUMS.txt` from the same release and
+compare the matching entry with your file's hash, for example:
 
-  `responseFormat` is a per-tool argument. Do not add it to `mcp.json`; the
-  VS Code server configuration remains JSON.
+```powershell
+Get-FileHash -Algorithm SHA256 -LiteralPath `
+    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip
+```
 
-## Claude Desktop
+### 3A. Claude Desktop
 
-- Download the matching Read or ReadWrite `.mcpb` from the
-  [`0.1.0-alpha.2` prerelease](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2),
-  verify it against `SHA256SUMS.txt`, then choose
-  **Settings > Extensions > Advanced settings > Install Extension** in Claude
-  Desktop and select the file.
-  See [Claude's local MCP server guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
-- The MCPB files are experimental in `0.1.0-alpha.2`. All published alpha
-  workers are runtime-unverified. V19 retains only prior runtime evidence from
-  before the resolver change.
-- For development, add the matching broker directly to
-  `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`. A
-  complete example is in
-  [`samples/claude/claude_desktop_config.json`](samples/claude/claude_desktop_config.json).
+1. Download the chosen `.mcpb`.
+2. In Claude Desktop settings, open the desktop extension manager. Current
+   versions place it under **Desktop app**, next to **Extensions**; older
+   layouts have an **Extensions** settings page.
+3. Open **Advanced settings**, choose **Install Extension**, and select the file.
+4. Set the TIA version to `V17`, `V18` or `V19`, or use `Auto` for one installed
+   bundled version. The ReadWrite package also asks for an export output directory.
+5. Enable the extension for the conversation and continue with the first
+   connection sequence below.
 
-  ```json
-  {
-    "mcpServers": {
-      "tia-portal-mcp-read": {
-        "command": "C:\\path\\to\\tia-portal-mcp-read\\server\\TiaPortalMcp.exe",
-        "args": [
-          "--access-profile",
-          "Read",
-          "--tia-version",
-          "Auto"
-        ],
-        "env": {}
-      }
-    }
-  }
-  ```
+Organisation policies may require an administrator to allow the extension.
+See [Claude's installation guidance](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop)
+and the [profile installation/removal guide](packaging/clients/claude/README.md).
 
-  `responseFormat` is a per-tool argument. Claude configuration and the MCPB
-  manifest remain JSON even when eligible tool result text is CSV or TOON.
+### 3B. VS Code / Copilot
 
-## ChatGPT
+1. Extract the whole profile ZIP to a permanent folder, for example
+   `C:\Tools\TiaPortalMcp\Read`. Keep `server`, `clients` and `manifest.json` together.
+2. Open a local Windows VS Code session. In PowerShell from that extracted
+   folder, run the packaged installer with your exact TIA version:
 
-The TIA MCP broker and worker run only on the user's PC. This project does not
-host them in a cloud service or expose them through a public inbound port.
+```powershell
+Set-Location 'C:\Tools\TiaPortalMcp\Read'
+.\clients\vscode\Install-VsCodeMcp.ps1 -TiaVersion V19
+```
 
-ChatGPT does not connect to the local stdio process directly. The
-`0.1.0-alpha.2` connection kit uses
-[OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
-and configures the local `tunnel-client` to launch the selected profile broker
-through `--mcp-command`. No Streamable HTTP adapter is required. The tunnel
-uses outbound HTTPS, so selected MCP requests and results pass through OpenAI.
-The packaged configure, doctor and start workflow is documented in
-[`packaging/clients/chatgpt`](packaging/clients/chatgpt/README.md).
+3. The installer uses `code --add-mcp` to add the fixed profile to VS Code's
+   user-profile configuration. With **MCP: List Servers**, locate the TIA server,
+   start it and review the client trust prompt. Make its tools available to the
+   intended agent session.
 
-Current official full MCP availability is on ChatGPT web. This project
-therefore describes the artefact as a custom-app connection kit, not a direct
-ChatGPT Desktop stdio installer. See
-[OpenAI's developer-mode availability](https://help.openai.com/en/articles/12584461)
-before relying on a particular ChatGPT plan or workspace role.
+The `code` command must be on PATH. The helper's `-PrintConfiguration` option
+shows the generated configuration without installing it. For newer native
+Copilot configuration destinations, use **MCP: Add Server**, choose a stdio
+command, and supply the broker command and arguments below. Select the
+configuration destination used by your intended session.
 
-See [ChatGPT Local Connection](docs/chatgpt-local.md) for the process and data
-boundary. The TIA-facing processes and project files remain local.
+See [VS Code's current MCP configuration guidance](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
+and the [full VS Code guide](packaging/clients/vscode/README.md).
+
+### 3C. Other local MCP clients
+
+Register a stdio server using the extracted broker. A Read/V19 example is:
+
+```json
+{
+  "command": "C:\\Tools\\TiaPortalMcp\\Read\\server\\TiaPortalMcp.exe",
+  "args": ["--access-profile", "Read", "--tia-version", "V19"]
+}
+```
+
+Place those fields inside the configuration structure your client expects.
+For ReadWrite, use its extracted broker and matching `ReadWrite` argument.
+Add `--output-root` and an approved directory when choosing another export root.
+The version-selection broker removes the need to configure a different worker
+executable for every TIA version.
+
+### 3D. ChatGPT through Secure MCP Tunnel
+
+The ZIP contains a local connection kit for OpenAI Secure MCP Tunnel. TIA Portal
+and the MCP remain on your Windows PC; selected MCP requests and results travel
+through OpenAI over outbound HTTPS. No public inbound listener is required.
+
+1. Use [OpenAI's tunnel setup guide](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+   to create a tunnel, associate the intended workspace, obtain the required
+   permissions and download `tunnel-client` onto the Windows PC.
+2. Follow the [packaged ChatGPT guide](packaging/clients/chatgpt/README.md) to
+   provide its runtime API key to the current PowerShell process. From the
+   extracted profile, configure and start it:
+
+```powershell
+.\clients\chatgpt\Configure-ChatGptTunnel.ps1 `
+    -TunnelId tunnel_0123456789abcdef0123456789abcdef `
+    -TiaVersion V19
+.\clients\chatgpt\Start-ChatGptTunnel.ps1
+```
+
+3. Replace the example tunnel ID with your own and keep the launcher running.
+   In ChatGPT web, add a custom MCP server from **Plugins**, select the **Tunnel**
+   connection and your tunnel, complete creation, then install/select the plugin.
+   Workspace permissions apply.
+
+Use the [official custom MCP server instructions](https://developers.openai.com/api/docs/guides/custom-mcp-server)
+for current account access and menus. This kit is a tunnel integration, rather
+than a direct ChatGPT Desktop stdio installer.
+
+## Your first connection
+
+Once the client has the server available, ask:
+
+> Use TIA Portal MCP to report its capabilities and installed worker version.
+> List the running TIA Portal processes, connect to the instance I select,
+> show the selected project and list its devices. Make no changes.
+
+The assistant should discover `GetCapabilities`, use `GetTiaProcesses` and
+`Connect` with an exact process ID, then check `GetState`. Confirm the returned
+access profile, TIA version and project path before starting engineering work.
+These are user-run connection steps; they were not executed for this release.
+
+## Troubleshooting
+
+| Problem | What to check |
+| --- | --- |
+| Several TIA versions are installed | Set the client to an exact `V17`, `V18` or `V19` instead of `Auto`. |
+| Access denied or `EngineeringSecurityException` | Check the Openness group membership, sign out/in after changes, and respond to TIA's connection prompt. |
+| No running TIA process | Start the matching TIA version and open the project. Read attaches to an existing instance. |
+| Client cannot find the executable | Keep the complete extracted bundle in place and check the absolute `server\TiaPortalMcp.exe` path. Use a local Windows client session. |
+| A PowerShell helper is blocked | After verifying the ZIP, use `Unblock-File` on that specific extracted helper if Mark-of-the-Web is the cause. Keep the global execution policy unchanged. |
+| A content or engineering tool is missing | Check the selected profile and `GetOperations`. Native content capture needs ReadWrite; some tools need V18/V19 or an installed Siemens module. |
+| A native call fails | Re-read the target state before retrying a write. Native operations can have partial effects. See the returned diagnostics and interface guide. |
+
+## Documentation and development
+
+- [Public API interface](docs/public-api-interface.md): schemas, values, callbacks and native effects.
+- [General AI workflows](docs/general-ai-workflows.md): worked sequences and proposed evaluation cases.
+- [Coverage map](docs/openness-coverage.md): exact-version and native API boundaries.
+- [Release notes](docs/alpha3-release.md): packages, compatibility and build-only evidence.
+- [Hardware tools](docs/hardware-tools.md) and [online tools](docs/online-tools.md).
+- [Build guide](build/README.md), [test prerequisites](tests/TiaMcpServer.Test/README.md) and [contributor instructions](AGENTS.md).
+- [Output contract](docs/output-formats.md) and [error model](docs/error-model.md).
+
+The release includes no Siemens runtime DLLs. Private APIs, UI-only actions and
+arbitrary .NET execution are outside the interface. Tests, client installation
+qualification and licensed runtime coverage remain outstanding. The project is
+licensed under [MIT](LICENSE.txt).

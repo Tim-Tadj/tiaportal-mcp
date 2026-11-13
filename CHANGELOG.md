@@ -1,6 +1,37 @@
-# Change Log
+﻿# Change Log
 
 ## [Unreleased]
+
+## [0.1.0-alpha.3] - 2026-11-13
+
+### Added
+
+- [RO][RW] Add paged public API type/member schemas, property/field reads,
+  collection navigation and declared services across installed Siemens domains.
+- [RW] Add guarded public methods, constructors, properties, fields, dynamic
+  engineering creation/actions/attributes, event subscriptions and declarative
+  callbacks. Native effects are explicitly unclassified and can include PLC changes.
+- [RW] Add explicit native file-root grants for typed file/directory inputs.
+- [RO][RW] Add filtered operation metadata and typed parameter discovery, with
+  implementation status separated from unchecked target runtime availability.
+- [RO][RW] Add bounded engineering-object descriptions, attributes, child browsing,
+  external-source identity and running Portal process discovery.
+- [RW] Add bounded immutable PLC block/type content captures through temporary
+  native exports; keep the Read profile's file-export boundary explicit.
+- [RW] Add catalogue-driven device/module construction, typed offline node/address
+  changes, I/O-system creation and guarded PROFINET device assignment.
+- [RW] Add local-project CAx device configuration export with native log paths.
+- [Docs] Add an Openness coverage inventory and general AI workflow evaluations.
+- [Docs] Explain engineering use cases, the MCP interface, bundled TIA versions
+  and client installation in the project README.
+
+### Changed
+
+- [RW] Hardware compilation now returns the shared paged diagnostic report with
+  compile ID, target and kind. GetCompileDiagnostics reads either compile scope.
+- [Build] Publish 0.1.0-alpha.3 as an unsigned, build-only experimental
+  prerelease. Tests and runtime checks remain unrun at the user's request;
+  earlier release validation is not reused.
 
 ### Fixed
 
