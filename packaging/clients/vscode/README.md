@@ -3,7 +3,7 @@
 This bundle runs TIA Portal MCP locally over standard input and output. No
 extension or VSIX is required.
 
-The `0.1.0-alpha.2` bundles contain workers for TIA Portal V17, V18 and V19
+The `0.1.0-alpha.3` bundles contain workers for TIA Portal V17, V18 and V19
 only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
 release. V21 is unsupported in this release.
 
@@ -15,7 +15,7 @@ the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.2-read-win-x64.zip
+    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip
 ```
 
 If Windows then blocks the verified script because it carries
@@ -59,11 +59,17 @@ To review the generated server object without changing VS Code:
 .\clients\vscode\Install-VsCodeMcp.ps1 -PrintConfiguration
 ```
 
-For workspace configuration, copy the adjacent `mcp.json` into
-`.vscode\mcp.json`. The portable file is fixed to the bundle profile and uses
-an input variable so VS Code prompts for the absolute extracted bundle path.
-It defaults to automatic TIA version detection. Change `Auto` to an exact
-version in `mcp.json` when several bundled versions are installed.
+For editor-managed workspace configuration, copy `clients\vscode\mcp.json`
+from the extracted release bundle into `.vscode\mcp.json`. This profile-specific
+file is created during assembly; the repository source templates are
+[read.mcp.json](read.mcp.json) and [readwrite.mcp.json](readwrite.mcp.json).
+The extracted file uses an input variable for the absolute bundle path and
+defaults to `Auto`; choose an exact version when several are installed.
+
+For the newer native Copilot configuration destinations, use **MCP: Add Server**
+and select the destination for the intended session. The helper uses
+`code --add-mcp`, which targets editor-managed user-profile configuration.
+See the current [VS Code configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
 
 VS Code asks the user to trust a newly added local MCP server. Windows does not
 currently provide VS Code MCP sandboxing, so use the Read bundle unless write

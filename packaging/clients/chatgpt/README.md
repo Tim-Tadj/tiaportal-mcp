@@ -9,7 +9,7 @@ OpenAI and does not open an inbound firewall port.
 This is currently a ChatGPT web custom-app workflow, not a direct ChatGPT
 Desktop installation.
 
-The `0.1.0-alpha.2` bundles contain workers for TIA Portal V17, V18 and V19
+The `0.1.0-alpha.3` bundles contain workers for TIA Portal V17, V18 and V19
 only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
 release. V21 is unsupported in this release.
 
@@ -21,7 +21,7 @@ the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.2-read-win-x64.zip
+    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip
 ```
 
 If Windows then blocks the verified scripts because they carry
@@ -38,7 +38,7 @@ Do not change the global or user execution policy.
 
 ## Prerequisites
 
-- an eligible ChatGPT plan and developer-mode permission;
+- permission to add and use a custom MCP server in the intended ChatGPT workspace;
 - Tunnels Read + Use permission in the associated OpenAI Platform
   organisation;
 - a tunnel associated with the intended ChatGPT workspace;
@@ -48,7 +48,7 @@ Do not change the global or user execution policy.
 
 Current requirements and availability can change during the beta. Check:
 
-- https://help.openai.com/en/articles/12584461
+- https://developers.openai.com/api/docs/guides/custom-mcp-server
 - https://developers.openai.com/api/docs/guides/secure-mcp-tunnels
 
 ## Configure once
@@ -100,9 +100,10 @@ Open PowerShell, provide the runtime API key for that process, then run:
 The launcher runs `tunnel-client doctor --explain` before starting the
 long-running tunnel. Keep the PowerShell window open while using the app.
 
-In ChatGPT web, create a developer-mode app, choose **Tunnel** as the
-connection, select the associated tunnel and scan the tools. Create separate
-apps for Read and ReadWrite. Prefer Read unless project changes are deliberate.
+In ChatGPT web, open **Plugins**, add a custom MCP server and select the
+**Tunnel** connection. Select the associated tunnel, complete creation and
+install/select the plugin for the conversation. Workspace permissions apply.
+Use separate profiles for Read and ReadWrite; choose Read for inspection.
 
 Clear the key from the PowerShell process when finished:
 

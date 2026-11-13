@@ -22,6 +22,8 @@
   changes, I/O-system creation and guarded PROFINET device assignment.
 - [RW] Add local-project CAx device configuration export with native log paths.
 - [Docs] Add an Openness coverage inventory and general AI workflow evaluations.
+- [Docs] Explain engineering use cases, the MCP interface, bundled TIA versions
+  and client installation in the project README.
 
 ### Changed
 
