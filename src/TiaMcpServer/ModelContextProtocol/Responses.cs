@@ -201,6 +201,8 @@ namespace TiaMcpServer.ModelContextProtocol
     public class ResponseCompileSoftware : ResponseMessage
     {
         public string? CompileId { get; set; }
+        public string? TargetPath { get; set; }
+        public string? Kind { get; set; }
         public string? State { get; set; }
         public int ErrorCount { get; set; }
         public int WarningCount { get; set; }

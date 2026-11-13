@@ -390,6 +390,26 @@ function Assert-SourceProfileBoundaries
     $readTools = @(
         'Connect',
         'GetCapabilities',
+        'GetOperations',
+        'GetOperationInfo',
+        'GetTiaProcesses',
+        'DescribeEngineeringObject',
+        'GetEngineeringAttributes',
+        'ListEngineeringChildren',
+        'DescribeEngineeringSurface',
+        'BrowseEngineeringObject',
+        'ReadEngineeringSurfaceAttributes',
+        'ListApiTypes',
+        'DescribeApiObject',
+        'ReadApiProperty',
+        'ReadApiField',
+        'BrowseApiCollection',
+        'GetApiService',
+        'ReadApiEvents',
+        'DescribeEngineeringCreation',
+        'DescribeEngineeringActions',
+        'GetExternalSources',
+        'FindHardwareCatalog',
         'GetState',
         'GetProject',
         'GetProjectTree',
@@ -423,6 +443,25 @@ function Assert-SourceProfileBoundaries
         'CompileSoftware',
         'GetCompileDiagnostics',
         'ImportBlockFromSource',
+        'ReadBlockContent',
+        'ReadTypeContent',
+        'ExportDeviceConfiguration',
+        'InvokeApiMethod',
+        'CreateApiObject',
+        'WriteApiProperty',
+        'WriteApiField',
+        'ReleaseApiObject',
+        'SubscribeApiEvent',
+        'UnsubscribeApiEvent',
+        'CreateEngineeringObject',
+        'UpdateEngineeringAttributes',
+        'InvokeEngineeringAction',
+        'CreateHardwareDevice',
+        'PlugHardwareModule',
+        'ConfigureIoAddress',
+        'ConfigureHardwareNode',
+        'CreateProfinetIoSystem',
+        'AssignProfinetDevice',
         'ExportBlock',
         'ImportBlock',
         'ExportBlocks',
@@ -768,7 +807,7 @@ function Assert-ReleaseManifest
     $expectedValidation = @{
         '17' = @($true, $false, 'experimental-build-only')
         '18' = @($true, $false, 'experimental-build-only')
-        '19' = @($true, $false, 'experimental-prior-runtime-evidence')
+        '19' = @($true, $false, 'experimental-build-only')
         '20' = @($false, $false, 'planned-later-alpha')
         '21' = @($false, $false, 'unsupported-in-this-release')
     }

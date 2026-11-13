@@ -1,4 +1,4 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Siemens.Engineering;
 using Siemens.Engineering.SW;
 using Siemens.Engineering.HW.Features;
@@ -57,6 +57,18 @@ namespace TiaMcpServer.Test
                     var device = wrapper.GetDevice(softwarePath!.Substring(0, softwarePath.LastIndexOf('/')));
                     Assert.IsNotNull(device);
                     Assert.IsTrue(wrapper.GetDeviceModuleSummary(device!).Length > 0);
+                    var inventoryName = "MCP_Ungrouped_" + Guid.NewGuid().ToString("N");
+                    var inventoryDevice = project.UngroupedDevicesGroup.Devices.CreateWithItem(
+                        "OrderNumber:6ES7 155-6AU01-0BN0/V4.2", inventoryName + "_Head", inventoryName);
+                    try
+                    {
+                        var canonical = wrapper.GetDevicePath(inventoryDevice);
+                        Assert.AreEqual("UngroupedDevices/" + inventoryName, canonical);
+                        Assert.IsTrue(wrapper.GetDevices().Any(candidate => Portal.SameNativeObject(candidate, inventoryDevice)));
+                        Assert.IsTrue(Portal.SameNativeObject(inventoryDevice, wrapper.GetDevice(canonical)!));
+                        Assert.IsNull(wrapper.GetDevice(canonical + "/not-a-device"));
+                    }
+                    finally { inventoryDevice.Delete(); }
                     var projectInfo = JsonSerializer.Serialize(wrapper.GetProjectInfo());
                     StringAssert.Contains(projectInfo, ".ap19");
                     var tree = McpServer.GetSoftwareTree(softwarePath, 3);

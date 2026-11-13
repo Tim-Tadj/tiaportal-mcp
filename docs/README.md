@@ -5,6 +5,19 @@ separates planned architecture from currently shipped behaviour.
 
 ## Document Set
 
+- [0.1.0-alpha.3 release](alpha3-release.md): experimental packages, build-only
+  evidence, compatibility and known limitations.
+- [Public API interface](public-api-interface.md): one schema-guided route across
+  native domains, value encodings, callbacks, file grants and effect boundaries.
+- [General interface build](general-interface-build.md): delivered development
+  code, compiler evidence, review results and remaining coverage gaps.
+- [Independent review](general-interface-review.md): concrete findings and fixes.
+
+- [General AI workflows](general-ai-workflows.md): discovery, content reads,
+  hardware workflows and representative evaluation cases.
+- [Openness coverage](openness-coverage.md): public surface routes, typed workflows
+  and exact-version qualification limits.
+
 - [Architecture](architecture.md): the two public profiles, exact-version worker
   model, safety boundaries and response design.
 - [Model-Facing Output Format Policy](output-formats.md): the normative
@@ -18,6 +31,8 @@ separates planned architecture from currently shipped behaviour.
   pull requests and issues.
 - [Current Status](status.md): the current repository baseline, known gaps and
   the release definition of done.
+- [Openness Coverage](openness-coverage.md): the MCP coverage matrix and
+  generated member inventories for the documented V17, V18 and V19 PublicAPI.
 - [Changelog Policy](changelog-policy.md): release categories, versioning and
   compatibility notation.
 - [Error Model](error-model.md): the existing Portal and MCP exception mapping

@@ -490,15 +490,7 @@ function Update-RenderedMetadata
         if ($isBundled)
         {
             $validationEntry.runtimeValidated = $false
-            if ($tiaVersion -eq 19)
-            {
-                $validationEntry.classification =
-                    'experimental-prior-runtime-evidence'
-            }
-            else
-            {
-                $validationEntry.classification = 'experimental-build-only'
-            }
+            $validationEntry.classification = 'experimental-build-only'
         }
         else
         {
@@ -939,6 +931,11 @@ try
         Copy-Item `
             -LiteralPath (Join-Path $repositoryRoot 'THIRD-PARTY-NOTICES.md') `
             -Destination (Join-Path $profileStage 'THIRD-PARTY-NOTICES.md')
+        $guideStage = Join-Path $profileStage 'docs'
+        $null = New-Item -ItemType Directory -Path $guideStage
+        Copy-Item `
+            -LiteralPath (Join-Path $repositoryRoot 'docs\public-api-interface.md') `
+            -Destination (Join-Path $guideStage 'public-api-interface.md')
         Assert-McpbManifest `
             -ManifestPath (Join-Path $profileStage 'manifest.json') `
             -Profile $profile `

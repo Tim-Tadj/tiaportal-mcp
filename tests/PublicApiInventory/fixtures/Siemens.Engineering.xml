@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<doc>
+  <members>
+    <member name="T:Siemens.Engineering.Project">
+      <summary>A project &amp; its sessions.</summary>
+    </member>
+    <member name="M:Siemens.Engineering.SW.Blocks.PlcBlock.Export(System.IO.FileInfo)">
+      <summary>Exports the selected PLC block.</summary>
+    </member>
+    <member name="P:Siemens.Engineering.HmiUnified.Screen.Name">
+      <summary>The screen name.</summary>
+    </member>
+    <member name="M:Siemens.Engineering.Safety.Program.Compile">
+      <summary>Compiles safety data.</summary>
+    </member>
+    <member name="M:Siemens.Engineering.UnknownSurface.Run">
+      <summary>Undocumented family mapping stays explicit.</summary>
+    </member>
+    <member name="P:Siemens.Engineering.Project.Name">
+      <summary>Project name.</summary>
+    </member>
+    <member name="M:Siemens.Engineering.Project.Save">
+      <summary>Saves the project.</summary>
+    </member>
+    <member name="M:Siemens.Engineering.Project.set_Name(System.String)">
+      <summary>Sets the name.</summary>
+    </member>
+    <member name="M:Siemens.Engineering.Project.ToString">
+      <summary>Object helper.</summary>
+    </member>
+    <member name="E:Siemens.Engineering.Project.Changed">
+      <summary>Project change notification.</summary>
+    </member>
+    <member name="F:Siemens.Engineering.Project.Version">
+      <summary>Project version field.</summary>
+    </member>
+  </members>
+</doc>

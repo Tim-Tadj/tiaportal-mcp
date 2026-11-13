@@ -24,10 +24,10 @@ namespace TiaMcpServer.ModelContextProtocol
             return OnlineCall(() => Portal.ChangeHardwareType(deviceItemPath, expectedTypeIdentifier, newTypeIdentifier));
         }
 
-        [McpServerTool(Name = "CompileHardware", ReadOnly = false, Destructive = false), Description("Compile hardware at an exact device-item path and return all compiler messages. A classic SIMATIC PC rack compiles its parent PC station. Does not save or download.")]
-        public static object CompileHardware(string deviceItemPath)
+        [McpServerTool(Name = "CompileHardware", ReadOnly = false, Destructive = false), Description("Compile hardware at an exact device-item path and return bounded hierarchical diagnostics and a compileId. Continue with GetCompileDiagnostics without recompiling. A classic SIMATIC PC rack compiles its parent PC station. Does not save or download.")]
+        public static ResponseCompileSoftware CompileHardware(string deviceItemPath, int limit = PageRequest.DefaultLimit)
         {
-            return OnlineCall(() => Portal.CompileHardware(deviceItemPath));
+            return ProjectCall(() => CompilePage(Portal.CompileHardware(deviceItemPath), limit, ""));
         }
         [McpServerTool(Name = "SetBaseUnitPotentialGroup", ReadOnly = false, Destructive = false), Description("Set an offline ET 200SP module to a light BaseUnit (new potential group) or dark BaseUnit (continue from left), checking the expected current setting: 0 dark, 1 light. Match the fitted BaseUnit, then compile. Does not save, download or change wiring.")]
         public static object SetBaseUnitPotentialGroup(string deviceItemPath, int expectedValue, bool lightBaseUnit)

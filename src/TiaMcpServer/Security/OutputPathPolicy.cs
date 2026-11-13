@@ -1,5 +1,7 @@
-using System;
+﻿using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace TiaMcpServer.Security
 {
@@ -7,6 +9,34 @@ namespace TiaMcpServer.Security
     {
         private static readonly object SyncRoot = new object();
         private static string? outputRoot;
+        private static string[]? apiRoots;
+
+        public static void ConfigureApiRoots(IEnumerable<string> roots)
+        {
+            var resolved = roots.Select(path => Path.GetFullPath(Environment.ExpandEnvironmentVariables(path)))
+                .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
+            foreach (var path in resolved) RejectExistingReparsePoints(path, nameof(roots));
+            lock (SyncRoot)
+            {
+                if (apiRoots != null && !apiRoots.SequenceEqual(resolved, StringComparer.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("The native API file roots are already locked.");
+                apiRoots = resolved;
+            }
+        }
+
+        public static string ResolveApiPath(string requestedPath)
+        {
+            if (requestedPath == null) throw new ArgumentNullException(nameof(requestedPath));
+            var expanded = Environment.ExpandEnvironmentVariables(requestedPath.Trim());
+            var candidate = Path.GetFullPath(Path.IsPathRooted(expanded) ? expanded : Path.Combine(OutputRoot, expanded));
+            string[] roots;
+            lock (SyncRoot) roots = new[] { OutputRoot }.Concat(apiRoots ?? Array.Empty<string>()).ToArray();
+            var root = roots.FirstOrDefault(path => IsWithinRoot(path, candidate));
+            if (root == null) throw new ArgumentException("Typed native file inputs must stay within --output-root or an explicitly granted --api-file-root.", nameof(requestedPath));
+            RejectExistingReparsePoints(root, nameof(requestedPath));
+            RejectReparsePoints(root, candidate, nameof(requestedPath));
+            return candidate;
+        }
 
         public static string OutputRoot
         {

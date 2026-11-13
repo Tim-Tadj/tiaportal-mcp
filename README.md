@@ -1,4 +1,4 @@
-# TIA Portal MCP Server
+﻿# TIA Portal MCP Server
 
 An MCP server which connects to Siemens TIA Portal.
 
@@ -13,34 +13,44 @@ An MCP server which connects to Siemens TIA Portal.
 
 ## Documentation
 
+- [General AI workflows](docs/general-ai-workflows.md) describes operation discovery,
+  bounded engineering inspection, native content and guarded hardware workflows.
+- [Openness coverage](docs/openness-coverage.md) distinguishes implemented operations
+  from remaining PublicAPI families and exact-version/runtime limitations.
+
+`0.1.0-alpha.3` adds the general public API interface and offline hardware
+work described above. See the [public API interface guide](docs/public-api-interface.md)
+for discovery, native calls and effect boundaries, and the
+[release notes](docs/alpha3-release.md) for build evidence and limitations.
+Tests and runtime qualification remain unrun for this release.
+
 - See [Online Tools](docs/online-tools.md) and [Hardware Tools](docs/hardware-tools.md)
   for the native inspection and offline configuration tools.
 
 - See [Project Documentation](docs/README.md) for the architecture, roadmap,
   current status, definition of done and changelog policy.
-- See [0.1.0-alpha.2 Alpha Release](docs/alpha-release.md) for the experimental
-  support matrix, completed publication checklist and deferred work.
+- See [0.1.0-alpha.3 release](docs/alpha3-release.md) for the current experimental
+  matrix and build-only evidence. [Alpha.2](docs/alpha-release.md) retains its
+  historical publication checklist.
 - See [Model-Facing Output Format Policy](docs/output-formats.md) for the
   normative compact CSV, bounded TOON and JSON result contract.
 
 ## Current Status
 
 The experimental Windows x64 prerelease
-[`0.1.0-alpha.2`](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.2)
-contains two public distributions, `tia-portal-mcp-read` and
-`tia-portal-mcp-readwrite`, with isolated V17, V18 and V19 workers. It patches
-[issue #1](https://github.com/Tim-Tadj/tiaportal-mcp/issues/1) with complete
-list payloads, compile diagnostics, source import, native cross-references,
-PLC tags/constants and bounded software trees. See [Issue #1 changes](docs/issue-1.md)
-for compatibility changes and validation limits.
+[`0.1.0-alpha.3`](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3)
+contains separate Read and ReadWrite distributions with exact V17, V18 and V19
+workers. It combines common typed workflows with schema-guided public Openness
+access across installed domains. The ReadWrite bridge can perform native
+online, file and PLC changes and requires explicit acceptance of those effects.
 
-V17 and V18 remain build-only experimental workers. V19 has focused local
-runtime coverage; this is not production certification. V20 is deferred and
-V21 is unsupported. Packages contain no Siemens runtime DLLs.
+All bundled versions have build-only evidence for these release bits. Tests
+and runtime checks were not run. V20 is deferred and V21 is unsupported.
+Packages contain no Siemens runtime DLLs.
 
 The alpha is for evaluation and does not claim production support for any
 profile or TIA Portal version. See [Current Status](docs/status.md) and the
-[Alpha Release Gate](docs/alpha-release.md) before installing it.
+[release limitations](docs/alpha3-release.md) before installing it.
 
 The stable legacy v0.0.18 release remains the single read-write server compiled
 against TIA Portal V20.
@@ -48,7 +58,7 @@ against TIA Portal V20.
 ## Released v0.0.18 Requirements
 
 These requirements apply to the legacy v0.0.18 release. The
-`0.1.0-alpha.2` broker discovers installed TIA Portal versions, selects a
+`0.1.0-alpha.3` broker discovers installed TIA Portal versions, selects a
 bundled worker and does not require a checkout-specific path or the
 `TiaPortalLocation` variable.
 

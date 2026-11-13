@@ -33,6 +33,7 @@ namespace TiaMcpServer
             try
             {
                 OutputPathPolicy.Configure(options.OutputRoot);
+                OutputPathPolicy.ConfigureApiRoots(options.ApiFileRoots);
             }
             catch (Exception exception)
             {

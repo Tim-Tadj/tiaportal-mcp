@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
@@ -130,35 +130,9 @@ namespace TiaMcpServer.ModelContextProtocol
         public static ResponseCapabilities GetCapabilities()
         {
             var worker = WorkerBuild.Current;
-            var toolFamilies = new List<string>
-            {
-                "connection",
-                "state",
-                "projects",
-                "devices",
-                "plc-software",
-                "blocks",
-                "types",
-                "native-online-state",
-                "live-plc-values",
-                "hardware-inspection",
-                "plc-tags-and-constants",
-                worker.TiaMajorVersion >= 18 ? "native-cross-references" : "cross-references-unavailable-v17"
-            };
-
-#if TIA_MCP_READ_WRITE
-            toolFamilies.Add("project-lifecycle");
-            toolFamilies.Add("compile");
-            toolFamilies.Add("source-generation");
-            toolFamilies.Add("native-online-transitions");
-            toolFamilies.Add("hardware-configuration");
-            toolFamilies.Add("xml-import-export");
-
-            if (worker.TiaMajorVersion >= 20)
-            {
-                toolFamilies.Add("simatic-sd-documents");
-            }
-#endif
+            var toolFamilies = OperationRegistry.GetAll(worker.TiaMajorVersion)
+                .Where(operation => operation.Status == "implemented")
+                .Select(operation => operation.Domain).Distinct().OrderBy(domain => domain).ToArray();
 
             return new ResponseCapabilities
             {
@@ -189,12 +163,15 @@ namespace TiaMcpServer.ModelContextProtocol
                 CanModifyProject = worker.AccessProfile == AccessProfile.ReadWrite,
                 CanWriteFiles = worker.AccessProfile == AccessProfile.ReadWrite,
                 ToolFamilies = toolFamilies,
+                OperationDiscovery = "Use GetOperations for advertised operations and runtime availability; GetOperationInfo gives exact operation metadata. MCP tool schemas describe parameter types.",
                 Guidance = new[]
                 {
                     "Call GetState before project discovery.",
                     "Use summary detail and follow cursors only as far as needed.",
                     "Keep responseFormat Auto unless a specific downstream parser requires Toon, Csv or Json.",
                     "Reuse exact names and paths returned by discovery tools.",
+                    "For additional domains use ListApiTypes and DescribeApiObject, then exact member IDs, declared services and returned references. $portal selects the attached Portal; empty entityRef selects the project.",
+                    "Generic native calls require ReadWrite and explicit acceptance of unclassified effects, potentially including files, online commands and PLC changes. Schema availability is not runtime qualification.",
                     worker.AccessProfile == AccessProfile.Read
                         ? "This worker cannot save, compile, import, export or close projects."
                         : "Use mutating tools only when the user clearly requests the side effect."
@@ -799,7 +776,7 @@ namespace TiaMcpServer.ModelContextProtocol
             });
         }
 
-        [McpServerTool(Name = "GetCompileDiagnostics", ReadOnly = true), Description("Read another page of the last software compile without recompiling. CompileId and cursor must come from that compile. Results expire on selected-project changes, disconnect or another compile.")]
+        [McpServerTool(Name = "GetCompileDiagnostics", ReadOnly = true), Description("Read another page of the last hardware or software compile without recompiling. CompileId and cursor must come from that compile. Results expire on selected-project changes, disconnect or another compile.")]
         public static ResponseCompileSoftware GetCompileDiagnostics(string compileId, int limit = PageRequest.DefaultLimit, string cursor = "")
         {
             return ProjectCall(() => CompilePage(Portal.GetCompileReport(compileId), limit, cursor));
@@ -810,10 +787,10 @@ namespace TiaMcpServer.ModelContextProtocol
             var items = PageItems(report.Diagnostics, limit, cursor, "compile:" + report.Id, out var page);
             return new ResponseCompileSoftware
             {
-                CompileId = report.Id, State = report.State,
+                CompileId = report.Id, TargetPath = report.TargetPath, Kind = report.Kind, State = report.State,
                 ErrorCount = report.ErrorCount, WarningCount = report.WarningCount,
                 Diagnostics = items, Page = page,
-                Message = "Offline compile completed. Diagnostic paths and descriptions are supplied by Siemens; line/network fields are not available through this API."
+                Message = "Offline compile completed for this target and invocation. Diagnostic paths and descriptions are supplied by Siemens. An up-to-date result does not resolve warnings from an earlier full compile."
             };
         }
 
