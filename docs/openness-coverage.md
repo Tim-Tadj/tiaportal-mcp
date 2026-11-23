@@ -9,39 +9,17 @@ There is no C# evaluation or private API access.
 
 ## Public surface routes
 
-| Public surface | Discovery | Execution |
-| --- | --- | --- |
-| Types, including HMI and optional referenced modules | `ListApiTypes` | `$type:<fullName>` selects static members and constructors |
-| Properties and indexers | `DescribeApiObject` | `ReadApiProperty`, `WriteApiProperty` |
-| Fields and enum constants | `DescribeApiObject` | `ReadApiField`, `WriteApiField` |
-| Methods, overloads and generic methods | `DescribeApiObject` | `InvokeApiMethod` with exact member ID and ordered arguments |
-| Public constructors and DTOs | `DescribeApiObject` on a type anchor | `CreateApiObject`, or schema-guided inline values |
-| Declared engineering services | `DescribeApiObject` | `GetApiService` |
-| Collections | Public properties or native composition browsing | `BrowseApiCollection`, `BrowseEngineeringObject` |
-| Native dynamic attributes | `DescribeEngineeringSurface`, `ReadEngineeringSurfaceAttributes` | `UpdateEngineeringAttributes` |
-| Native composition creation | `DescribeEngineeringCreation` | `CreateEngineeringObject` |
-| Native actions on objects, compositions and associations | `DescribeEngineeringActions` | `InvokeEngineeringAction` |
-| Events and synchronous native callbacks | `DescribeApiObject`, callback parameter schema | `SubscribeApiEvent`, `ReadApiEvents`, `UnsubscribeApiEvent`, declarative callback arguments |
-| Disposable native resources | Returned API reference | `ReleaseApiObject`; Portal connection tools own Portal lifetime |
+| Public surface | Discovery and execution |
+| --- | --- |
+| Types and constructors | `ListApiTypes` and `DescribeApiObject` describe installed types and constructor signatures. |
+| Properties, fields and indexers | `ReadApiProperty` and `ReadApiField` read exact schema members. |
+| Collections and services | `BrowseApiCollection`, `BrowseEngineeringObject` and `GetApiService` navigate declared relationships. |
+| Methods | `DescribeApiObject` includes execution status. `InvokeApiMethod` dispatches exact reviewed signatures in ReadWrite. |
+| Dynamic attributes, composition creation, actions and events | Public schemas remain discoverable. Use the applicable typed operation for a supported engineering change. |
 
-The bridge applies the same routes to projects, devices, hardware, PLC blocks,
-types, tags and constants, external sources, classic HMI, Unified HMI,
-libraries, technology objects, drive surfaces, OPC, safety and collaboration
-objects when their public contracts exist in the installed API and are
-reachable through a project, service, constructor or static member. It adds
-no Siemens functionality which the installed product, licence, object or
-session does not expose. UI-only editor operations remain outside Openness.
-
-`Read` contains public schema queries, property/field reads, collections,
-self-description and declared service acquisition. Arbitrary public methods,
-constructors, setters, creation, actions, subscriptions and resource disposal
-are structurally restricted to `ReadWrite`. All generic native writes require
-an exact expected project context and explicit acceptance of unclassified
-native effects. These effects can include file writes, downloads, online
-operations and PLC changes. They are not labelled safe offline operations.
-
-See [the interface guide](public-api-interface.md) for value encodings, native
-reference lifetimes, callbacks, file grants and recovery.
+The V19 reviewed method currently exports a single offline watch table. The
+dispatcher checks that the native target and referenced arguments belong to
+the selected local project. See the [interface guide](public-api-interface.md).
 
 ## Typed workflows retained
 
@@ -86,14 +64,9 @@ invoking them. Generated identifiers are kept under
 the repository. The supplied versions contain 19,973, 22,658 and 23,468
 records respectively. Siemens prose is omitted by default.
 
-Every record has a route disposition, mapped dispatch tool, unsupported reason
-and `runtimeSupport=notAssertedByXmlInventory`. This records the available
-interface route, not a successful call or exhaustive runtime qualification.
-XML documentation can omit public members. The live reflection schema is the
-member selection authority. Field/event routes now point at the implemented
-bridge; property setters point at `WriteApiProperty`, constructors at
-`CreateApiObject`, native actions at `InvokeEngineeringAction`, and disposables
-at the controlled release tool.
+The inventory describes documented surfaces. Worker authorisation and actual
+target availability are determined at runtime by the operation policy and the
+installed Siemens components.
 
 ```powershell
 $apiRoot = 'C:\Program Files\Siemens\Automation\Portal V19\PublicAPI'

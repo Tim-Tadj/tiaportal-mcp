@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+## [0.2.0-alpha.1] - 2026-11-23
+
+### Added
+
+- [RO][RW][V19] Report the running worker's saved Siemens Openness trust with
+  GetOpennessStatus.
+- [RO][RW][PLC] List offline watch tables. ReadWrite adds SimaticML export and
+  guarded create or replace imports.
+
+### Changed
+
+- [RW] InvokeApiMethod executes reviewed signatures declared by
+  DescribeApiObject. The initial method exports a V19 watch table. The worker
+  checks actual project ownership before dispatch.
+
+### Removed
+
+- [RW] General native constructors, setters, actions, subscriptions and
+  resource disposal are no longer callable through MCP. Public metadata
+  remains discoverable. Use the applicable typed workflow or a method marked
+  callable by DescribeApiObject.
+
+### Fixed
+
+- [RO][RW][Contract] Generate startup tool schemas for optional JSON input
+  without serialising an undefined default.
+- [RW][Hardware] Return the canonical plugged module path. Apply offline
+  address changes without rewriting an unchanged, read-only PROFINET name.
+- [Packaging] Check the same experimental runtime classification in the
+  manifest and both release validators.
+
 ## [0.1.0-alpha.3] - 2026-11-13
 
 ### Added

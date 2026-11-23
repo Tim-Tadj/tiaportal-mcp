@@ -59,6 +59,13 @@ namespace TiaMcpServer.ModelContextProtocol
 
         #region portal
 
+        [McpServerTool(Name = "GetOpennessStatus", ReadOnly = true), Description("Report the worker version, effective Openness group membership and saved V19 application trust. Does not connect to TIA Portal or change Windows settings.")]
+        public static async Task<object> GetOpennessStatus()
+        {
+            var version = WorkerBuild.Current.TiaMajorVersion;
+            return new { tiaMajorVersion = version, groupEnabled = await Openness.IsUserInGroup(), savedTrust = Openness.GetWorkerTrust(version) };
+        }
+
         [McpServerTool(Name = "Connect"), Description("Attach to an exact running TIA Portal process. Supply processId when multiple instances are running. Starting TIA requires startIfMissing=true and the ReadWrite profile.")]
         public static ResponseConnect Connect(
             [Description("Existing TIA Portal process ID; required when more than one is running.")] int? processId = null,
@@ -85,6 +92,10 @@ namespace TiaMcpServer.ModelContextProtocol
                 {
                     throw new McpException("Failed to connect to TIA-Portal", McpErrorCode.InternalError);
                 }
+            }
+            catch (PortalException ex) when (ex.Code == PortalErrorCode.OpennessDenied)
+            {
+                throw new McpException(ex.Message, ex, McpErrorCode.InvalidRequest);
             }
             catch (Exception ex) when (ex is not McpException)
             {

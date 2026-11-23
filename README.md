@@ -11,14 +11,14 @@ for additional workflows. The assistant can discover the native objects,
 services and exact method schemas available in your installation, rather than
 needing a new C# helper for each task.
 
-[Download 0.1.0-alpha.3](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3)
+[Download 0.2.0-alpha.1](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.1)
 | [Install](#installation)
 | [TIA versions](#tia-portal-versions)
 | [Interface guide](docs/public-api-interface.md)
 
 > Experimental Windows release. V17, V18 and V19 workers are included in both
-> profiles. These release binaries have build-only evidence; tests and live
-> TIA/PLC checks were not run. See the [release notes](docs/alpha3-release.md).
+> profiles. Local V19 qualification covered the disposable rack and watch-table
+> workflows. The full supported-runtime matrix remains outstanding. See the [release notes](docs/0.2.0-alpha.1-release.md).
 
 ## What you can do
 
@@ -59,8 +59,8 @@ Siemens contracts through a small, consistent set of operations.
 | Hardware workflows | `GetHardwareNetworkInfo`, `FindHardwareCatalog`, `CreateHardwareDevice`, `PlugHardwareModule`, `ConfigureIoAddress`, `ConfigureHardwareNode` |
 | Compile, import and export | `CompileSoftware`, `CompileHardware`, `GetCompileDiagnostics`, `ImportBlock`, `ExportBlock`, `ExportDeviceConfiguration` |
 | Public API discovery and reads | `ListApiTypes`, `DescribeApiObject`, `ReadApiProperty`, `ReadApiField`, `BrowseApiCollection`, `GetApiService` |
-| Public native operations | `InvokeApiMethod`, `CreateApiObject`, `WriteApiProperty`, `CreateEngineeringObject`, `UpdateEngineeringAttributes`, `InvokeEngineeringAction` |
-| Events, callbacks and resources | `SubscribeApiEvent`, `ReadApiEvents`, `UnsubscribeApiEvent`, `ReleaseApiObject`; declarative callback arguments for synchronous native decisions |
+| Public native operations | `InvokeApiMethod` runs signatures marked callable by `DescribeApiObject`. V19 ReadWrite currently reviews the two-argument watch-table export. |
+| Offline watch tables | `ListWatchTables`, `ExportWatchTable`, `ImportWatchTable` with explicit replacement and project matching |
 
 The worker reports its exact available tools and parameter schemas at runtime.
 Object references and paged results help the assistant reuse discovered targets
@@ -68,7 +68,7 @@ and request only the data it needs. The bridge uses public Siemens contracts;
 it does not evaluate arbitrary C# or provide UI-only editor functions.
 
 See [the complete interface guide](docs/public-api-interface.md) for native
-creation/action schemas, generic methods, ref/out values, callback policies,
+discovery schemas, reviewed method dispatch, input encodings,
 file access and reference lifetimes.
 
 ## Choose your access profile
@@ -145,13 +145,13 @@ authorisation prompt if it appears when connecting.
 
 ### 2. Download a profile
 
-Open the [alpha.3 release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3)
+Open the [0.2.0-alpha.1 release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.1)
 and download the package matching your client and intended access:
 
 | Client | Read package | ReadWrite package |
 | --- | --- | --- |
-| Claude Desktop | `tia-portal-mcp-0.1.0-alpha.3-read-win-x64.mcpb` | `tia-portal-mcp-0.1.0-alpha.3-readwrite-win-x64.mcpb` |
-| VS Code, other local stdio clients, or the ChatGPT tunnel kit | `tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip` | `tia-portal-mcp-0.1.0-alpha.3-readwrite-win-x64.zip` |
+| Claude Desktop | `tia-portal-mcp-0.2.0-alpha.1-read-win-x64.mcpb` | `tia-portal-mcp-0.2.0-alpha.1-readwrite-win-x64.mcpb` |
+| VS Code, other local stdio clients, or the ChatGPT tunnel kit | `tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip` | `tia-portal-mcp-0.2.0-alpha.1-readwrite-win-x64.zip` |
 
 Use a profile package from the release assets, rather than GitHub's automatic
 source-code ZIP. No source checkout, .NET SDK, Node.js or Python is needed to
@@ -162,7 +162,7 @@ compare the matching entry with your file's hash, for example:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip
+    .\tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip
 ```
 
 ### 3A. Claude Desktop
@@ -280,10 +280,10 @@ These are user-run connection steps; they were not executed for this release.
 
 ## Documentation and development
 
-- [Public API interface](docs/public-api-interface.md): schemas, values, callbacks and native effects.
+- [Public API interface](docs/public-api-interface.md): schemas, values and reviewed native effects.
 - [General AI workflows](docs/general-ai-workflows.md): worked sequences and proposed evaluation cases.
 - [Coverage map](docs/openness-coverage.md): exact-version and native API boundaries.
-- [Release notes](docs/alpha3-release.md): packages, compatibility and build-only evidence.
+- [Release notes](docs/0.2.0-alpha.1-release.md): packages, migration and validation evidence.
 - [Hardware tools](docs/hardware-tools.md) and [online tools](docs/online-tools.md).
 - [Build guide](build/README.md), [test prerequisites](tests/TiaMcpServer.Test/README.md) and [contributor instructions](AGENTS.md).
 - [Output contract](docs/output-formats.md) and [error model](docs/error-model.md).

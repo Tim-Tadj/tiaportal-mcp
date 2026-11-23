@@ -199,6 +199,14 @@ namespace TiaMcpServer.Siemens
 
                 return true;
             }
+            catch (EngineeringSecurityException exception)
+            {
+                _logger?.LogError(exception, "Siemens Openness declined the connection.");
+                DisposeLocked();
+                throw new PortalException(PortalErrorCode.OpennessDenied,
+                    "Siemens Openness denied the connection. Check GetOpennessStatus and the native TIA Portal approval dialogue.",
+                    inner: exception);
+            }
             catch (Exception exception)
             {
                 _logger?.LogError(exception, "Could not connect to TIA Portal.");

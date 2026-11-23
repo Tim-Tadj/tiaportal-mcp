@@ -19,9 +19,9 @@ namespace TiaMcpServer.ModelContextProtocol
         }
 
         [McpServerTool(Name = "ReadApiProperty", ReadOnly = true), Description("Read a public property or indexed property by its exact schema id. Complex results are issued as bounded session references; sensitive property values are redacted.")]
-        public static object? ReadApiProperty(string propertyId, string entityRef = "", JsonElement indices = default)
+        public static object? ReadApiProperty(string propertyId, string entityRef = "", JsonElement? indices = null)
         {
-            return ProjectCall(() => Portal.ReadApiProperty(entityRef, propertyId, indices));
+            return ProjectCall(() => Portal.ReadApiProperty(entityRef, propertyId, indices.GetValueOrDefault()));
         }
 
         [McpServerTool(Name = "ReadApiField", ReadOnly = true), Description("Read a public field by exact schema id; sensitive fields are redacted.")]
@@ -43,34 +43,10 @@ namespace TiaMcpServer.ModelContextProtocol
         }
 
 #if TIA_MCP_READ_WRITE
-        [McpServerTool(Name = "InvokeApiMethod", ReadOnly = false, Destructive = true), Description("Invoke an exact public Siemens method schema. Effects are unclassified and can include project, file, online or other changes. Requires exact expectedProjectPath and explicit acceptNativeEffects=true. Arguments are a JSON array in schema order.")]
+        [McpServerTool(Name = "InvokeApiMethod", ReadOnly = false, Destructive = false), Description("Invoke an exact Siemens method marked callable by DescribeApiObject. Requires the owning project path and explicit acceptance of its declared effects. Arguments are a JSON array in schema order.")]
         public static object? InvokeApiMethod(string methodId, JsonElement arguments, string expectedProjectPath, bool acceptNativeEffects, string entityRef = "", string[]? genericTypes = null)
         {
             return ProjectCall(() => Portal.InvokeApiMethod(entityRef, methodId, arguments, expectedProjectPath, acceptNativeEffects, genericTypes ?? System.Array.Empty<string>()));
-        }
-
-        [McpServerTool(Name = "CreateApiObject", ReadOnly = false, Destructive = true), Description("Invoke an exact public Siemens constructor schema. Native effects are unclassified. Requires an exact project path and explicit acceptance. Portal lifetime is managed by connection tools.")]
-        public static object? CreateApiObject(string typeName, string constructorId, JsonElement arguments, string expectedProjectPath, bool acceptNativeEffects)
-        {
-            return ProjectCall(() => Portal.CreateApiObject(typeName, constructorId, arguments, expectedProjectPath, acceptNativeEffects));
-        }
-
-        [McpServerTool(Name = "ReleaseApiObject", ReadOnly = false, Destructive = true), Description("Dispose an issued public Siemens disposable object and invalidate its reference and descendants. Native effects may include completing or cancelling a transaction. The Portal connection is managed separately. Requires exact expectedProjectPath and explicit acceptance.")]
-        public static object ReleaseApiObject(string entityRef, string expectedProjectPath, bool acceptNativeEffects)
-        {
-            return ProjectCall(() => Portal.ReleaseApiObject(entityRef, expectedProjectPath, acceptNativeEffects));
-        }
-
-        [McpServerTool(Name = "WriteApiField", ReadOnly = false, Destructive = true), Description("Set a public mutable field after comparing its current value with expectedValue. Requires an exact project path, or an empty path when no project is open, and explicit acceptance of unclassified native effects.")]
-        public static object? WriteApiField(string fieldId, JsonElement expectedValue, JsonElement value, string expectedProjectPath, bool acceptNativeEffects, string entityRef = "")
-        {
-            return ProjectCall(() => Portal.WriteApiField(entityRef, fieldId, expectedValue, value, expectedProjectPath, acceptNativeEffects));
-        }
-
-        [McpServerTool(Name = "WriteApiProperty", ReadOnly = false, Destructive = true), Description("Set an exact public Siemens property after comparing its current value with expectedValue where readable. For write-only properties, pass null as expectedValue. Effects are unclassified. Requires exact expectedProjectPath and acceptNativeEffects=true.")]
-        public static object? WriteApiProperty(string propertyId, JsonElement expectedValue, JsonElement value, string expectedProjectPath, bool acceptNativeEffects, string entityRef = "", JsonElement indices = default)
-        {
-            return ProjectCall(() => Portal.WriteApiProperty(entityRef, propertyId, expectedValue, value, expectedProjectPath, acceptNativeEffects, indices));
         }
 #endif
     }

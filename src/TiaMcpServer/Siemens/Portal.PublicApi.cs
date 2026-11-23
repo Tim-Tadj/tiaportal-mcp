@@ -304,9 +304,12 @@ namespace TiaMcpServer.Siemens
 
         private static object ApiMethodSchema(MethodInfo m)
         {
+            var worker = WorkerBuild.Current;
+            var operation = OperationRegistry.FindNativeMethod(m, worker.TiaMajorVersion);
+            var callable = operation != null && worker.AccessProfile == AccessProfile.ReadWrite;
             return new { kind = "method", id = ApiMemberId(m), name = m.Name, declaringType = m.DeclaringType!.FullName,
                 genericParameters = m.IsGenericMethodDefinition ? m.GetGenericArguments().Select(t => t.Name).ToArray() : Array.Empty<string>(), returns = PublicApiValueCodec.Schema(m.ReturnType), parameters = m.GetParameters().Select(p => new { name = p.Name, type = PublicApiValueCodec.Schema(p.ParameterType), optional = p.IsOptional, isOut = p.IsOut }).ToArray(),
-                effects = "unclassified native effects; invocation requires ReadWrite and explicit acceptance" };
+                callable, effects = operation?.Effect, executionStatus = callable ? "reviewed" : "discovery-only" };
         }
 
         private static object ApiPropertySchema(PropertyInfo p)
@@ -342,7 +345,7 @@ namespace TiaMcpServer.Siemens
             var more = offset + rows.Length < members.Length;
             return new { type = (target as Type ?? target.GetType()).FullName, contracts = ApiContracts(target).Select(t => t.FullName).ToArray(),
                 items = rows, page = new PageInfo { Returned = rows.Length, HasMore = more, NextCursor = more ? PageRequest.CreateCursor(offset + rows.Length, scope) : null },
-                note = "Member identifiers select an exact declaring contract and signature. Method effects are unclassified. References are bounded and session-scoped." };
+                note = "Member identifiers select an exact declaring contract and signature. Only members marked callable have a reviewed execution route. References are bounded and session-scoped." };
         }
 
         private object?[] ApiIndices(PropertyInfo property, JsonElement indices)
@@ -433,35 +436,49 @@ namespace TiaMcpServer.Siemens
             catch (Exception) { return new { unavailable = true, type = value?.GetType().FullName, reason = "OutputProjectionFailed", nativeCallCompleted = true }; }
         }
 
-        public object? InvokeApiMethod(string entityRef, string methodId, JsonElement arguments, string expectedProjectPath, bool acceptNativeEffects, string[] genericTypes)
+        private object ResolveOwnedApiReference(string entityRef)
+        {
+            var target = ResolveApiReference(entityRef);
+            object? owner = target;
+            for (var depth = 0; owner != null && depth <= MaxApiDepth; depth++)
+            {
+                if (owner is Project project)
+                {
+                    if (_project is Project selected && SameProject(selected, project)) return target;
+                    break;
+                }
+                if (!(owner is IEngineeringObject)) break;
+                var parent = ApiProperties(owner).FirstOrDefault(property => property.Name == "Parent"
+                    && property.GetMethod?.IsPublic == true && property.GetIndexParameters().Length == 0);
+                owner = parent?.GetValue(owner);
+            }
+            throw new ArgumentException("The native object is not owned by the selected local project. Discover it from the exact project again.");
+        }
+
+        public object InvokeApiMethod(string entityRef, string methodId, JsonElement arguments, string expectedProjectPath, bool acceptNativeEffects, string[] genericTypes)
         {
             RequireApiProjectScope(expectedProjectPath);
-            if (!acceptNativeEffects) throw new ArgumentException("Set acceptNativeEffects to true after reviewing the unclassified native effects.");
-            var target = ResolveApiReference(entityRef);
-            var method = ApiMethods(target).SingleOrDefault(m => ApiMemberId(m) == methodId) ?? throw new ArgumentException("No matching public method schema exists on this target.");
-            if (target is Type selected && selected == typeof(TiaPortal)) throw new ArgumentException("Portal lifetime is managed by the connection tools.");
-            if (method.IsGenericMethodDefinition)
-            {
-                if (genericTypes == null || genericTypes.Length != method.GetGenericArguments().Length) throw new ArgumentException("Supply one exact loaded public Siemens type for each generic parameter.");
-                method = method.MakeGenericMethod(genericTypes.Select(ResolveApiType).ToArray());
-            }
-            else if (genericTypes != null && genericTypes.Length != 0) throw new ArgumentException("This method is not generic.");
+            if (!acceptNativeEffects) throw new ArgumentException("Explicitly accept the effect reported by DescribeApiObject.");
+            var target = ResolveOwnedApiReference(entityRef);
+            var method = ApiMethods(target).SingleOrDefault(candidate => ApiMemberId(candidate) == methodId)
+                ?? throw new ArgumentException("No matching public method schema exists on this target.");
+            var operation = OperationRegistry.FindNativeMethod(method, WorkerBuild.Current.TiaMajorVersion)
+                ?? throw new ArgumentException("This Siemens member is discoverable but has no reviewed execution route on this worker.");
+            if (genericTypes.Length != 0) throw new ArgumentException("This reviewed operation does not take generic type arguments.");
             var parameters = method.GetParameters();
-            if (arguments.ValueKind != JsonValueKind.Array || arguments.GetArrayLength() != parameters.Length) throw new ArgumentException("Supply one argument per parameter in schema order, including optional parameters.");
+            if (arguments.ValueKind != JsonValueKind.Array || arguments.GetArrayLength() != parameters.Length)
+                throw new ArgumentException("Supply one argument per parameter in schema order.");
+
             var values = new object?[parameters.Length];
-            var index = 0;
-            foreach (var input in arguments.EnumerateArray())
+            for (var index = 0; index < parameters.Length; index++)
             {
-                var parameter = parameters[index];
-                var valueType = parameter.ParameterType.IsByRef ? parameter.ParameterType.GetElementType()! : parameter.ParameterType;
-                values[index] = parameter.IsOut ? (valueType.IsValueType ? Activator.CreateInstance(valueType) : null)
-                    : PublicApiValueCodec.Convert(input, valueType, reference => ResolveApiReference(reference), ResolveApiType);
-                index++;
+                values[index] = PublicApiValueCodec.Convert(arguments[index], parameters[index].ParameterType,
+                    ResolveOwnedApiReference, ResolveApiType);
+                if (values[index] == null) throw new ArgumentException("Reviewed operation arguments cannot be null.");
             }
-            object? result;
-            try { result = method.Invoke(target is Type ? null : target, values); }
-            catch (Exception) { throw new InvalidOperationException("The native method failed and may have partially applied effects. Inspect the state before retrying."); }
-            return new { nativeCallCompleted = true, result = ApiSensitive(method.Name) ? "<redacted>" : ApiProjectCompleted(result, entityRef), outputs = parameters.Select((p, i) => new { p, i }).Where(x => x.p.ParameterType.IsByRef).Select(x => new { name = x.p.Name, value = ApiSensitive(x.p.Name ?? "") ? "<redacted>" : ApiProjectCompleted(values[x.i], entityRef) }).ToArray() };
+            RequireApiProjectScope(expectedProjectPath);
+            var result = operation.Execute(target, values);
+            return new { nativeCallCompleted = true, result, outputs = Array.Empty<object>() };
         }
 
         public object? CreateApiObject(string typeName, string constructorId, JsonElement arguments, string expectedProjectPath, bool acceptNativeEffects)

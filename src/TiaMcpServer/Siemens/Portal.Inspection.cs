@@ -271,13 +271,14 @@ namespace TiaMcpServer.Siemens
 
         public object[] GetDeviceModuleSummary(Device device)
         {
-            return DeviceItems(device.DeviceItems).Take(201).Select(item => (object)new
+            return NestedDeviceItems(device.DeviceItems, GetDevicePath(device) + "/").Take(201).Select(entry => (object)new
             {
-                item.Name, item.TypeIdentifier,
-                OrderNumber = ReadOptionalAttribute(item, "OrderNumber"),
-                FirmwareVersion = ReadOptionalAttribute(item, "FirmwareVersion"),
-                TypeName = ReadOptionalAttribute(item, "TypeName"),
-                Classification = ReadOptionalAttribute(item, "Classification")
+                Path = entry.Key, entry.Value.Name, entry.Value.TypeIdentifier, entry.Value.PositionNumber,
+                AddressCount = entry.Value.Addresses.Count,
+                OrderNumber = ReadOptionalAttribute(entry.Value, "OrderNumber"),
+                FirmwareVersion = ReadOptionalAttribute(entry.Value, "FirmwareVersion"),
+                TypeName = ReadOptionalAttribute(entry.Value, "TypeName"),
+                Classification = ReadOptionalAttribute(entry.Value, "Classification")
             }).ToArray();
         }
 

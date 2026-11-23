@@ -1,5 +1,11 @@
 ﻿using System;
+using Microsoft.Win32;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Security;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Threading.Tasks;
 using TiaMcpServer.Runtime;
@@ -43,6 +49,36 @@ namespace TiaMcpServer.Siemens
             AppDomain.CurrentDomain.AssemblyResolve -= Engineering.Resolver;
             AppDomain.CurrentDomain.AssemblyResolve += Engineering.Resolver;
             Engineering.Preflight();
+        }
+
+        internal static string GetWorkerTrust(int version)
+        {
+            if (version != 19) return "NotChecked";
+            try
+            {
+                var worker = new FileInfo(Assembly.GetExecutingAssembly().Location);
+                using var registry = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                using var approvals = registry.OpenSubKey(@"SOFTWARE\Siemens\Automation\Openness\19.0\Whitelist\" + worker.Name);
+                if (approvals == null) return "NoMatchingEntry";
+
+                using var sha256 = SHA256.Create();
+                using var stream = worker.OpenRead();
+                var fileHash = Convert.ToBase64String(sha256.ComputeHash(stream));
+                var modified = worker.LastWriteTimeUtc.ToString("yyyy/MM/dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+                foreach (var keyName in approvals.GetSubKeyNames())
+                {
+                    using var approval = approvals.OpenSubKey(keyName);
+                    if (string.Equals(approval?.GetValue("Path") as string, worker.FullName, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(approval?.GetValue("FileHash") as string, fileHash, StringComparison.Ordinal) &&
+                        string.Equals(approval?.GetValue("DateModified") as string, modified, StringComparison.Ordinal))
+                        return "Matched";
+                }
+                return "NoMatchingEntry";
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is SecurityException)
+            {
+                return "Unavailable";
+            }
         }
 
         public static Task<bool> IsUserInGroup()
