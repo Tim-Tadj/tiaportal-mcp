@@ -108,8 +108,12 @@ namespace TiaMcpServer.Siemens
             if (parent.DeviceItems.Any(i => i.PositionNumber == slot)) throw new ArgumentException("The requested slot is occupied.");
             if (!parent.CanPlugNew(typeIdentifier, name, slot)) throw new ArgumentException("Siemens reports that this module cannot be plugged at the requested slot.");
             var item = parent.PlugNew(typeIdentifier, name, slot);
-            var canonicalParent = AllHardwareItems().Single(pair => String.Equals(pair.Key, parentPath, StringComparison.OrdinalIgnoreCase)).Key;
-            return new { Path = canonicalParent + "/" + item.Name, item.Name, item.TypeIdentifier, item.PositionNumber, Saved = false, Downloaded = false };
+            // A rack can own the slot while the new item appears beside it in the device composition.
+            var paths = AllHardwareItems().Where(pair => pair.Value.Name == item.Name && SameNativeObject(item, pair.Value))
+                .Select(pair => pair.Key).Distinct(StringComparer.OrdinalIgnoreCase).Take(2).ToArray();
+            if (paths.Length != 1)
+                throw new InvalidOperationException("The module was plugged, but its canonical path could not be resolved. Read back the device before retrying.");
+            return new { Path = paths[0], item.Name, item.TypeIdentifier, item.PositionNumber, Saved = false, Downloaded = false };
         }
 
         public object ConfigureIoAddress(string expectedProjectPath, string deviceItemPath, int addressIndex, string expectedDirection, int expectedStartAddress, int startAddress)
@@ -165,11 +169,14 @@ namespace TiaMcpServer.Siemens
             ValidateExactValue(Convert.ToString(node.GetAttribute("Address")), expectedAddress, "address");
             ValidateExactValue(Convert.ToString(node.GetAttribute("SubnetMask")), expectedSubnetMask, "subnet mask");
             ValidateExactValue(Convert.ToString(node.GetAttribute("PnDeviceName")), expectedPnDeviceName, "PROFINET device name");
+            if (pnDeviceName != expectedPnDeviceName && !node.GetAttributeInfos().Any(info =>
+                info.Name == "PnDeviceName" && (info.AccessMode & EngineeringAttributeAccessMode.Write) != 0))
+                throw new ArgumentException("PROFINET device name is read-only under the node's current configuration. Use the existing name to change only its address.");
             try
             {
-                node.SetAttribute("Address", address);
-                node.SetAttribute("SubnetMask", subnetMask);
-                node.SetAttribute("PnDeviceName", pnDeviceName);
+                if (address != expectedAddress) node.SetAttribute("Address", address);
+                if (subnetMask != expectedSubnetMask) node.SetAttribute("SubnetMask", subnetMask);
+                if (pnDeviceName != expectedPnDeviceName) node.SetAttribute("PnDeviceName", pnDeviceName);
             }
             catch (Exception ex)
             {

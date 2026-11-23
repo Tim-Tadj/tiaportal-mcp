@@ -54,14 +54,7 @@ OBJECT_HELPERS = {
 
 
 def route_member(member_id: str, kind: str, declaring_type: str) -> dict[str, object]:
-    """Describe a generic route candidate without claiming per-version runtime support.
-
-    XML documentation records names and signatures, not the reflection schema or
-    runtime availability of the exact member. `implementedRoute` therefore names
-    the MCP dispatch path only; `bridgePotential` says a member kind can be
-    represented by that path, subject to the worker's generated schema and value
-    codec. It is not an availability assertion.
-    """
+    """Describe XML-backed discovery without granting native execution."""
     signature = member_id.split(":", 1)[-1]
     head = signature.split("(", 1)[0]
     name = head.rsplit(".", 1)[-1]
@@ -78,32 +71,18 @@ def route_member(member_id: str, kind: str, declaring_type: str) -> dict[str, ob
         return {"routeDisposition": "implementedRoute", "implementedRoute": "ReadApiProperty",
                 "bridgePotential": True, "unsupportedReason": None}
     if kind == "method":
-        if lower_name.startswith("get_"):
-            route = "ReadApiProperty"
-        elif lower_name.startswith("set_"):
-            route = "WriteApiProperty"
-        elif lower_name.startswith("add_") or lower_name.startswith("remove_"):
-            route = "SubscribeApiEvent" if lower_name.startswith("add_") else "UnsubscribeApiEvent"
-        elif lower_name == "getservice":
-            route = "GetApiService"
-        elif lower_name == "invoke":
-            route = "InvokeEngineeringAction"
-        elif lower_name == "dispose":
-            return {"routeDisposition": "bridgePotential", "implementedRoute": "ReleaseApiObject",
-                    "bridgePotential": True, "unsupportedReason": "issuedSiemensDisposableOnlyPortalLifetimeManagedSeparately"}
-        elif lower_name in OBJECT_HELPERS or lower_name.startswith("op_"):
+        if lower_name in OBJECT_HELPERS or lower_name.startswith("op_"):
             return {"routeDisposition": "excluded", "implementedRoute": None,
                     "bridgePotential": False, "unsupportedReason": "inheritedOrOperatorHelper"}
-        elif lower_name in (".ctor", "ctor", "#ctor"):
-            return {"routeDisposition": "bridgePotential", "implementedRoute": "CreateApiObject",
-                    "bridgePotential": True, "unsupportedReason": "constructorRequiresSupportedValueCodec"}
-        else:
-            route = "InvokeApiMethod"
-        return {"routeDisposition": "implementedRoute", "implementedRoute": route,
-                "bridgePotential": True, "unsupportedReason": None}
-    if kind == "event":
-        return {"routeDisposition": "implementedRoute", "implementedRoute": "SubscribeApiEvent",
-                "bridgePotential": True, "unsupportedReason": None}
+        if lower_name.startswith("get_"):
+            return {"routeDisposition": "implementedRoute", "implementedRoute": "ReadApiProperty",
+                    "bridgePotential": True, "unsupportedReason": None}
+        if lower_name == "getservice":
+            return {"routeDisposition": "implementedRoute", "implementedRoute": "GetApiService",
+                    "bridgePotential": True, "unsupportedReason": None}
+    if kind in ("method", "event"):
+        return {"routeDisposition": "discoveryOnly", "implementedRoute": None,
+                "bridgePotential": True, "unsupportedReason": "executionRequiresWorkerPolicy"}
     if kind == "field":
         return {"routeDisposition": "implementedRoute", "implementedRoute": "ReadApiField",
                 "bridgePotential": True, "unsupportedReason": None}
@@ -148,7 +127,7 @@ def summary_text(member: ET.Element) -> str:
     if node is None:
         return ""
     text = " ".join(" ".join(node.itertext()).split())
-    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1].rstrip() + "…"
+    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1].rstrip() + "â€¦"
 
 
 def parse_documentation(path: Path, tia_version: int, documentation_root: Path, include_summary: bool = False) -> list[dict[str, object]]:

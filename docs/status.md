@@ -1,19 +1,14 @@
 ﻿# Current Status
 
-Status date: 13 November 2026.
+Status date: 23 November 2026.
 
-## General interface release update
+## Reviewed worker operations
 
 The current experimental prerelease is
-[0.1.0-alpha.3](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.1.0-alpha.3).
-It adds a schema-guided public Openness interface across installed domains,
-while retaining the common typed workflows. See the
-[release notes](alpha3-release.md), [interface guide](public-api-interface.md)
-and [independent source review](general-interface-review.md).
-
-These release bits have build-only evidence. No tests, standalone validators,
-MCP probes, TIA attachment or PLC calls were run for this release. Historical
-alpha.1/alpha.2 runtime evidence does not qualify the new binaries.
+[0.2.0-alpha.1](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.1).
+It adds V19 Openness trust diagnostics, offline watch-table tools and a
+reviewed native execution policy. See the [release notes](0.2.0-alpha.1-release.md)
+and [interface guide](public-api-interface.md).
 
 ## Release scope
 
@@ -22,10 +17,10 @@ coverage only. V20 is deferred; V21 needs its own modular adapter. The legacy
 v0.0.18 V20 release is separate.
 
 Read exposes inspection and public API discovery. ReadWrite adds typed project
-workflows and guarded generic native methods, constructors, actions, attribute
-changes, events and resource disposal. Generic effects can include PLC changes.
-Use GetOperations and GetOperationInfo for the exact advertised tool surface.
-The broker and worker remain local, and Siemens runtime DLLs are not bundled.
+workflows and reviewed native method execution. The initial reviewed native
+method exports a V19 watch table. Use GetOperations and GetOperationInfo for the
+advertised tool surface. The broker and worker run locally and resolve Siemens
+assemblies from the matching local installation.
 
 The output contract is `v2-single-content-paged-diagnostics`. Formatted lists
 now put metadata and rows in one text block, and software trees are paged.

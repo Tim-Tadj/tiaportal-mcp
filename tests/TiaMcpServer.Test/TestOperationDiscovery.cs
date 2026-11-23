@@ -1,4 +1,8 @@
 ﻿using System;
+using System.IO;
+using System.Text;
+using Siemens.Engineering;
+using Siemens.Engineering.SW.WatchAndForceTables;
 using System.Linq;
 using System.Reflection;
 using ModelContextProtocol.Server;
@@ -73,16 +77,31 @@ namespace TiaMcpServer.Test
         }
 
         [TestMethod]
-        public void PublicApiRoutesAreClassifiedAndNativeEffectsAreConservative()
+        public void ReviewedNativeMethodsDeclareTheirEffectsAndVersion()
         {
             Assert.AreEqual("public-api", McpServer.GetOperationInfo("DescribeApiObject").Operation.Domain);
             Assert.AreEqual(true, McpServer.GetOperationInfo("ReadApiProperty").Operation.ReadOnly);
+            var export = typeof(PlcWatchTable).GetMethod(nameof(PlcWatchTable.Export), new[] { typeof(FileInfo), typeof(ExportOptions) })!;
+            Assert.IsNull(OperationRegistry.FindNativeMethod(export, 18));
+            Assert.IsNotNull(OperationRegistry.FindNativeMethod(export, 19));
+            Assert.IsNull(OperationRegistry.FindNativeMethod(typeof(PlcWatchTable).GetMethod(nameof(PlcWatchTable.Delete))!, 19));
             if (typeof(McpServer).GetMethod("InvokeApiMethod") == null) return;
             var native = McpServer.GetOperationInfo("InvokeApiMethod").Operation;
             Assert.AreEqual("ReadWrite", native.Profile);
             Assert.AreEqual(false, native.ReadOnly);
-            Assert.IsTrue(native.NativeEffectsUnclassified);
-            Assert.IsTrue(native.WritesFiles && native.ModifiesProject && native.ChangesEngineeringConnection && native.ChangesPlc);
+            Assert.IsFalse(native.NativeEffectsUnclassified);
+            Assert.IsTrue(native.WritesFiles);
+            Assert.IsFalse(native.ModifiesProject || native.ChangesEngineeringConnection || native.ChangesPlc);
+        }
+
+        [TestMethod]
+        public void WatchTableImportRejectsMixedDocuments()
+        {
+            const string table = "<SW.WatchAndForceTables.PlcWatchTable><AttributeList><Name>Test Table</Name></AttributeList></SW.WatchAndForceTables.PlcWatchTable>";
+            using var valid = new MemoryStream(Encoding.UTF8.GetBytes("<Document>" + table + "</Document>"));
+            Assert.AreEqual("Test Table", Portal.ReadWatchTableName(valid));
+            using var mixed = new MemoryStream(Encoding.UTF8.GetBytes("<Document>" + table + "<SW.Blocks.FC /></Document>"));
+            Assert.ThrowsException<ArgumentException>(() => Portal.ReadWatchTableName(mixed));
         }
     }
 }

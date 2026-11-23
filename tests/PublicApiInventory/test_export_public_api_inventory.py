@@ -38,10 +38,11 @@ class PublicApiInventoryTests(unittest.TestCase):
         self.assertEqual("V19", records[0]["apiVersion"])
         routes = {record["memberId"]: record for record in records}
         self.assertEqual("ReadApiProperty", routes["P:Siemens.Engineering.Project.Name"]["implementedRoute"])
-        self.assertEqual("InvokeApiMethod", routes["M:Siemens.Engineering.Project.Save"]["implementedRoute"])
-        self.assertEqual("WriteApiProperty", routes["M:Siemens.Engineering.Project.set_Name(System.String)"]["implementedRoute"])
+        self.assertEqual("discoveryOnly", routes["M:Siemens.Engineering.Project.Save"]["routeDisposition"])
+        self.assertIsNone(routes["M:Siemens.Engineering.Project.Save"]["implementedRoute"])
+        self.assertIsNone(routes["M:Siemens.Engineering.Project.set_Name(System.String)"]["implementedRoute"])
         self.assertEqual("excluded", routes["M:Siemens.Engineering.Project.ToString"]["routeDisposition"])
-        self.assertEqual("SubscribeApiEvent", routes["E:Siemens.Engineering.Project.Changed"]["implementedRoute"])
+        self.assertEqual("discoveryOnly", routes["E:Siemens.Engineering.Project.Changed"]["routeDisposition"])
         self.assertEqual("ReadApiField", routes["F:Siemens.Engineering.Project.Version"]["implementedRoute"])
         self.assertEqual("notAssertedByXmlInventory", routes["M:Siemens.Engineering.Project.Save"]["runtimeSupport"])
 

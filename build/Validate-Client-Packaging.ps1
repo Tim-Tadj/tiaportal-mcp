@@ -283,9 +283,14 @@ try
     if ($releaseManifest.productVersion -cne $Version -or
         $releaseManifest.platform -ne 'win-x64' -or
         $releaseManifest.tiaVersionValidation.'17'.runtimeValidated -ne $false -or
+        $releaseManifest.tiaVersionValidation.'17'.classification -cne
+            'experimental-build-only' -or
+        $releaseManifest.tiaVersionValidation.'18'.runtimeValidated -ne $false -or
+        $releaseManifest.tiaVersionValidation.'18'.classification -cne
+            'experimental-build-only' -or
         $releaseManifest.tiaVersionValidation.'19'.runtimeValidated -ne $false -or
         $releaseManifest.tiaVersionValidation.'19'.classification -cne
-            'experimental-prior-runtime-evidence' -or
+            'experimental-build-only' -or
         $releaseManifest.tiaVersionValidation.'20'.bundled -ne $false -or
         $releaseManifest.tiaVersionValidation.'20'.classification -cne
             'planned-later-alpha' -or
