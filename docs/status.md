@@ -1,22 +1,18 @@
 ﻿# Current Status
 
-Status date: 23 November 2026.
+Status date: 26 November 2026.
 
-## Reviewed worker operations
+## Current prerelease
 
-The current experimental prerelease is
-[0.2.0-alpha.1](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.1).
-It adds V19 Openness trust diagnostics, offline watch-table tools and a
-reviewed native execution policy. See the [release notes](0.2.0-alpha.1-release.md)
-and [interface guide](public-api-interface.md).
+[0.2.0-alpha.2](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.2)
+adds exact V20 workers and V20 ReadWrite SIMATIC SD tools. See the
+[release notes](0.2.0-alpha.2-release.md) and [interface guide](public-api-interface.md).
 
 ## Release scope
 
-Published alpha.1 bundles contain exact V17, V18 and V19 workers. Development
-builds now include V17 to V20 by default. V17/V18 have compile-time coverage
-only; V19 remains runtime-unverified in the published candidate; V20 is
-experimental and runtime-unverified. V21 is rejected pending its modular
-adapter. The legacy v0.0.18 V20 release remains separate.
+Both packages contain exact V17 to V20 workers. V17 and V18 have compile-time
+coverage. V19 has prior focused qualification, and V20 has local startup and
+project attachment evidence. V21 requires a dedicated adapter.
 
 Read exposes inspection and public API discovery. ReadWrite adds typed project
 workflows and reviewed native method execution. The initial reviewed native
@@ -31,19 +27,17 @@ Clients parsing alpha.1's two content blocks must migrate. See
 
 ## Validation and remaining work
 
-The published release remains experimental. Development builds include V20,
-but V20 has no licensed runtime validation. `runtimeValidated=false` is
-retained in the manifest because the full licensed runtime and clean-account
-client matrix is outstanding. Focused V19 testing uses an explicitly disposable project copy;
-it does not download to a PLC or operate outputs. Alpha.1 historical build and
-runtime evidence remains recorded in the changelog and GitHub release.
+The release remains experimental. The V20 connection check covered project
+attachment and identity reads. `runtimeValidated=false` in the manifest records
+the outstanding full licensed runtime and clean-account client matrix. Prior
+V19 engineering checks used a disposable project copy.
 
 V17 does not expose native cross-references or ChangeType. Accessible-device
 discovery requires V19. Older workers return explicit unsupported responses.
 Native cross-references are scoped to a selected block or tag and are not a
 proof that indirect accesses are absent.
 
-Further work includes V20 licensed runtime validation and the V21 adapter,
+Further work includes V20 engineering workflow validation and the V21 adapter,
 cross-client evaluation, large-project performance, signed releases, provenance/SBOM, generated
 capability manifests and the remaining path hardening recorded in the roadmap.
 

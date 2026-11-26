@@ -3,10 +3,8 @@
 This bundle runs TIA Portal MCP locally over standard input and output. No
 extension or VSIX is required.
 
-The published alpha.1 bundles contain workers for TIA Portal V17, V18 and V19.
-Development bundles include V20 by default; V20 is experimental and
-runtime-unverified. The legacy v0.0.18 V20 release is separate. V21 is rejected
-pending its dedicated adapter.
+The 0.2.0-alpha.2 bundles include exact TIA Portal V17 to V20 workers. V20 is
+experimental. V21 requires a dedicated adapter.
 
 ## Windows download trust
 
@@ -16,7 +14,7 @@ the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip
+    .\tia-portal-mcp-0.2.0-alpha.2-read-win-x64.zip
 ```
 
 If Windows then blocks the verified script because it carries
@@ -38,9 +36,7 @@ The installer reads `manifest.json`, so it cannot change a Read bundle into a
 ReadWrite bundle. It resolves the broker relative to the extracted bundle and
 adds the server to the current VS Code user profile with `code --add-mcp`.
 
-Use an exact version when several bundled TIA Portal versions are installed.
-For a development bundle with both V19 and V20, choose explicitly. This version
-is not present in the published alpha.1 bundles:
+Use an exact version when several TIA Portal versions are installed. For V20:
 
 ```powershell
 .\clients\vscode\Install-VsCodeMcp.ps1 -TiaVersion V20

@@ -7,7 +7,7 @@ Use the profile-locked broker and exact-version workers described in
 PublicAPI is required to compile a worker; the broker has no Siemens dependency.
 
 ```powershell
-./build/Build-Workers.ps1 -Version 0.1.0-alpha.2 -TiaVersions 19
+./build/Build-Workers.ps1 -Version 0.2.0-alpha.2 -TiaVersions 19
 ```
 
 For a development build of one worker:
@@ -18,8 +18,8 @@ dotnet build src/TiaMcpServer/TiaMcpServer.csproj -c Release -p:TiaWorkerVersion
 
 Worker and broker runtime arguments use `--tia-version V19`, with the profile
 fixed by the executable. The broker resolves installed versions and launches
-the matching bundled worker. The published alpha supports V17 to V19; V20 is
-deferred and V21 requires a separate modular adapter. The legacy main-branch
+the matching bundled worker. The 0.2.0-alpha.2 packages include V17 to V20.
+V21 requires a separate modular adapter. The legacy main-branch
 `TiaMajorVersion` build property and `--tia-major-version` argument are replaced
 by this broker configuration.
 

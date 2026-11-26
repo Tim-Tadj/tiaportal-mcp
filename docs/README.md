@@ -5,6 +5,9 @@ separates planned architecture from currently shipped behaviour.
 
 ## Document Set
 
+- [0.2.0-alpha.2 release](0.2.0-alpha.2-release.md): V20 packages, installation
+  and validation evidence.
+
 - [0.1.0-alpha.3 release](alpha3-release.md): experimental packages, build-only
   evidence, compatibility and known limitations.
 - [Public API interface](public-api-interface.md): one schema-guided route across

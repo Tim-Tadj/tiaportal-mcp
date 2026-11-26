@@ -2,11 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.0-alpha.2] - 2026-11-26
+
 ### Added
 
-- [RO][RW][V20] Add experimental exact-version Openness workers to development
-  bundles. Both profiles passed offline MCP startup on a V20 installation.
-  Licensed project workflows remain unverified.
+- [RO][RW][V20] Add experimental exact-version Openness workers to both Windows
+  bundles. Focused validation covered MCP startup, V20 ReadWrite tool
+  registration and read-only project attachment. Full engineering workflow
+  qualification remains open.
 
 ### Fixed
 

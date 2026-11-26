@@ -11,9 +11,9 @@ sample which matches the bundle:
   fallback.
 
 Do not configure both profiles against the same TIA Portal process at once.
-Published 0.2.0-alpha.1 packages include V17 to V19. Development bundles also
-include V20 by default. `Auto` requires exactly one valid supported installation
-and its matching worker. Choose an exact version such as `V20` when multiple
+The 0.2.0-alpha.2 packages include V17 to V20. `Auto` requires exactly one valid
+supported installation and its matching worker. Choose an exact version such
+as `V20` when multiple
 versions are installed.
 
 The VS Code examples use input variables instead of a repository-specific or

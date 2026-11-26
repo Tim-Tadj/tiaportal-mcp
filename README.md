@@ -11,15 +11,14 @@ for additional workflows. The assistant can discover the native objects,
 services and exact method schemas available in your installation, rather than
 needing a new C# helper for each task.
 
-[Download 0.2.0-alpha.1](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.1)
+[Download 0.2.0-alpha.2](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.2)
 | [Install](#installation)
 | [TIA versions](#tia-portal-versions)
 | [Interface guide](docs/public-api-interface.md)
 
-> Published experimental Windows release. V17, V18 and V19 workers are included
-> in both profiles. Local V19 qualification covered the disposable rack and
-> watch-table workflows. Development builds also include V20, which has not been
-> runtime-validated. See the [release notes](docs/0.2.0-alpha.1-release.md).
+> Experimental Windows prerelease. Both profiles include exact V17 to V20
+> workers. V20 adds SIMATIC SD document tools to ReadWrite. See the
+> [release notes](docs/0.2.0-alpha.2-release.md) for validation and limitations.
 
 ## What you can do
 
@@ -90,28 +89,25 @@ results before retrying a failed operation.
 
 ## TIA Portal versions
 
-**Published release 0.2.0-alpha.1 bundles exact workers for TIA Portal V17, V18 and V19. Development builds include V20 by default.**
-
-| TIA Portal version | Published 0.2.0-alpha.1 | Development build |
+| TIA Portal version | Included profiles | Evidence |
 | --- | --- | --- |
-| **V17** | Read and ReadWrite | Included; compile-time coverage only |
-| **V18** | Read and ReadWrite | Included; compile-time coverage only |
-| **V19** | Read and ReadWrite | Included; runtime-unverified in published candidate |
-| **V20** | No | [Included by default in development builds](build/README.md); experimental and runtime-unverified |
-| V21 | No | Rejected; requires a dedicated adapter |
-| V16 and earlier | No | No worker included |
+| **V17** | Read and ReadWrite | Compile-time coverage |
+| **V18** | Read and ReadWrite | Compile-time coverage |
+| **V19** | Read and ReadWrite | Prior focused rack and watch-table qualification |
+| **V20** | Read and ReadWrite | Local Openness startup and project attachment |
+| V21 | Unavailable | Requires a dedicated adapter |
+| V16 and earlier | Unavailable | No worker available |
 
 Choose an access profile, then select a TIA version. The broker starts the
 matching worker. `Auto` succeeds only when exactly one valid supported version
 is installed and its worker is included. Auto considers every installed V17 to
 V20 version, even when a development bundle contains only a subset. When V19
-and V20 are both installed, select the version explicitly. Published alpha.1
-downloads remain V17 to V19 only.
+and V20 are both installed, select the version explicitly.
 
 Some functions vary by version: native cross-references and hardware type
 replacement require V18 or newer; catalogue lookup, catalogue-verified device
-creation and accessible-device discovery require V19. SIMATIC SD document
-operations are not included in this release.
+creation and accessible-device discovery require V19 or newer. SIMATIC SD
+document import and export are available in the V20 ReadWrite worker.
 
 Bundled means an exact worker is provided, not that every native workflow has
 been runtime-qualified. Siemens runtime DLLs are loaded from your local
@@ -126,10 +122,10 @@ You need:
 
 - Windows x64 and .NET Framework 4.8.
 - TIA Portal V17, V18, V19 or V20 with its matching Openness API installed.
-  Published alpha.1 downloads contain V17 to V19; V20 is for development builds.
+
 - Licences and installed Siemens modules for the engineering functions you use.
 - Your Windows account in the **Siemens TIA Openness** local group.
-- An MCP client, such as Claude Desktop or a local VS Code/Copilot session.
+- A local MCP client such as Codex, Claude Desktop or VS Code/Copilot.
 
 <details>
 <summary>Set up Siemens Openness group membership</summary>
@@ -150,13 +146,13 @@ authorisation prompt if it appears when connecting.
 
 ### 2. Download a profile
 
-Open the [0.2.0-alpha.1 release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.1)
+Open the [0.2.0-alpha.2 release](https://github.com/Tim-Tadj/tiaportal-mcp/releases/tag/0.2.0-alpha.2)
 and download the package matching your client and intended access:
 
 | Client | Read package | ReadWrite package |
 | --- | --- | --- |
-| Claude Desktop | `tia-portal-mcp-0.2.0-alpha.1-read-win-x64.mcpb` | `tia-portal-mcp-0.2.0-alpha.1-readwrite-win-x64.mcpb` |
-| VS Code, other local stdio clients, or the ChatGPT tunnel kit | `tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip` | `tia-portal-mcp-0.2.0-alpha.1-readwrite-win-x64.zip` |
+| Claude Desktop | `tia-portal-mcp-0.2.0-alpha.2-read-win-x64.mcpb` | `tia-portal-mcp-0.2.0-alpha.2-readwrite-win-x64.mcpb` |
+| Codex, VS Code, other local stdio clients or the ChatGPT tunnel kit | `tia-portal-mcp-0.2.0-alpha.2-read-win-x64.zip` | `tia-portal-mcp-0.2.0-alpha.2-readwrite-win-x64.zip` |
 
 Use a profile package from the release assets, rather than GitHub's automatic
 source-code ZIP. No source checkout, .NET SDK, Node.js or Python is needed to
@@ -167,7 +163,7 @@ compare the matching entry with your file's hash, for example:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip
+    .\tia-portal-mcp-0.2.0-alpha.2-read-win-x64.zip
 ```
 
 ### 3A. Claude Desktop
@@ -177,11 +173,9 @@ Get-FileHash -Algorithm SHA256 -LiteralPath `
    versions place it under **Desktop app**, next to **Extensions**; older
    layouts have an **Extensions** settings page.
 3. Open **Advanced settings**, choose **Install Extension**, and select the file.
-4. For the published alpha.1 MCPB, set the TIA version to `V17`, `V18` or
-   `V19`, or use `Auto` when exactly one supported TIA version is installed
-   and its matching worker is in the bundle. In a
-   development bundle containing V19 and V20, choose the exact version. The
-   ReadWrite package also asks for an export output directory.
+4. Select `V17`, `V18`, `V19` or `V20` to match your installation. Use
+   `Auto` when exactly one supported version is installed. The ReadWrite
+   package also asks for an export output directory.
 5. Enable the extension for the conversation and continue with the first
    connection sequence below.
 
@@ -215,9 +209,19 @@ configuration destination used by your intended session.
 See [VS Code's current MCP configuration guidance](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
 and the [full VS Code guide](packaging/clients/vscode/README.md).
 
-### 3C. Other local MCP clients
+### 3C. Codex and other local MCP clients
 
-Register a stdio server using the extracted broker. A Read/V19 example is:
+Extract the selected ZIP to a permanent folder. To register a V20 ReadWrite
+bundle in Codex, run this in PowerShell with the path to your extracted broker:
+
+```powershell
+codex mcp add tia_portal_v20 -- 'C:\Tools\TiaPortalMcp\ReadWrite\server\TiaPortalMcp.exe' --tia-version V20
+```
+
+Open a new Codex chat and use the first connection sequence below. Select a
+broker from the Read bundle if you want read-only access.
+
+For another local client, register a stdio server using the extracted broker. A Read/V19 example is:
 
 ```json
 {
@@ -272,13 +276,12 @@ Once the client has the server available, ask:
 The assistant should discover `GetCapabilities`, use `GetTiaProcesses` and
 `Connect` with an exact process ID, then check `GetState`. Confirm the returned
 access profile, TIA version and project path before starting engineering work.
-These are user-run connection steps; they were not executed for this release.
 
 ## Troubleshooting
 
 | Problem | What to check |
 | --- | --- |
-| Several TIA versions are installed | Set the client to the exact bundled version, such as `V19` or `V20`, instead of `Auto`. Auto requires exactly one installed supported version with its worker in the bundle. Development builds include V20; published alpha.1 packages do not. |
+| Several TIA versions are installed | Set the client to the exact bundled version, such as `V19` or `V20`, instead of `Auto`. Auto requires exactly one installed supported version with its worker in the bundle. |
 | Access denied or `EngineeringSecurityException` | Check the Openness group membership, sign out/in after changes, and respond to TIA's connection prompt. |
 | No running TIA process | Start the matching TIA version and open the project. Read attaches to an existing instance. |
 | Client cannot find the executable | Keep the complete extracted bundle in place and check the absolute `server\TiaPortalMcp.exe` path. Use a local Windows client session. |
@@ -291,12 +294,12 @@ These are user-run connection steps; they were not executed for this release.
 - [Public API interface](docs/public-api-interface.md): schemas, values and reviewed native effects.
 - [General AI workflows](docs/general-ai-workflows.md): worked sequences and proposed evaluation cases.
 - [Coverage map](docs/openness-coverage.md): exact-version and native API boundaries.
-- [Release notes](docs/0.2.0-alpha.1-release.md): packages, migration and validation evidence.
+- [Release notes](docs/0.2.0-alpha.2-release.md): packages, migration and validation evidence.
 - [Hardware tools](docs/hardware-tools.md) and [online tools](docs/online-tools.md).
 - [Build guide](build/README.md), [test prerequisites](tests/TiaMcpServer.Test/README.md) and [contributor instructions](AGENTS.md).
 - [Output contract](docs/output-formats.md) and [error model](docs/error-model.md).
 
 The release includes no Siemens runtime DLLs. Private APIs, UI-only actions and
-arbitrary .NET execution are outside the interface. Tests, client installation
+arbitrary .NET execution are outside the interface. Full client installation
 qualification and licensed runtime coverage remain outstanding. The project is
 licensed under [MIT](LICENSE.txt).

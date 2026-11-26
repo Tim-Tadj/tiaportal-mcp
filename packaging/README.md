@@ -6,10 +6,8 @@ This directory contains source definitions for the two public distributions:
 - `tia-portal-mcp-readwrite`
 
 Each distribution contains a fixed-profile broker and internal exact-version
-workers. Published `0.2.0-alpha.1` bundles V17, V18 and V19. Development builds
-include V17 to V20 by default; V20 is experimental and runtime-unverified. The
-legacy v0.0.18 V20 release remains separate. V21 is rejected pending its
-dedicated adapter.
+workers. The experimental `0.2.0-alpha.2` bundles include V17 to V20. V21
+requires a dedicated adapter.
 
 ## Source layout
 
