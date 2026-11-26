@@ -44,8 +44,8 @@ The TiaMcpServer project provides the following functionality:
 *   **Working with blocks:** The `GetBlockInfo`, `GetBlocks`, `GetBlocksWithHierarchy`, `ExportBlock`, `ImportBlock`, and `ExportBlocks` tools allow the LLM to work with blocks.
     - `ExportBlock` expects `blockPath` to be a fully qualified path like `Group/Subgroup/Name`. Passing just a name is ambiguous; the MCP layer will return `InvalidParams` and may suggest likely full paths based on project contents.
 *   **Working with types:** The `GetTypeInfo`, `GetTypes`, `ExportType`, `ImportType`, and `ExportTypes` tools allow the LLM to work with types.
-*   **Exporting blocks as documents (V20 ReadWrite):** The `ExportAsDocuments` and `ExportBlocksAsDocuments` tools export blocks as SIMATIC SD documents (.s7dcl/.s7res). They are available in the V20 ReadWrite development bundle.
-*   **Importing blocks from documents (V20 ReadWrite):** The `ImportFromDocuments` and `ImportBlocksFromDocuments` tools import blocks from SIMATIC SD documents into PLC software. They are available in the V20 ReadWrite development bundle.
+*   **Exporting blocks as documents (V20 ReadWrite):** The `ExportAsDocuments` and `ExportBlocksAsDocuments` tools export blocks as SIMATIC SD documents (.s7dcl/.s7res). They are available in the V20 ReadWrite bundle.
+*   **Importing blocks from documents (V20 ReadWrite):** The `ImportFromDocuments` and `ImportBlocksFromDocuments` tools import blocks from SIMATIC SD documents into PLC software. They are available in the V20 ReadWrite bundle.
 
 ## 5. Model-Facing Output Contract
 

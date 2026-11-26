@@ -4,7 +4,7 @@
   "display_name": "TIA Portal MCP - Read",
   "version": "__VERSION__",
   "description": "Explore TIA Portal projects, PLC code, hardware and public API schemas with an AI assistant.",
-  "long_description": "Connects Claude Desktop to local TIA Portal through a fixed Read broker and exact-version workers. Includes project/device/PLC browsing, tag and constant queries, native cross-references where supported, hardware inspection and public API type/property/service discovery. Mutation and native content-export tools are absent. Siemens runtime DLLs are not bundled. V20 is experimental and runtime-unverified.",
+  "long_description": "Connects Claude Desktop to local TIA Portal through a fixed Read broker and exact-version workers. Includes project/device/PLC browsing, tag and constant queries, native cross-references where supported, hardware inspection and public API type/property/service discovery. Mutation and native content-export tools are absent. Siemens runtime DLLs are not bundled. V20 is experimental.",
   "author": {
     "name": "Tim-Tadj"
   },
@@ -31,7 +31,7 @@
     "tia_version": {
       "type": "string",
       "title": "TIA Portal version",
-      "description": "Use auto when exactly one supported TIA version is installed and its worker is included in this bundle, or enter a bundled version explicitly. Auto considers all installed V17 to V20 versions, including versions omitted from a development subset build. V20 is experimental and runtime-unverified.",
+      "description": "Use auto when exactly one supported TIA version is installed and its worker is included in this bundle, or enter a bundled version explicitly. Auto considers all installed V17 to V20 versions, including versions omitted from a development subset build. V20 is experimental.",
       "default": "auto",
       "required": true
     }

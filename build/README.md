@@ -6,9 +6,8 @@ These scripts produce the two public Windows x64 profiles:
 - `ReadWrite`
 
 Each profile bundle contains one dependency-free broker and exact internal
-workers for the selected TIA Portal versions. Published alpha.1 bundles contain
-V17 to V19. Development builds include V17 to V20 by default; V20 is experimental
-and runtime-unverified. V21 is rejected until its modular adapter is implemented.
+workers for the selected TIA Portal versions. The 0.2.0-alpha.2 release bundles
+V17 to V20. V21 requires a dedicated adapter.
 
 ## Prerequisites
 
@@ -34,7 +33,7 @@ The client manifests, portable paths and PowerShell syntax can be checked
 without an installed or running TIA Portal:
 
 ```powershell
-.\build\Validate-Client-Packaging.ps1 -Version 0.2.0-v20.local
+.\build\Validate-Client-Packaging.ps1 -Version 0.2.0-alpha.2
 ```
 
 This renders metadata into a temporary directory, validates the Read and
@@ -52,8 +51,8 @@ dotnet test .\tests\TiaMcp.Contracts.Test\TiaMcp.Contracts.Test.csproj `
 ```
 
 The validator checks release versions, exact Read and ReadWrite tool surfaces,
-the secondary mutation policy, operation-gate registration, V20 and V21
-rejection, release and client manifests, and third-party notice coverage. Pass
+the secondary mutation policy, operation-gate registration, V20 selection,
+V21 rejection, release and client manifests, and third-party notice coverage. Pass
 a full build directory to also check broker and worker versions, dependencies,
 metadata, Siemens DLL exclusion and bounded deferred-version diagnostics:
 
@@ -71,17 +70,16 @@ build or start an exact-version worker on a hosted runner.
 Run from the repository root:
 
 ```powershell
-.\build\Build-Workers.ps1 -Version 0.2.0-v20.local
+.\build\Build-Workers.ps1 -Version 0.2.0-alpha.2
 ```
 
 The default matrix builds Read and ReadWrite brokers plus V17, V18, V19 and V20
 workers beneath `artifacts\build`. A smaller matrix can be requested explicitly.
-V20 is experimental and runtime-unverified. Published alpha.1 bundles remain
-V17 to V19; these development build instructions do not create a release:
+For example, to build only the V19 workers and brokers:
 
 ```powershell
 .\build\Build-Workers.ps1 `
-    -Version 0.2.0-v20.local `
+    -Version 0.2.0-alpha.2 `
     -TiaVersions 19 `
     -OutputDirectory C:\temp\tia-mcp-build
 ```
@@ -98,7 +96,7 @@ hash-bound `tia-mcp-build.json` metadata beside each executable.
 
 ```powershell
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.2.0-v20.local `
+    -Version 0.2.0-alpha.2 `
     -BuildDirectory .\artifacts\build
 ```
 
@@ -116,7 +114,7 @@ Install the current MCPB CLI separately, then request packing:
 npm install -g @anthropic-ai/mcpb
 
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.2.0-v20.local `
+    -Version 0.2.0-alpha.2 `
     -CreateMcpb
 ```
 
@@ -168,7 +166,7 @@ web developer-mode requirements.
   developer-mode workspace. It is not a direct ChatGPT Desktop integration.
 - They do not sign executables, generate an SBOM or perform licensed TIA Portal
   runtime validation.
-- V20 is included in development builds but remains runtime-unverified. V21 is
-  rejected pending its dedicated adapter.
+- V20 has focused connection evidence. Full engineering workflow qualification
+  remains open.
 
 See [Current Status](../docs/status.md) for the remaining release gates.
