@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- [RO][RW][V20] Add experimental exact-version Openness workers to development
+  bundles. Both profiles passed offline MCP startup on a V20 installation.
+  Licensed project workflows remain unverified.
+
+### Fixed
+
+- [RW][V20] Update two SIMATIC SD tools for the current MCP SDK.
+
 ## [0.2.0-alpha.1] - 2026-11-23
 
 ### Added

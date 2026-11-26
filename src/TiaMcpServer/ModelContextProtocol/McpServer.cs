@@ -2008,7 +2008,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         [McpServerTool(Name = "ExportBlocksAsDocuments"), Description("V20 only. Export matching blocks as SIMATIC SD documents beneath the configured output root and return bounded result counts.")]
         public static async Task<ResponseExportBlocksAsDocuments> ExportBlocksAsDocuments(
-            IMcpServer server,
+            global::ModelContextProtocol.Server.McpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("exportPath: directory beneath the configured output root, or an absolute directory contained by that root")] string exportPath,
@@ -2268,7 +2268,7 @@ namespace TiaMcpServer.ModelContextProtocol
 
         [McpServerTool(Name = "ImportBlocksFromDocuments"), Description("V20 only. Import matching SIMATIC SD documents into PLC software using an explicit conflict policy and return bounded result counts.")]
         public static async Task<ResponseImportBlocksFromDocuments> ImportBlocksFromDocuments(
-            IMcpServer server,
+            global::ModelContextProtocol.Server.McpServer server,
             RequestContext<CallToolRequestParams> context,
             [Description("softwarePath: defines the path in the project structure to the plc software")] string softwarePath,
             [Description("groupPath: optional path within the PLC program where the blocks should be placed (empty for root)")] string groupPath,

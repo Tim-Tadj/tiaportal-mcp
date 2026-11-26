@@ -16,9 +16,10 @@ needing a new C# helper for each task.
 | [TIA versions](#tia-portal-versions)
 | [Interface guide](docs/public-api-interface.md)
 
-> Experimental Windows release. V17, V18 and V19 workers are included in both
-> profiles. Local V19 qualification covered the disposable rack and watch-table
-> workflows. The full supported-runtime matrix remains outstanding. See the [release notes](docs/0.2.0-alpha.1-release.md).
+> Published experimental Windows release. V17, V18 and V19 workers are included
+> in both profiles. Local V19 qualification covered the disposable rack and
+> watch-table workflows. Development builds also include V20, which has not been
+> runtime-validated. See the [release notes](docs/0.2.0-alpha.1-release.md).
 
 ## What you can do
 
@@ -89,20 +90,23 @@ results before retrying a failed operation.
 
 ## TIA Portal versions
 
-**The current release bundles exact workers for TIA Portal V17, V18 and V19.**
+**Published release 0.2.0-alpha.1 bundles exact workers for TIA Portal V17, V18 and V19. Development builds include V20 by default.**
 
-| TIA Portal version | Included in alpha.3 | Current evidence |
+| TIA Portal version | Published 0.2.0-alpha.1 | Development build |
 | --- | --- | --- |
-| **V17** | Read and ReadWrite | Compiled; runtime-unverified |
-| **V18** | Read and ReadWrite | Compiled; runtime-unverified |
-| **V19** | Read and ReadWrite | Compiled; runtime-unverified |
-| V20 | No | Deferred to a later release |
-| V21 | No | Requires a dedicated adapter |
+| **V17** | Read and ReadWrite | Included; compile-time coverage only |
+| **V18** | Read and ReadWrite | Included; compile-time coverage only |
+| **V19** | Read and ReadWrite | Included; runtime-unverified in published candidate |
+| **V20** | No | [Included by default in development builds](build/README.md); experimental and runtime-unverified |
+| V21 | No | Rejected; requires a dedicated adapter |
 | V16 and earlier | No | No worker included |
 
-Choose an access profile, then select a TIA version. The included broker starts
-the matching worker. `Auto` succeeds only when exactly one bundled version is
-installed; otherwise set `V17`, `V18` or `V19` explicitly.
+Choose an access profile, then select a TIA version. The broker starts the
+matching worker. `Auto` succeeds only when exactly one valid supported version
+is installed and its worker is included. Auto considers every installed V17 to
+V20 version, even when a development bundle contains only a subset. When V19
+and V20 are both installed, select the version explicitly. Published alpha.1
+downloads remain V17 to V19 only.
 
 Some functions vary by version: native cross-references and hardware type
 replacement require V18 or newer; catalogue lookup, catalogue-verified device
@@ -121,7 +125,8 @@ Install and run the client on the Windows PC where TIA Portal is installed.
 You need:
 
 - Windows x64 and .NET Framework 4.8.
-- TIA Portal V17, V18 or V19 with its matching Openness API installed.
+- TIA Portal V17, V18, V19 or V20 with its matching Openness API installed.
+  Published alpha.1 downloads contain V17 to V19; V20 is for development builds.
 - Licences and installed Siemens modules for the engineering functions you use.
 - Your Windows account in the **Siemens TIA Openness** local group.
 - An MCP client, such as Claude Desktop or a local VS Code/Copilot session.
@@ -172,8 +177,11 @@ Get-FileHash -Algorithm SHA256 -LiteralPath `
    versions place it under **Desktop app**, next to **Extensions**; older
    layouts have an **Extensions** settings page.
 3. Open **Advanced settings**, choose **Install Extension**, and select the file.
-4. Set the TIA version to `V17`, `V18` or `V19`, or use `Auto` for one installed
-   bundled version. The ReadWrite package also asks for an export output directory.
+4. For the published alpha.1 MCPB, set the TIA version to `V17`, `V18` or
+   `V19`, or use `Auto` when exactly one supported TIA version is installed
+   and its matching worker is in the bundle. In a
+   development bundle containing V19 and V20, choose the exact version. The
+   ReadWrite package also asks for an export output directory.
 5. Enable the extension for the conversation and continue with the first
    connection sequence below.
 
@@ -270,7 +278,7 @@ These are user-run connection steps; they were not executed for this release.
 
 | Problem | What to check |
 | --- | --- |
-| Several TIA versions are installed | Set the client to an exact `V17`, `V18` or `V19` instead of `Auto`. |
+| Several TIA versions are installed | Set the client to the exact bundled version, such as `V19` or `V20`, instead of `Auto`. Auto requires exactly one installed supported version with its worker in the bundle. Development builds include V20; published alpha.1 packages do not. |
 | Access denied or `EngineeringSecurityException` | Check the Openness group membership, sign out/in after changes, and respond to TIA's connection prompt. |
 | No running TIA process | Start the matching TIA version and open the project. Read attaches to an existing instance. |
 | Client cannot find the executable | Keep the complete extracted bundle in place and check the absolute `server\TiaPortalMcp.exe` path. Use a local Windows client session. |

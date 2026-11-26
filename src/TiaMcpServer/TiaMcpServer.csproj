@@ -15,6 +15,8 @@
     <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '19'">19.0.1725520202</TiaOpennessPackageVersion>
     <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '20'">20.0.1744190253</TiaOpennessPackageVersion>
     <TiaOpennessPackageVersion Condition="'$(TiaWorkerVersion)' == '21'">21.0.1765349347</TiaOpennessPackageVersion>
+    <!-- Let the Openness package discover the requested API when a shared environment setting points to another installation. -->
+    <TiaPortalLocation Condition="'$(TiaWorkerVersion)' != '21' and '$(TiaPortalLocation)' != '' and !Exists('$(TiaPortalLocation)\PublicAPI\V$(TiaWorkerVersion)\Siemens.Engineering.dll')"></TiaPortalLocation>
     <DefineConstants>$(DefineConstants);TIA_MCP_V$(TiaWorkerVersion)</DefineConstants>
     <DefineConstants Condition="'$(TiaAccessProfile)' == 'ReadWrite'">$(DefineConstants);TIA_MCP_READ_WRITE</DefineConstants>
   </PropertyGroup>

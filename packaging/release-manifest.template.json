@@ -5,10 +5,10 @@
   "bundledTiaVersions": [
     17,
     18,
-    19
+    19,
+    20
   ],
   "plannedTiaVersions": [
-    20,
     21
   ],
   "tiaVersionValidation": {
@@ -28,9 +28,9 @@
       "classification": "experimental-build-only"
     },
     "20": {
-      "bundled": false,
+      "bundled": true,
       "runtimeValidated": false,
-      "classification": "planned-later-alpha"
+      "classification": "experimental-build-only"
     },
     "21": {
       "bundled": false,

@@ -1,8 +1,9 @@
 # Claude Desktop MCPB installation and removal
 
-The `0.1.0-alpha.3` MCPBs contain workers for TIA Portal V17, V18 and V19
-only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
-release. V21 is unsupported in this release.
+The published alpha.1 MCPBs contain workers for TIA Portal V17, V18 and V19.
+Development bundles include V20 by default; V20 is experimental and
+runtime-unverified. The legacy v0.0.18 V20 release is separate. V21 is rejected
+pending its dedicated adapter.
 
 ## Windows download trust
 
@@ -11,7 +12,7 @@ entry in `SHA256SUMS.txt`, using the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.mcpb
+    .\tia-portal-mcp-0.2.0-alpha.1-read-win-x64.mcpb
 ```
 
 Normal MCPB installation through Claude Desktop does not require a PowerShell

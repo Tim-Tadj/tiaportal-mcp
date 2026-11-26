@@ -3,9 +3,10 @@
 This bundle runs TIA Portal MCP locally over standard input and output. No
 extension or VSIX is required.
 
-The `0.1.0-alpha.3` bundles contain workers for TIA Portal V17, V18 and V19
-only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
-release. V21 is unsupported in this release.
+The published alpha.1 bundles contain workers for TIA Portal V17, V18 and V19.
+Development bundles include V20 by default; V20 is experimental and
+runtime-unverified. The legacy v0.0.18 V20 release is separate. V21 is rejected
+pending its dedicated adapter.
 
 ## Windows download trust
 
@@ -15,7 +16,7 @@ the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip
+    .\tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip
 ```
 
 If Windows then blocks the verified script because it carries
@@ -37,10 +38,12 @@ The installer reads `manifest.json`, so it cannot change a Read bundle into a
 ReadWrite bundle. It resolves the broker relative to the extracted bundle and
 adds the server to the current VS Code user profile with `code --add-mcp`.
 
-Use an exact version when several bundled TIA Portal versions are installed:
+Use an exact version when several bundled TIA Portal versions are installed.
+For a development bundle with both V19 and V20, choose explicitly. This version
+is not present in the published alpha.1 bundles:
 
 ```powershell
-.\clients\vscode\Install-VsCodeMcp.ps1 -TiaVersion V19
+.\clients\vscode\Install-VsCodeMcp.ps1 -TiaVersion V20
 ```
 
 The ReadWrite bundle defaults exports to
@@ -64,7 +67,9 @@ from the extracted release bundle into `.vscode\mcp.json`. This profile-specific
 file is created during assembly; the repository source templates are
 [read.mcp.json](read.mcp.json) and [readwrite.mcp.json](readwrite.mcp.json).
 The extracted file uses an input variable for the absolute bundle path and
-defaults to `Auto`; choose an exact version when several are installed.
+defaults to `Auto`, which requires exactly one installed supported version and
+its worker in the bundle. Auto considers installed V17 to V20 versions even if
+the bundle contains only a subset. Choose an exact version when several are installed.
 
 For the newer native Copilot configuration destinations, use **MCP: Add Server**
 and select the destination for the intended session. The helper uses

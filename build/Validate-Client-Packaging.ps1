@@ -291,9 +291,10 @@ try
         $releaseManifest.tiaVersionValidation.'19'.runtimeValidated -ne $false -or
         $releaseManifest.tiaVersionValidation.'19'.classification -cne
             'experimental-build-only' -or
-        $releaseManifest.tiaVersionValidation.'20'.bundled -ne $false -or
+        $releaseManifest.tiaVersionValidation.'20'.bundled -ne $true -or
+        $releaseManifest.tiaVersionValidation.'20'.runtimeValidated -ne $false -or
         $releaseManifest.tiaVersionValidation.'20'.classification -cne
-            'planned-later-alpha' -or
+            'experimental-build-only' -or
         $releaseManifest.tiaVersionValidation.'21'.bundled -ne $false -or
         $releaseManifest.clients.vscode.transport -ne 'stdio' -or
         $releaseManifest.clients.chatgpt.serverExecution -ne 'local' -or

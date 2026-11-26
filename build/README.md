@@ -6,10 +6,9 @@ These scripts produce the two public Windows x64 profiles:
 - `ReadWrite`
 
 Each profile bundle contains one dependency-free broker and exact internal
-workers for the selected TIA Portal versions. The first alpha bundles V17 to
-V19. V20 can still be compiled explicitly for future development but is
-deferred from this release. V21 is unsupported in this release and is rejected
-until its modular adapter is implemented.
+workers for the selected TIA Portal versions. Published alpha.1 bundles contain
+V17 to V19. Development builds include V17 to V20 by default; V20 is experimental
+and runtime-unverified. V21 is rejected until its modular adapter is implemented.
 
 ## Prerequisites
 
@@ -35,7 +34,7 @@ The client manifests, portable paths and PowerShell syntax can be checked
 without an installed or running TIA Portal:
 
 ```powershell
-.\build\Validate-Client-Packaging.ps1 -Version 0.1.0-alpha.1
+.\build\Validate-Client-Packaging.ps1 -Version 0.2.0-v20.local
 ```
 
 This renders metadata into a temporary directory, validates the Read and
@@ -72,20 +71,24 @@ build or start an exact-version worker on a hosted runner.
 Run from the repository root:
 
 ```powershell
-.\build\Build-Workers.ps1 -Version 0.1.0-alpha.1
+.\build\Build-Workers.ps1 -Version 0.2.0-v20.local
 ```
 
-The default matrix builds Read and ReadWrite brokers plus V17, V18 and V19
-workers beneath `artifacts\build`. A smaller experimental matrix can be
-requested explicitly. V20 remains an explicit development build and is not
-part of `0.1.0-alpha.1`; the public bundle assembler rejects it:
+The default matrix builds Read and ReadWrite brokers plus V17, V18, V19 and V20
+workers beneath `artifacts\build`. A smaller matrix can be requested explicitly.
+V20 is experimental and runtime-unverified. Published alpha.1 bundles remain
+V17 to V19; these development build instructions do not create a release:
 
 ```powershell
 .\build\Build-Workers.ps1 `
-    -Version 0.1.0-alpha.1 `
+    -Version 0.2.0-v20.local `
     -TiaVersions 19 `
     -OutputDirectory C:\temp\tia-mcp-build
 ```
+
+Use `-TiaVersions 20` on both the build and assembly commands for a V20-only
+bundle. The Openness package falls back to Windows installation discovery when
+the `TiaPortalLocation` environment variable lacks the requested API version.
 
 The output directory must be empty. Each component receives isolated output
 and intermediate directories. The script verifies product versions and writes
@@ -95,7 +98,7 @@ hash-bound `tia-mcp-build.json` metadata beside each executable.
 
 ```powershell
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.1.0-alpha.1 `
+    -Version 0.2.0-v20.local `
     -BuildDirectory .\artifacts\build
 ```
 
@@ -113,7 +116,7 @@ Install the current MCPB CLI separately, then request packing:
 npm install -g @anthropic-ai/mcpb
 
 .\build\Assemble-Bundles.ps1 `
-    -Version 0.1.0-alpha.1 `
+    -Version 0.2.0-v20.local `
     -CreateMcpb
 ```
 
@@ -165,6 +168,7 @@ web developer-mode requirements.
   developer-mode workspace. It is not a direct ChatGPT Desktop integration.
 - They do not sign executables, generate an SBOM or perform licensed TIA Portal
   runtime validation.
-- V20 is deferred from this alpha and V21 is unsupported in this release.
+- V20 is included in development builds but remains runtime-unverified. V21 is
+  rejected pending its dedicated adapter.
 
 See [Current Status](../docs/status.md) for the remaining release gates.

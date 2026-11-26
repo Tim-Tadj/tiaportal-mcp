@@ -9,9 +9,10 @@ OpenAI and does not open an inbound firewall port.
 This is currently a ChatGPT web custom-app workflow, not a direct ChatGPT
 Desktop installation.
 
-The `0.1.0-alpha.3` bundles contain workers for TIA Portal V17, V18 and V19
-only. V20 is planned for a later alpha; v0.0.18 remains the legacy V20
-release. V21 is unsupported in this release.
+The published alpha.1 bundles contain workers for TIA Portal V17, V18 and V19.
+Development bundles include V20 by default; V20 is experimental and
+runtime-unverified. The legacy v0.0.18 V20 release is separate. V21 is rejected
+pending its dedicated adapter.
 
 ## Windows download trust
 
@@ -21,7 +22,7 @@ the matching profile filename:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 -LiteralPath `
-    .\tia-portal-mcp-0.1.0-alpha.3-read-win-x64.zip
+    .\tia-portal-mcp-0.2.0-alpha.1-read-win-x64.zip
 ```
 
 If Windows then blocks the verified scripts because they carry
@@ -72,7 +73,9 @@ Configure the tunnel profile from the extracted bundle:
     -TiaVersion V19
 ```
 
-The script resolves the broker from the bundle, fixes the Read or ReadWrite
+Auto requires exactly one installed supported version and its worker in the
+bundle. It considers installed V17 to V20 versions even if a development bundle
+contains only a subset. The script resolves the broker from the bundle, fixes the Read or ReadWrite
 profile from `manifest.json`, and passes the local command to
 `tunnel-client init`. It does not save or print the runtime API key.
 

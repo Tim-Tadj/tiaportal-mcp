@@ -14,12 +14,12 @@ The target design has four primary goals:
   internal binary.
 
 The supported-release target worker set is TIA Portal V17, V18, V19, V20 and
-V21 on Windows x64. The narrower `0.1.0-alpha.1` package includes V17, V18 and
-V19. V17 and V18 are `experimental-build-only`. V19 is
-`experimental-prior-runtime-evidence` with `runtimeValidated=false` because its
-earlier live-project evidence predates the Siemens-DLL-free resolver in the
-exact candidate. V20 is planned for a later alpha. V21 is unsupported in this
-release because its dedicated adapter does not yet exist.
+V21 on Windows x64. Published `0.2.0-alpha.1` packages include V17, V18 and V19.
+Development builds include V17 to V20 by default. V17 and V18 are
+`experimental-build-only`; V19 and V20 remain experimental with
+`runtimeValidated=false`. V20 has no licensed runtime validation in the current
+development build. V21 is rejected because its dedicated adapter does not yet
+exist.
 An experimental worker may be advertised for alpha evaluation with that label,
 but support requires the full release definition of done.
 

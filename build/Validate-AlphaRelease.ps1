@@ -188,7 +188,7 @@ function Assert-VersionConsistency
         -Condition ((Get-XmlPropertyValue `
             -Document $workerProject `
             -PropertyName 'TiaWorkerVersion') -ceq '19') `
-        -Message 'The default local worker must target the latest bundled version, TIA Portal V19.'
+        -Message 'The default local worker must target TIA Portal V19.'
 
     $changelog = Get-Content `
         -LiteralPath (Join-Path $RepositoryRoot 'CHANGELOG.md') `
@@ -676,7 +676,7 @@ function Get-RejectionMessage
     return $message
 }
 
-function Assert-DeferredVersionBoundaries
+function Assert-UnsupportedVersionBoundaries
 {
     param(
         [Parameter(Mandatory = $true)]
@@ -709,19 +709,6 @@ function Assert-DeferredVersionBoundaries
             -Message "Build-Workers.ps1 did not reject V21 at validation time. Message: '$buildMessage'."
 
         $assembleScript = Join-Path $RepositoryRoot 'build\Assemble-Bundles.ps1'
-        $v20AssembleMessage = Get-RejectionMessage -Operation {
-            & $assembleScript `
-                -Version $ReleaseVersion `
-                -TiaVersions 20 `
-                -BuildDirectory (Join-Path $temporaryRoot 'missing-build') `
-                -OutputDirectory (Join-Path $temporaryRoot 'release-v20')
-        }
-        Assert-Condition `
-            -Condition (-not [string]::IsNullOrWhiteSpace(
-                    $v20AssembleMessage) -and
-                $v20AssembleMessage -match 'V20.*planned for a later alpha') `
-            -Message "Assemble-Bundles.ps1 did not reject V20 at validation time. Message: '$v20AssembleMessage'."
-
         $v21AssembleMessage = Get-RejectionMessage -Operation {
             & $assembleScript `
                 -Version $ReleaseVersion `
@@ -750,9 +737,6 @@ function Assert-DeferredVersionBoundaries
         $RepositoryRoot `
         'src\TiaMcpBroker\TiaVersionResolver.cs'
     $resolver = Get-Content -LiteralPath $resolverPath -Raw
-    $v20CheckIndex = $resolver.IndexOf(
-        'request == TiaVersionRequest.V20',
-        [System.StringComparison]::Ordinal)
     $v21CheckIndex = $resolver.IndexOf(
         'request == TiaVersionRequest.V21',
         [System.StringComparison]::Ordinal)
@@ -760,10 +744,9 @@ function Assert-DeferredVersionBoundaries
         'installationDetector.Scan()',
         [System.StringComparison]::Ordinal)
     Assert-Condition `
-        -Condition ($v20CheckIndex -ge 0 -and
-            $v21CheckIndex -gt $v20CheckIndex -and
+        -Condition ($v21CheckIndex -ge 0 -and
             $installationScanIndex -gt $v21CheckIndex) `
-        -Message 'The broker must reject deferred V20 and unsupported V21 before scanning TIA Portal installations.'
+        -Message 'The broker must reject unsupported V21 before scanning TIA Portal installations.'
 }
 
 function Assert-ReleaseManifest
@@ -791,18 +774,18 @@ function Assert-ReleaseManifest
         -Message 'The release manifest has inconsistent alpha identity or platform metadata.'
     Assert-ExactSequence `
         -Actual @($manifest.bundledTiaVersions) `
-        -Expected @(17, 18, 19) `
+        -Expected @(17, 18, 19, 20) `
         -Description 'bundledTiaVersions'
     Assert-ExactSequence `
         -Actual @($manifest.plannedTiaVersions) `
-        -Expected @(20, 21) `
+        -Expected @(21) `
         -Description 'plannedTiaVersions'
 
     $expectedValidation = @{
         '17' = @($true, $false, 'experimental-build-only')
         '18' = @($true, $false, 'experimental-build-only')
         '19' = @($true, $false, 'experimental-build-only')
-        '20' = @($false, $false, 'planned-later-alpha')
+        '20' = @($true, $false, 'experimental-build-only')
         '21' = @($false, $false, 'unsupported-in-this-release')
     }
     foreach ($versionKey in @('17', '18', '19', '20', '21'))
@@ -1224,10 +1207,12 @@ function Assert-BrokerBuildBoundary
         foreach ($rejection in @(
             [pscustomobject]@{
                 Version = 'V20'
-                Diagnostic = 'planned for a later alpha'
+                ExitCodes = @(3, 4)
+                Diagnostic = 'no valid V20 Openness installation|exact TIA Portal V20 .+ worker was not found'
             },
             [pscustomobject]@{
                 Version = 'V21'
+                ExitCodes = @(3)
                 Diagnostic = 'unsupported in this release'
             }
         ))
@@ -1251,13 +1236,11 @@ function Assert-BrokerBuildBoundary
                 $standardError = $process.StandardError.ReadToEnd()
                 $process.WaitForExit()
                 Assert-Condition `
-                    -Condition ($process.ExitCode -eq 3 -and
+                    -Condition ($process.ExitCode -in $rejection.ExitCodes -and
                         $standardError.IndexOf(
                             $rejection.Version,
                             [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and
-                        $standardError.IndexOf(
-                            $rejection.Diagnostic,
-                            [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+                        $standardError -match $rejection.Diagnostic -and
                         [string]::IsNullOrWhiteSpace($standardOutput)) `
                     -Message "The $($profile.Name) broker did not reject $($rejection.Version) with the bounded preflight diagnostic."
             }
@@ -1295,7 +1278,7 @@ function Assert-BrokerBuildBoundary
             [pscustomobject]@{ Key = 'readwrite'; Name = 'ReadWrite' }
         ))
         {
-            foreach ($tiaVersion in @(17, 18, 19))
+            foreach ($tiaVersion in @(17, 18, 19, 20))
             {
                 $workerDirectory = Join-Path `
                     $workerRoot `
@@ -1383,7 +1366,7 @@ $versionResult = Assert-VersionConsistency `
     -RequestedVersion $Version
 $profileResult = Assert-SourceProfileBoundaries `
     -RepositoryRoot $repositoryRoot
-Assert-DeferredVersionBoundaries `
+Assert-UnsupportedVersionBoundaries `
     -RepositoryRoot $repositoryRoot `
     -ReleaseVersion $versionResult.ReleaseVersion
 Assert-ReleaseManifest `
@@ -1413,7 +1396,7 @@ Write-Output ([pscustomobject]@{
     DirectMutationPolicyChecks = $profileResult.DirectMutationPolicyChecks
     BuiltBrokersValidated = $builtBoundary.Brokers
     BuiltWorkersValidated = $builtBoundary.Workers
-    V20 = 'Deferred and rejected before installation discovery'
+    V20 = 'Bundled, runtime not validated'
     V21 = 'Rejected before installation discovery or build'
     ClientPackaging = 'Validated'
     WorkerRuntime = 'Not invoked'

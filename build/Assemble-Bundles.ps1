@@ -6,7 +6,7 @@ param(
 
     [Parameter()]
     [ValidateSet(17, 18, 19, 20, 21)]
-    [int[]]$TiaVersions = @(17, 18, 19),
+    [int[]]$TiaVersions = @(17, 18, 19, 20),
 
     [Parameter()]
     [string]$BuildDirectory,
@@ -55,21 +55,16 @@ function Get-SupportedTiaVersions
     }
 
     $normalisedVersions = @($Versions | Sort-Object -Unique)
-    if ($normalisedVersions -contains 20)
-    {
-        throw 'TIA Portal V20 is planned for a later alpha and cannot be included in 0.1.0-alpha.1. Request V17 to V19 only.'
-    }
-
     if ($normalisedVersions -contains 21)
     {
-        throw 'TIA Portal V21 is unsupported in 0.1.0-alpha.1 and cannot be assembled. Request V17 to V19 only.'
+        throw 'TIA Portal V21 is unsupported and cannot be assembled. Request V17 to V20 only.'
     }
 
     foreach ($tiaVersion in $normalisedVersions)
     {
-        if ($tiaVersion -lt 17 -or $tiaVersion -gt 19)
+        if ($tiaVersion -lt 17 -or $tiaVersion -gt 20)
         {
-            throw "TIA Portal V$tiaVersion is unsupported. Request V17 to V19 only."
+            throw "TIA Portal V$tiaVersion is unsupported. Request V17 to V20 only."
         }
     }
 
@@ -495,14 +490,7 @@ function Update-RenderedMetadata
         else
         {
             $validationEntry.runtimeValidated = $false
-            if ($tiaVersion -eq 20)
-            {
-                $validationEntry.classification = 'planned-later-alpha'
-            }
-            else
-            {
-                $validationEntry.classification = 'not-bundled-in-this-package'
-            }
+            $validationEntry.classification = 'not-bundled-in-this-package'
         }
     }
     $v21ValidationEntry =
@@ -518,7 +506,7 @@ function Update-RenderedMetadata
         $manifestPath = Join-Path $MetadataDirectory "$($profile.Key)\manifest.json"
         $manifestText = Get-Content -LiteralPath $manifestPath -Raw
         $manifest = $manifestText.Replace($RenderedVersionToken, $ReleaseVersion) | ConvertFrom-Json
-        $manifest.user_config.tia_version.description = "Use auto when exactly one supported version is installed. Otherwise, enter $versionList."
+        $manifest.user_config.tia_version.description = "Use auto for one valid supported installation with its worker included, or enter $versionList."
         Write-JsonFile -Value $manifest -Path $manifestPath
     }
 }
