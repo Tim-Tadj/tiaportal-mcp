@@ -73,6 +73,7 @@ UI-only functions cannot be supplied by the bridge. Private/internal APIs,
 arbitrary .NET methods and open generic type targets are excluded. Read
 indexers accept scalar and enum inputs. Unsupported value shapes fail explicitly.
 
-V17, V18 and V19 are the build targets for this development package. V20 and
-V21 are not delivered. These additions have build and static-review evidence
-only. No tests, live TIA calls or PLC operations were run.
+Development bundles include exact V17 to V20 workers by default. Use the
+matching worker for your installed TIA Portal version. V20 is experimental
+and its licensed project workflows still require validation. V21 requires a
+dedicated adapter.

@@ -12,9 +12,11 @@ and [interface guide](public-api-interface.md).
 
 ## Release scope
 
-Both profiles bundle exact V17, V18 and V19 workers. V17/V18 have compile-time
-coverage only. V20 is deferred; V21 needs its own modular adapter. The legacy
-v0.0.18 V20 release is separate.
+Published alpha.1 bundles contain exact V17, V18 and V19 workers. Development
+builds now include V17 to V20 by default. V17/V18 have compile-time coverage
+only; V19 remains runtime-unverified in the published candidate; V20 is
+experimental and runtime-unverified. V21 is rejected pending its modular
+adapter. The legacy v0.0.18 V20 release remains separate.
 
 Read exposes inspection and public API discovery. ReadWrite adds typed project
 workflows and reviewed native method execution. The initial reviewed native
@@ -29,9 +31,10 @@ Clients parsing alpha.1's two content blocks must migrate. See
 
 ## Validation and remaining work
 
-The release remains experimental. `runtimeValidated=false` is retained in the
-manifest because the full licensed runtime and clean-account client matrix is
-outstanding. Focused V19 testing uses an explicitly disposable project copy;
+The published release remains experimental. Development builds include V20,
+but V20 has no licensed runtime validation. `runtimeValidated=false` is
+retained in the manifest because the full licensed runtime and clean-account
+client matrix is outstanding. Focused V19 testing uses an explicitly disposable project copy;
 it does not download to a PLC or operate outputs. Alpha.1 historical build and
 runtime evidence remains recorded in the changelog and GitHub release.
 
@@ -40,8 +43,8 @@ discovery requires V19. Older workers return explicit unsupported responses.
 Native cross-references are scoped to a selected block or tag and are not a
 proof that indirect accesses are absent.
 
-Further work includes V20 and V21 adapters, cross-client evaluation,
-large-project performance, signed releases, provenance/SBOM, generated
+Further work includes V20 licensed runtime validation and the V21 adapter,
+cross-client evaluation, large-project performance, signed releases, provenance/SBOM, generated
 capability manifests and the remaining path hardening recorded in the roadmap.
 
 ## Supported-Release Definition of Done

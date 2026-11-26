@@ -10,7 +10,7 @@ param(
 
     [Parameter()]
     [ValidateSet(17, 18, 19, 20, 21)]
-    [int[]]$TiaVersions = @(17, 18, 19),
+    [int[]]$TiaVersions = @(17, 18, 19, 20),
 
     [Parameter()]
     [string]$OutputDirectory,

@@ -38,16 +38,14 @@ ReadWrite. No source content is invented where Siemens has no reader.
 
 ## Version and evidence boundary
 
-V17, V18 and V19 have exact-version workers in both profiles. The current
-change is build-only: no tests, validators, MCP probes, TIA attachment or PLC
-operation was authorised or performed. Compilation and static review cannot
-establish runtime availability of every public member. `GetCapabilities`,
+Development bundles provide exact V17 to V20 workers in both profiles.
+Compilation and static review cannot establish runtime availability of every
+public member. `GetCapabilities`,
 `GetOperations` and generated member schemas are the runtime discovery entry
 points, and all target availability remains unchecked until a real call.
 
-V20 is deferred and V21 requires its own adapter. Their matching Siemens
-assemblies are unavailable in this environment, so they are not delivered or
-claimed by this build. Optional modules not referenced by the installed API
+V20 remains experimental and V21 requires its own adapter. Optional modules
+not referenced by the installed API
 or missing dependencies appear as assembly issues in `ListApiTypes` rather
 than being treated as covered. Private, internal and arbitrary .NET surfaces
 are intentionally excluded. Generic type definitions cannot be used as open
